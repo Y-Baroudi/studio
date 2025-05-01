@@ -12,41 +12,54 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
   // English text styles based on the passed prop (default 16px)
   const englishStyle = {
     fontSize: `${fontSize}px`,
-    lineHeight: '1.6', // Relative line height
-    letterSpacing: '0.01em', // Subtle letter spacing
+    lineHeight: '1.6',
+    letterSpacing: '0.01em',
   };
 
-  // Arabic text styles (fixed size as requested)
+  // Arabic text styles (now 24px)
   const arabicStyle = {
-    fontSize: '24px', // Fixed Arabic font size
-    lineHeight: '1.8', // Fixed Arabic line height
-    letterSpacing: '0.005em', // Subtle letter spacing for Arabic
+    fontSize: '24px',
+    lineHeight: '1.8',
+    letterSpacing: '0.005em',
   };
 
-  const surahName = verse.surah ? `${verse.surah.englishName} (${verse.surah.name})` : 'The Quran';
-  const surahTranslation = verse.surah ? `(${verse.surah.englishNameTranslation})` : '';
+  // Determine if Bismillah should be shown
+  const showBismillah = verse.surah?.number !== 1 && verse.surah?.number !== 9;
+  const bismillahText = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
+
+  const ayahNumber = verse.verseReference.split(':')[1];
 
   return (
-    <Card className="bg-card border-border shadow-md flex flex-col">
+    // Added border directly here
+    <Card className="bg-card border border-border shadow-md flex flex-col">
       <CardHeader className="pb-2 pt-4 px-4 md:px-6">
+         {/* Optional Bismillah */}
+         {showBismillah && (
+           <p className="font-bismillah text-center text-foreground mb-4">
+             {bismillahText}
+           </p>
+         )}
         <div className="flex justify-between items-start gap-4">
           {/* English Title */}
           <div className="text-left">
-             <CardTitle className="text-lg font-semibold text-foreground">{verse.surah?.englishName ?? 'The Quran'}</CardTitle>
-             <CardDescription className="text-left text-foreground/70">
-               Verse {verse.verseReference} {surahTranslation}
-             </CardDescription>
-           </div>
-           {/* Arabic Title */}
-           <div className="text-right">
-              {/* Use font-amiri for the Arabic title */}
-              <CardTitle className="text-lg font-amiri font-normal text-foreground">{verse.surah?.name ?? 'القرآن'}</CardTitle>
-             <CardDescription className="text-right text-foreground/70">
-               الآية {verse.verseReference.split(':')[1]}
+            <CardTitle className="text-lg font-semibold text-foreground">
+               {verse.surah?.number}. {verse.surah?.englishName ?? 'The Quran'}
+            </CardTitle>
+            <CardDescription className="text-left text-foreground/70">
+              {verse.surah?.englishNameTranslation} ({verse.surah?.numberOfAyahs} verses)
+            </CardDescription>
+          </div>
+          {/* Arabic Title */}
+          <div className="text-right">
+            {/* Use font-amiri for the Arabic title */}
+            <CardTitle className="text-lg font-amiri font-normal text-foreground">
+               {verse.surah?.name ? `${verse.surah.name} - ${verse.surah.number}` : 'القرآن'}
+            </CardTitle>
+            <CardDescription className="text-right text-foreground/70">
+               {verse.surah?.revelationType}
              </CardDescription>
           </div>
         </div>
-
       </CardHeader>
       <Separator className="mx-4 md:mx-6" />
       <CardContent className="p-4 md:p-6 flex-grow">
@@ -55,6 +68,7 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
           {/* English Translation Section (Left Column) */}
           <div className="md:col-start-1">
             <p className="text-foreground text-left tracking-wide" style={englishStyle}>
+              <span className="text-xs font-semibold opacity-70 mr-1">{ayahNumber}.</span>
               {verse.englishTranslation}
             </p>
           </div>
@@ -64,14 +78,20 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
 
           {/* Arabic Text Section (Right Column) */}
           <div dir="rtl" className="mt-4 md:mt-0 md:col-start-3">
-             {/* Use font-amiri and apply specific Arabic styles */}
+            {/* Use font-amiri and apply specific Arabic styles */}
             <p className="font-amiri text-foreground text-right tracking-normal" style={arabicStyle}>
-              {verse.arabicText}
+               {verse.arabicText}
+               <span className="text-sm font-normal opacity-70 mx-1 font-sans">﴿{ayahNumber}﴾</span>
             </p>
           </div>
-
         </div>
       </CardContent>
+       {/* Placeholder for Bookmark Indicator - can be added conditionally */}
+       {/* {verse.isBookmarked && (
+         <div className="absolute top-2 right-2 text-yellow-500">
+           <Bookmark size={18} /> // Assuming a Bookmark icon component
+         </div>
+       )} */}
     </Card>
   );
 }

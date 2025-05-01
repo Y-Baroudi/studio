@@ -1,18 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist_Sans, Geist_Mono } from 'geist/font'; // Correct imports for geist fonts
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+// Using Geist Sans and Mono
+const geistSans = Geist_Sans;
+const geistMono = Geist_Mono;
 
 export const metadata: Metadata = {
   title: 'Quran Companion',
@@ -21,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#F5F5DC', // Light Beige for PWA theme color
+  themeColor: '#FAFAFA', // Updated PWA theme color to soft white
 };
 
 export default function RootLayout({
@@ -31,8 +25,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+       {/* Apply font variables directly to html or body */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={cn(
+          "min-h-screen bg-background font-sans antialiased", // Use font-sans from tailwind default
+          geistSans.variable, // Add Geist Sans variable
+          geistMono.variable   // Add Geist Mono variable
+        )}
       >
         <ThemeProvider
           attribute="class"
@@ -47,3 +46,6 @@ export default function RootLayout({
     </html>
   );
 }
+
+// Helper function for conditional classes (already exists in lib/utils)
+import { cn } from '@/lib/utils';
