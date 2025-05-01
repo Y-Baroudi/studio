@@ -59,7 +59,7 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
                {verse.surah?.name ? `${verse.surah.name} - ${verse.surah.number}` : 'القرآن'}
             </CardTitle>
              {/* Make revelation type smaller and italic */}
-            <CardDescription className="text-right text-xs italic text-foreground/60">
+            <CardDescription className="text-right text-[0.6rem] italic text-foreground/60"> {/* Reduced font size */}
                {verse.surah?.revelationType}
              </CardDescription>
           </div>
