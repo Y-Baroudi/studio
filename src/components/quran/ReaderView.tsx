@@ -9,12 +9,13 @@ import { VerseDisplay } from './VerseDisplay';
 import { Controls } from './Controls';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings'; // Import mappings
 
 // Default values
 const DEFAULT_VERSE_NUMBER = 1;
-const DEFAULT_TRANSLATION = 'en.clearquran'; // Using "The Clear Quran" translation identifier
-const DEFAULT_RECITER_ID = 'ar.alafasy'; // Mishary Rashid Al-Afasy identifier
-const DEFAULT_FONT_SIZE = 16; // Default English font size in pixels
+const DEFAULT_TRANSLATION = 'en.clearquran';
+const DEFAULT_RECITER_ID = 'ar.alafasy';
+const DEFAULT_FONT_SIZE = 16;
 
 export function ReaderView() {
   const [quranMeta, setQuranMeta] = useState<QuranMeta | null>(null);
@@ -22,7 +23,7 @@ export function ReaderView() {
   const [reciters, setReciters] = useState<Reciter[]>([]);
   const [selectedReciter, setSelectedReciter] = useState<string>(DEFAULT_RECITER_ID);
   const [currentVerseNumber, setCurrentVerseNumber] = useState<number>(DEFAULT_VERSE_NUMBER);
-  const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE); // Use new default
+  const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE);
   const [isLoadingMeta, setIsLoadingMeta] = useState<boolean>(true);
   const [isLoadingVerse, setIsLoadingVerse] = useState<boolean>(true);
   const [isLoadingReciters, setIsLoadingReciters] = useState<boolean>(true);
@@ -48,93 +49,83 @@ export function ReaderView() {
     fetchMetaData();
   }, [fetchMetaData]);
 
-
+  // Fetch Verse Data
   const fetchVerseData = useCallback(async (verseNum: number, reciterId: string, meta: QuranMeta | null) => {
     if (!meta) {
        setError("Cannot load verse: Quran metadata is missing.");
        setIsLoadingVerse(false);
-       setCurrentVerseData(null); // Clear verse data if metadata is missing
-       return; // Don't proceed without metadata
+       setCurrentVerseData(null);
+       return;
     }
     setIsLoadingVerse(true);
     setError(null);
     try {
-      // Fetch verse data using the service function
       const verse = await getVerse(verseNum, DEFAULT_TRANSLATION, reciterId, meta);
        if (verse) {
           setCurrentVerseData(verse);
         } else {
-           // Handle case where getVerse returns null (e.g., 404 or other critical fetch error)
            setError(`Failed to load essential data for verse ${verseNum}. It might be invalid or unavailable.`);
-           setCurrentVerseData(null); // Clear stale data
+           setCurrentVerseData(null);
         }
-
     } catch (err) {
-      // This catch block might be less likely to be hit now with errors handled inside getVerse
       console.error('Error fetching verse in ReaderView:', err);
       setError('An unexpected error occurred while loading verse data. Please try again.');
-      setCurrentVerseData(null); // Clear stale data on error
+      setCurrentVerseData(null);
     } finally {
       setIsLoadingVerse(false);
     }
   }, []);
 
-
+  // Fetch Reciter List
   const fetchReciterList = useCallback(async () => {
     setIsLoadingReciters(true);
-    setError(null); // Clear previous errors related to reciters
+    setError(null);
     try {
       const fetchedReciters = await getReciters();
       setReciters(fetchedReciters);
-      // Set default reciter only if the list is not empty and no reciter is currently selected
-      if (fetchedReciters.length > 0 && !reciters.some(r => r.id === selectedReciter)) {
-         // Check if the DEFAULT_RECITER_ID exists in the fetched list
+      if (fetchedReciters.length > 0 && !fetchedReciters.some(r => r.id === selectedReciter)) {
          const defaultExists = fetchedReciters.some(r => r.id === DEFAULT_RECITER_ID);
          setSelectedReciter(defaultExists ? DEFAULT_RECITER_ID : fetchedReciters[0].id);
        } else if (fetchedReciters.length === 0) {
          setError("No audio reciters available.");
-         setSelectedReciter(''); // Clear selection if list is empty
+         setSelectedReciter('');
        }
     } catch (err) {
       console.error('Error fetching reciters:', err);
       setError('Failed to load reciter list.');
-      setReciters([]); // Clear reciters on error
+      setReciters([]);
       setSelectedReciter('');
     } finally {
         setIsLoadingReciters(false);
     }
-  }, [selectedReciter, reciters]); // Dependency on selectedReciter to ensure default is set correctly
+  }, [selectedReciter]); // Removed reciters dependency to avoid loop
 
   useEffect(() => {
     fetchReciterList();
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Fetch reciters only once initially
+  }, [fetchReciterList]); // Fetch reciters when component mounts
 
   useEffect(() => {
-     // Fetch verse data only when metadata is loaded, a reciter is selected, and verse number changes
      if (quranMeta && selectedReciter && !isLoadingMeta) {
        fetchVerseData(currentVerseNumber, selectedReciter, quranMeta);
      } else if (!quranMeta && !isLoadingMeta) {
-        // Handle case where metadata failed to load
         setError("Quran metadata failed to load, cannot fetch verse.");
         setCurrentVerseData(null);
      }
-     // If metadata or reciter is missing/loading, the fetchVerseData callback handles it.
   }, [currentVerseNumber, selectedReciter, quranMeta, fetchVerseData, isLoadingMeta]);
 
+  // --- Navigation Handlers ---
+
   const handleNextVerse = () => {
-    // Use Quran metadata to determine the max verse number if available
     const maxVerse = quranMeta?.surahs.references.reduce((sum, s) => sum + s.numberOfAyahs, 0) ?? 6236;
     setCurrentVerseNumber((prev) => Math.min(prev + 1, maxVerse));
   };
 
   const handlePreviousVerse = () => {
-    setCurrentVerseNumber((prev) => Math.max(1, prev - 1)); // Ensure verse number doesn't go below 1
+    setCurrentVerseNumber((prev) => Math.max(1, prev - 1));
   };
 
   const handleReciterChange = (reciterId: string) => {
     setSelectedReciter(reciterId);
-    // Verse data will be fetched automatically by the useEffect hook watching selectedReciter
   };
 
    const handleFontSizeChange = (value: number[]) => {
@@ -142,22 +133,36 @@ export function ReaderView() {
    };
 
    const handleVerseInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-      // This function only updates the input value visually *while typing*
-      // It doesn't trigger the actual verse change until onBlur or Enter key (implicitly handled by blur)
-      // No need to call setCurrentVerseNumber here, prevents fetching on every keystroke
+      // Only updates visual, validation on blur
     };
 
    const handleVerseInputBlur = (e: ChangeEvent<HTMLInputElement>) => {
      const value = parseInt(e.target.value, 10);
      const maxVerse = quranMeta?.surahs.references.reduce((sum, s) => sum + s.numberOfAyahs, 0) ?? 6236;
-
       if (!isNaN(value) && value >= 1 && value <= maxVerse) {
-        setCurrentVerseNumber(value); // Change verse number only on blur with valid input
+        setCurrentVerseNumber(value);
       } else {
-        // Reset input visually to the current verse number if input is invalid or empty on blur
-        e.target.value = currentVerseNumber.toString();
+        e.target.value = currentVerseNumber.toString(); // Reset if invalid
       }
    }
+
+   const handleVerseSliderChange = (value: number[]) => {
+       setCurrentVerseNumber(value[0]);
+   };
+
+   const handleJuzChange = (juz: number) => {
+       const startVerse = JUZ_STARTS[juz];
+       if (startVerse) {
+           setCurrentVerseNumber(startVerse);
+       }
+   };
+
+   const handlePageChange = (page: number) => {
+       const startVerse = PAGE_STARTS[page];
+       if (startVerse) {
+           setCurrentVerseNumber(startVerse);
+       }
+   };
 
    const isLoading = isLoadingMeta || isLoadingVerse || isLoadingReciters;
 
@@ -165,26 +170,25 @@ export function ReaderView() {
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
        <Card className="shadow-md rounded-lg overflow-hidden">
         <CardContent className="p-6">
-         {/* Display specific loading states or a general one */}
          {isLoadingMeta && <p className="text-center text-muted-foreground">Loading Quran structure...</p>}
          {error && <p className="text-destructive text-center mb-4">{error}</p>}
-         {isLoadingVerse && !isLoadingMeta && !error ? ( // Show verse skeleton only if meta loaded, verse loading, and no error
+         {isLoadingVerse && !isLoadingMeta && !error ? (
            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6">
              <Skeleton className="h-40 w-full" />
-             <Skeleton className="h-px w-full md:h-full md:w-px bg-border" /> {/* Divider Skeleton */}
+             <Skeleton className="h-px w-full md:h-full md:w-px bg-border" />
              <Skeleton className="h-40 w-full" />
            </div>
          ) : currentVerseData ? (
            <VerseDisplay verse={currentVerseData} fontSize={fontSize} />
          ) : (
-           !error && !isLoadingMeta && <p className="text-center text-muted-foreground">Select a verse or reciter.</p> // Show if not loading and no data/error
+           !error && !isLoadingMeta && <p className="text-center text-muted-foreground">Select a verse or reciter.</p>
          )}
          </CardContent>
        </Card>
 
       <Controls
         verseNumber={currentVerseNumber}
-        audioUrl={currentVerseData?.audioUrl} // Pass the potentially null audioUrl
+        audioUrl={currentVerseData?.audioUrl}
         reciters={reciters}
         selectedReciter={selectedReciter}
         fontSize={fontSize}
@@ -192,9 +196,13 @@ export function ReaderView() {
         onPreviousVerse={handlePreviousVerse}
         onReciterChange={handleReciterChange}
         onFontSizeChange={handleFontSizeChange}
-        onVerseInputChange={handleVerseInputChange} // Pass the temporary input change handler
-        onVerseInputBlur={handleVerseInputBlur} // Pass the final change handler
-        isLoading={isLoading} // Pass combined loading state
+        onVerseInputChange={handleVerseInputChange}
+        onVerseInputBlur={handleVerseInputBlur}
+        onVerseSliderChange={handleVerseSliderChange} // Pass slider handler
+        onJuzChange={handleJuzChange} // Pass Juz handler
+        onPageChange={handlePageChange} // Pass Page handler
+        isLoading={isLoading}
+        quranMeta={quranMeta} // Pass meta to controls
       />
     </div>
   );
