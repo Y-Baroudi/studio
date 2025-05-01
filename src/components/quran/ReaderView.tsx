@@ -70,58 +70,34 @@ export function ReaderView() {
   }, [fetchMetaData]);
 
   // Fetch Verse Data
-  const fetchVerseData = useCallback(async (verseNum: number, reciterId: string | null, translationId: string | null, meta: QuranMeta | null) => {
+   const fetchVerseData = useCallback(async (verseNum: number, translationId: string | null, reciterId: string | null, meta: QuranMeta | null) => {
     if (!meta) {
        setError("Cannot load verse: Quran metadata is missing.");
        setIsLoadingVerse(false);
        setCurrentVerseData(null);
        return;
     }
-    // Arabic text (quran-uthmani) is now considered mandatory by getVerse, translation and audio are optional
-    // if (!reciterId && !translationId) {
-    //   setError("Cannot load verse: No reciter or translation selected.");
-    //   setIsLoadingVerse(false);
-    //   setCurrentVerseData(null);
-    //   return;
-    // }
 
     setIsLoadingVerse(true);
     setError(null);
-    try {
-      // Ensure reciterId and translationId are passed, even if null
-      const verse = await getVerse(verseNum, translationId, reciterId, meta);
 
-      if (verse) {
-        // Basic validation - check if requested optional data is present
-        if (translationId && !verse.englishTranslation) {
-          console.warn(`Translation ${translationId} requested but not found in response for verse ${verseNum}.`);
+    try {
+        const verse = await getVerse(verseNum, translationId, reciterId, meta);
+        if (verse) {
+            setCurrentVerseData(verse);
+        } else {
+            setError(`Failed to load data for verse ${verseNum}. It might be invalid or unavailable.`);
+            setCurrentVerseData(null);
         }
-        // Arabic text is now handled by getVerse throwing an error if missing mandatory 'quran-uthmani'
-        // if (!verse.arabicText) {
-        //     console.error(`Critical Error: Arabic text missing for verse ${verseNum}.`);
-        //     setError(`Failed to load core Arabic text for verse ${verseNum}.`);
-        //     setCurrentVerseData(null); // Ensure UI doesn't show incomplete data
-        //     return; // Stop further processing for this verse fetch
-        // }
-        if (reciterId && !verse.audioUrl) {
-          console.warn(`Reciter ${reciterId} requested but audio URL not found in response for verse ${verseNum}.`);
-        }
-        setCurrentVerseData(verse);
-      } else {
-        // Handle case where getVerse returns null (e.g., 404, critical error fetching, empty data)
-        setError(`Failed to load data for verse ${verseNum}. It might be invalid or unavailable.`);
-        setCurrentVerseData(null); // Clear previous data on failure
-      }
     } catch (err) {
-      console.error('Error fetching verse in ReaderView:', err);
-      const errorMessage = (err instanceof Error) ? err.message : 'An unexpected error occurred.';
-      setError(`Error loading verse ${verseNum}: ${errorMessage}. Please try again.`);
-      setCurrentVerseData(null); // Clear previous data on error
+        console.error('Error fetching verse in ReaderView:', err);
+        const errorMessage = (err instanceof Error) ? err.message : 'An unexpected error occurred.';
+        setError(`Error loading verse ${verseNum}: ${errorMessage}. Please try again.`);
+        setCurrentVerseData(null);
     } finally {
-      setIsLoadingVerse(false);
+        setIsLoadingVerse(false);
     }
-  // Include all dependencies that affect the fetch
-  }, []);
+}, []);
 
 
   // Fetch Reciter List
@@ -205,7 +181,7 @@ export function ReaderView() {
        // Pass null for reciter/translation if they are empty strings (meaning none available/selected)
        const reciterToFetch = selectedReciter || null;
        const translationToFetch = selectedTranslation || null;
-       fetchVerseData(currentVerseNumber, reciterToFetch, translationToFetch, quranMeta);
+       fetchVerseData(currentVerseNumber, translationToFetch, reciterToFetch, quranMeta);
      } else if (!quranMeta && !isLoadingMeta) {
         setError("Quran metadata failed to load, cannot fetch verse.");
         setCurrentVerseData(null);
@@ -352,21 +328,17 @@ export function ReaderView() {
                 surahName={currentVerseData?.surah?.englishName ?? ''}
                 ayahNumber={currentVerseData?.verseReference?.split(':')[1] ?? ''}
              />
-             {/* Settings Panel Trigger */}
-             <SettingsPanel
-                isOpen={isSettingsPanelOpen}
-                onOpenChange={setIsSettingsPanelOpen}
-                fontSize={fontSize}
-                arabicFontSize={arabicFontSize}
-                lineHeight={lineHeight}
-                translations={translations}
-                selectedTranslation={selectedTranslation}
-                onFontSizeChange={handleFontSizeChange}
-                onArabicFontSizeChange={handleArabicFontSizeChange}
-                onLineHeightChange={handleLineHeightChange}
-                onTranslationChange={handleTranslationChange}
-                isLoading={isLoadingTranslations || isLoading} // Disable if translations or anything else is loading
-             />
+             {/* Explicit Settings Panel Trigger Button */}
+             <Button
+                variant="outline"
+                size="icon"
+                aria-label="Open Settings"
+                onClick={toggleSettingsPanel} // Use the toggle function
+                disabled={isLoading} // Keep disabled logic if needed
+             >
+                 <Settings className="h-5 w-5" />
+             </Button>
+
          </div>
          {/* Loading and Error States */}
          {isLoadingMeta && !error && (
@@ -384,16 +356,16 @@ export function ReaderView() {
             isLoadingVerse ? (
                 // Skeleton Loading State for VerseDisplay
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 p-6">
-                    <div className="flex flex-col gap-4">
-                      <Skeleton className="h-6 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                      <Skeleton className="h-20 w-full mt-4" />
-                    </div>
-                     <Skeleton className="h-px w-full md:h-full md:w-px bg-border" />
-                     <div dir="rtl" className="flex flex-col gap-4 items-end">
+                     <div dir="rtl" className="flex flex-col gap-4 items-end order-1 md:order-3">
                         <Skeleton className="h-6 w-1/2" />
                         <Skeleton className="h-4 w-1/4" />
                         <Skeleton className="h-24 w-full mt-4" />
+                    </div>
+                     <Skeleton className="h-px w-full md:h-full md:w-px bg-border order-2" />
+                     <div className="flex flex-col gap-4 order-3 md:order-1">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-20 w-full mt-4" />
                     </div>
                 </div>
             ) : currentVerseData ? (
@@ -434,6 +406,22 @@ export function ReaderView() {
         onPageChange={handlePageChange}
         isLoading={isLoading || isVerseUnavailable} // Controls disabled if loading OR if verse is definitively unavailable
         quranMeta={quranMeta}
+      />
+
+       {/* Settings Panel Component (managed visibility via state) */}
+      <SettingsPanel
+          isOpen={isSettingsPanelOpen} // Control visibility with state
+          onOpenChange={setIsSettingsPanelOpen} // Allow panel to close itself
+          fontSize={fontSize}
+          arabicFontSize={arabicFontSize}
+          lineHeight={lineHeight}
+          translations={translations}
+          selectedTranslation={selectedTranslation}
+          onFontSizeChange={handleFontSizeChange}
+          onArabicFontSizeChange={handleArabicFontSizeChange}
+          onLineHeightChange={handleLineHeightChange}
+          onTranslationChange={handleTranslationChange}
+          isLoading={isLoadingTranslations || isLoading} // Disable if translations or anything else is loading
       />
     </div>
   );

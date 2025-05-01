@@ -8,7 +8,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
+  // SheetTrigger, // Removed SheetTrigger import
 } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -60,12 +60,9 @@ export function SettingsPanel({
   const decreaseLineHeight = () => onLineHeightChange([Math.max(lineHeight - 0.1, 1.2)]);
 
   return (
+     // The Sheet component itself is still used, but it's controlled by the isOpen prop
      <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetTrigger asChild>
-         <Button variant="outline" size="icon" aria-label="Open Settings">
-            <Settings className="h-5 w-5" />
-          </Button>
-      </SheetTrigger>
+       {/* The SheetTrigger is removed from here. The button in ReaderView now controls the 'isOpen' state. */}
       <SheetContent className="sm:max-w-sm"> {/* Standard width */}
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
