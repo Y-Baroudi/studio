@@ -77,49 +77,51 @@ export function ReaderView() {
        setCurrentVerseData(null);
        return;
     }
-    if (!reciterId && !translationId) {
-      setError("Cannot load verse: No reciter or translation selected.");
-      setIsLoadingVerse(false);
-      setCurrentVerseData(null);
-      return;
-    }
+    // Arabic text (quran-uthmani) is now considered mandatory by getVerse, translation and audio are optional
+    // if (!reciterId && !translationId) {
+    //   setError("Cannot load verse: No reciter or translation selected.");
+    //   setIsLoadingVerse(false);
+    //   setCurrentVerseData(null);
+    //   return;
+    // }
 
     setIsLoadingVerse(true);
     setError(null);
     try {
+      // Ensure reciterId and translationId are passed, even if null
       const verse = await getVerse(verseNum, translationId, reciterId, meta);
-       if (verse) {
-          // Basic validation
-          if (translationId && !verse.englishTranslation) {
-            console.warn(`Translation ${translationId} requested but not found in response for verse ${verseNum}.`);
-          }
-          if (reciterId && !verse.arabicText) {
-            console.warn(`Reciter ${reciterId} requested but Arabic text not found in response for verse ${verseNum}.`);
-          }
-          if (reciterId && !verse.audioUrl) {
-            console.warn(`Reciter ${reciterId} requested but audio URL not found in response for verse ${verseNum}.`);
-          }
-          setCurrentVerseData(verse);
 
-       } else {
-           // This case implies the API call succeeded but returned null/empty or failed validation inside getVerse
-           setError(`Failed to load data for verse ${verseNum}. The verse might be invalid or unavailable for the selected editions.`);
-           setCurrentVerseData(null);
-           // Optionally attempt fallback (though getVerse might already do this)
-           // Example: If fallback is needed here:
-           // const fallbackVerse = await getVerse(verseNum, DEFAULT_TRANSLATION_ID, DEFAULT_RECITER_ID, meta);
-           // if (fallbackVerse) { ... }
-       }
+      if (verse) {
+        // Basic validation - check if requested optional data is present
+        if (translationId && !verse.englishTranslation) {
+          console.warn(`Translation ${translationId} requested but not found in response for verse ${verseNum}.`);
+        }
+        // Arabic text is now handled by getVerse throwing an error if missing mandatory 'quran-uthmani'
+        // if (!verse.arabicText) {
+        //     console.error(`Critical Error: Arabic text missing for verse ${verseNum}.`);
+        //     setError(`Failed to load core Arabic text for verse ${verseNum}.`);
+        //     setCurrentVerseData(null); // Ensure UI doesn't show incomplete data
+        //     return; // Stop further processing for this verse fetch
+        // }
+        if (reciterId && !verse.audioUrl) {
+          console.warn(`Reciter ${reciterId} requested but audio URL not found in response for verse ${verseNum}.`);
+        }
+        setCurrentVerseData(verse);
+      } else {
+        // Handle case where getVerse returns null (e.g., 404, critical error fetching, empty data)
+        setError(`Failed to load data for verse ${verseNum}. It might be invalid or unavailable.`);
+        setCurrentVerseData(null); // Clear previous data on failure
+      }
     } catch (err) {
       console.error('Error fetching verse in ReaderView:', err);
-      // Check if error is an object with a message property
       const errorMessage = (err instanceof Error) ? err.message : 'An unexpected error occurred.';
       setError(`Error loading verse ${verseNum}: ${errorMessage}. Please try again.`);
-      setCurrentVerseData(null);
+      setCurrentVerseData(null); // Clear previous data on error
     } finally {
       setIsLoadingVerse(false);
     }
-  }, []); // Dependencies managed in the main useEffect
+  // Include all dependencies that affect the fetch
+  }, []);
 
 
   // Fetch Reciter List
@@ -173,7 +175,7 @@ export function ReaderView() {
              console.log(`Selected translation was invalid, changed to ${newTranslation}`);
          }
       } else {
-        setError("No translations available.");
+        setError("No English translations available.");
         setSelectedTranslation(''); // Clear if none available
       }
     } catch (err) {
@@ -198,13 +200,21 @@ export function ReaderView() {
 
 
   useEffect(() => {
-     // Only fetch verse data if metadata is loaded and identifiers are set
+     // Fetch verse data only when metadata and lists are ready, and identifiers are set.
      if (quranMeta && !isLoadingMeta && !isLoadingReciters && !isLoadingTranslations) {
-       fetchVerseData(currentVerseNumber, selectedReciter, selectedTranslation, quranMeta);
+       // Pass null for reciter/translation if they are empty strings (meaning none available/selected)
+       const reciterToFetch = selectedReciter || null;
+       const translationToFetch = selectedTranslation || null;
+       fetchVerseData(currentVerseNumber, reciterToFetch, translationToFetch, quranMeta);
      } else if (!quranMeta && !isLoadingMeta) {
         setError("Quran metadata failed to load, cannot fetch verse.");
         setCurrentVerseData(null);
+        setIsLoadingVerse(false); // Ensure loading stops if meta fails
+     } else {
+        // Handle cases where lists are still loading or identifiers are missing
+        setIsLoadingVerse(true); // Keep loading indicator on if prerequisites aren't met
      }
+  // Trigger fetch when verse number, selected reciter/translation, or metadata changes, or when loading states resolve
   }, [currentVerseNumber, selectedReciter, selectedTranslation, quranMeta, fetchVerseData, isLoadingMeta, isLoadingReciters, isLoadingTranslations]);
 
   // --- Navigation Handlers ---
@@ -317,18 +327,22 @@ export function ReaderView() {
    const toggleNotesSidebar = () => setIsNotesSidebarOpen(prev => !prev);
    const toggleSettingsPanel = () => setIsSettingsPanelOpen(prev => !prev);
 
+   // Combine all loading states
    const isLoading = isLoadingMeta || isLoadingVerse || isLoadingReciters || isLoadingTranslations;
+
+   // Determine if verse data is truly unavailable (after loading attempt)
+   const isVerseUnavailable = !isLoadingVerse && !currentVerseData;
 
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 pb-24"> {/* Added padding-bottom */}
        <Card
-         className="shadow-md rounded-lg overflow-hidden"
+         className="shadow-md rounded-lg overflow-hidden border border-border" // Use theme border
          onTouchStart={handleTouchStart}
          onTouchMove={handleTouchMove}
          onTouchEnd={handleTouchEnd}
          style={{ touchAction: 'pan-y' }}
         >
-        <CardContent className="p-6 relative">
+        <CardContent className="p-0 relative"> {/* Remove default padding */}
          {/* Buttons positioned top-right */}
          <div className="absolute top-2 right-2 z-10 flex gap-2">
              <NotesSidebar
@@ -351,49 +365,77 @@ export function ReaderView() {
                 onArabicFontSizeChange={handleArabicFontSizeChange}
                 onLineHeightChange={handleLineHeightChange}
                 onTranslationChange={handleTranslationChange}
-                isLoading={isLoadingTranslations}
+                isLoading={isLoadingTranslations || isLoading} // Disable if translations or anything else is loading
              />
          </div>
-         {isLoadingMeta && <p className="text-center text-muted-foreground pt-10">Loading Quran structure...</p>}
-         {error && <p className="text-destructive text-center mb-4 pt-10">{error}</p>}
-         {isLoadingVerse && !isLoadingMeta && !error ? (
-           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 pt-10">
-             <Skeleton className="h-40 w-full" />
-             <Skeleton className="h-px w-full md:h-full md:w-px bg-border" />
-             <Skeleton className="h-40 w-full" />
-           </div>
-         ) : currentVerseData ? (
-           <VerseDisplay
-               verse={currentVerseData}
-               fontSize={fontSize}
-               arabicFontSize={arabicFontSize} // Pass arabic font size
-               lineHeight={lineHeight} // Pass line height
-               onContextMenu={handleVerseContextMenu}
-            />
-         ) : (
-           !error && !isLoadingMeta && <p className="text-center text-muted-foreground pt-10">Select a verse or reciter.</p>
+         {/* Loading and Error States */}
+         {isLoadingMeta && !error && (
+             <div className="flex justify-center items-center h-60">
+                 <p className="text-center text-muted-foreground">Loading Quran structure...</p>
+             </div>
+         )}
+         {error && (
+            <div className="flex justify-center items-center h-60">
+                 <p className="text-destructive text-center p-6">{error}</p>
+             </div>
+          )}
+          {/* Display Skeleton or Verse */}
+         {!isLoadingMeta && !error && (
+            isLoadingVerse ? (
+                // Skeleton Loading State for VerseDisplay
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 p-6">
+                    <div className="flex flex-col gap-4">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-20 w-full mt-4" />
+                    </div>
+                     <Skeleton className="h-px w-full md:h-full md:w-px bg-border" />
+                     <div dir="rtl" className="flex flex-col gap-4 items-end">
+                        <Skeleton className="h-6 w-1/2" />
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-24 w-full mt-4" />
+                    </div>
+                </div>
+            ) : currentVerseData ? (
+                <VerseDisplay
+                    verse={currentVerseData}
+                    fontSize={fontSize}
+                    arabicFontSize={arabicFontSize} // Pass arabic font size
+                    lineHeight={lineHeight} // Pass line height
+                    onContextMenu={handleVerseContextMenu}
+                />
+            ) : (
+                // State when loading is finished but verse data is null (e.g., fetch failed)
+                <div className="flex justify-center items-center h-60">
+                    <p className="text-center text-muted-foreground p-6">
+                        Verse data could not be loaded. Please try changing verse or selections.
+                    </p>
+                </div>
+            )
          )}
          </CardContent>
        </Card>
 
       <Controls
         verseNumber={currentVerseNumber}
-        audioUrl={currentVerseData?.audioUrl}
+        // Use nullish coalescing for potentially null verse data
+        audioUrl={currentVerseData?.audioUrl ?? null}
         reciters={reciters}
         selectedReciter={selectedReciter}
-        fontSize={fontSize} // Pass english font size to controls (for popover)
+        // fontSize={fontSize} // Pass english font size to controls (for popover) - REMOVED, handled in Settings
         onNextVerse={handleNextVerse}
         onPreviousVerse={handlePreviousVerse}
         onReciterChange={handleReciterChange}
-        onFontSizeChange={handleFontSizeChange} // Can be removed if only in settings
+        // onFontSizeChange={handleFontSizeChange} // REMOVED, handled in Settings
         onVerseInputChange={handleVerseInputChange}
         onVerseInputBlur={handleVerseInputBlur}
         onVerseSliderChange={handleVerseSliderChange}
         onJuzChange={handleJuzChange}
         onPageChange={handlePageChange}
-        isLoading={isLoading}
+        isLoading={isLoading || isVerseUnavailable} // Controls disabled if loading OR if verse is definitively unavailable
         quranMeta={quranMeta}
       />
     </div>
   );
 }
+

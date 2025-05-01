@@ -8,77 +8,77 @@ body {
 
 @layer base {
   :root {
-    /* Light Theme */
-    --background: 0 0% 98%; /* #FAFAFA - Soft White */
-    --foreground: 0 0% 13%; /* #212121 - Dark Gray */
-    --card: 0 0% 100%; /* White card */
-    --card-foreground: 0 0% 13%; /* Dark Gray text on card */
-    --popover: 0 0% 100%; /* White popover */
-    --popover-foreground: 0 0% 13%; /* Dark Gray text on popover */
-    --primary: 122 56% 24%; /* #1B5E20 - Forest Green */
-    --primary-foreground: 0 0% 98%; /* Soft White text on primary */
-    --secondary: 120 15% 96%; /* Very light green/gray */
-    --secondary-foreground: 122 56% 24%; /* Forest Green text on secondary */
-    --muted: 120 15% 96%; /* Very light green/gray */
-    --muted-foreground: 0 0% 45%; /* Medium Gray */
-    --accent: 122 56% 24%; /* #1B5E20 - Forest Green */
+    /* Light Theme - Quran Companion Palette */
+    --background: 40 33% 93%; /* #F5F5DC - Light Beige */
+    --foreground: 180 100% 15%; /* Dark Teal/Near Black for contrast */
+    --card: 40 33% 95%; /* Slightly lighter beige for cards */
+    --card-foreground: 180 100% 15%; /* Dark Teal text on card */
+    --popover: 40 33% 95%; /* Lighter beige popover */
+    --popover-foreground: 180 100% 15%; /* Dark Teal text on popover */
+    --primary: 40 33% 93%; /* #F5F5DC - Light Beige (Using background as primary) */
+    --primary-foreground: 180 100% 15%; /* Dark Teal text on primary */
+    --secondary: 125 30% 92%; /* #E8F5E9 - Soft Green */
+    --secondary-foreground: 180 100% 15%; /* Dark Teal text on secondary */
+    --muted: 125 30% 90%; /* Slightly darker Soft Green for muted */
+    --muted-foreground: 180 100% 25%; /* Medium Teal/Gray */
+    --accent: 180 100% 25%; /* #008080 - Teal */
     --accent-foreground: 0 0% 98%; /* Soft White text on accent */
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84.2% 60.2%; /* Standard destructive red */
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 88%; /* #E0E0E0 - Light Gray */
-    --input: 0 0% 93%; /* Slightly darker light gray for input */
-    --ring: 122 56% 34%; /* Darker Forest Green for ring */
-    --chart-1: 122 56% 40%;
-    --chart-2: 122 46% 50%;
-    --chart-3: 122 36% 60%;
-    --chart-4: 122 26% 70%;
-    --chart-5: 122 16% 80%;
+    --border: 125 20% 85%; /* Soft green based border */
+    --input: 125 25% 90%; /* Soft green based input */
+    --ring: 180 100% 30%; /* Teal for ring */
+    --chart-1: 180 100% 30%;
+    --chart-2: 180 90% 40%;
+    --chart-3: 180 80% 50%;
+    --chart-4: 180 70% 60%;
+    --chart-5: 180 60% 70%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%; /* Match background */
-    --sidebar-foreground: 0 0% 13%; /* Match foreground */
-    --sidebar-primary: 122 56% 24%; /* Match primary */
-    --sidebar-primary-foreground: 0 0% 98%; /* Match primary foreground */
-    --sidebar-accent: 120 15% 96%; /* Match secondary */
-    --sidebar-accent-foreground: 122 56% 24%; /* Match secondary foreground */
-    --sidebar-border: 0 0% 88%; /* Match border */
-    --sidebar-ring: 122 56% 34%; /* Match ring */
+    --sidebar-background: 125 30% 92%; /* Soft Green for sidebar */
+    --sidebar-foreground: 180 100% 15%; /* Dark Teal for sidebar text */
+    --sidebar-primary: 180 100% 25%; /* Teal for primary elements in sidebar */
+    --sidebar-primary-foreground: 0 0% 98%; /* Soft white */
+    --sidebar-accent: 40 33% 93%; /* Light Beige for accent in sidebar */
+    --sidebar-accent-foreground: 180 100% 15%; /* Dark teal */
+    --sidebar-border: 125 20% 80%; /* Darker soft green border */
+    --sidebar-ring: 180 100% 35%; /* Brighter teal ring */
   }
 
   .dark {
-    /* Dark Theme */
-    --background: 0 0% 13%; /* #212121 - Dark Gray */
+    /* Dark Theme - Quran Companion Palette */
+    --background: 210 5% 13%; /* #212121 - Dark Gray */
     --foreground: 0 0% 95%; /* Lighter Gray for text */
-    --card: 0 0% 16%; /* Slightly lighter dark gray card */
+    --card: 210 5% 16%; /* Slightly lighter dark gray card */
     --card-foreground: 0 0% 95%; /* Lighter Gray text on card */
-    --popover: 0 0% 10%; /* Darker popover */
+    --popover: 210 5% 10%; /* Darker popover */
     --popover-foreground: 0 0% 95%; /* Lighter Gray text on popover */
-    --primary: 122 56% 38%; /* Slightly lighter Forest Green */
+    --primary: 180 60% 50%; /* Brighter Teal for primary */
     --primary-foreground: 0 0% 98%; /* Soft White text on primary */
-    --secondary: 0 0% 20%; /* Darker Gray */
-    --secondary-foreground: 122 56% 60%; /* Lighter green text on secondary */
-    --muted: 0 0% 20%; /* Darker Gray */
+    --secondary: 210 5% 20%; /* Darker Gray */
+    --secondary-foreground: 180 50% 70%; /* Lighter teal text on secondary */
+    --muted: 210 5% 20%; /* Darker Gray */
     --muted-foreground: 0 0% 65%; /* Lighter Gray */
-    --accent: 122 56% 38%; /* Slightly lighter Forest Green */
+    --accent: 180 70% 60%; /* Brighter Teal accent */
     --accent-foreground: 0 0% 98%; /* Soft White text on accent */
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 25%; /* Medium Dark Gray */
-    --input: 0 0% 22%; /* Slightly lighter dark gray for input */
-    --ring: 122 56% 48%; /* Brighter Forest Green for ring */
-    --chart-1: 122 56% 40%;
-    --chart-2: 122 46% 50%;
-    --chart-3: 122 36% 60%;
-    --chart-4: 122 26% 70%;
-    --chart-5: 122 16% 80%;
+    --border: 210 5% 25%; /* Medium Dark Gray */
+    --input: 210 5% 22%; /* Slightly lighter dark gray for input */
+    --ring: 180 70% 70%; /* Even Brighter Teal for ring */
+    --chart-1: 180 70% 60%;
+    --chart-2: 180 60% 50%;
+    --chart-3: 180 50% 40%;
+    --chart-4: 180 40% 30%;
+    --chart-5: 180 30% 20%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 13%; /* Match background */
-    --sidebar-foreground: 0 0% 95%; /* Match foreground */
-    --sidebar-primary: 122 56% 38%; /* Match primary */
-    --sidebar-primary-foreground: 0 0% 98%; /* Match primary foreground */
-    --sidebar-accent: 0 0% 20%; /* Match secondary */
-    --sidebar-accent-foreground: 122 56% 60%; /* Match secondary foreground */
-    --sidebar-border: 0 0% 25%; /* Match border */
-    --sidebar-ring: 122 56% 48%; /* Match ring */
+    --sidebar-background: 210 5% 16%; /* Dark Gray sidebar */
+    --sidebar-foreground: 0 0% 95%; /* Lighter gray text */
+    --sidebar-primary: 180 70% 60%; /* Brighter Teal primary */
+    --sidebar-primary-foreground: 0 0% 98%; /* Soft white */
+    --sidebar-accent: 210 5% 20%; /* Darker gray accent */
+    --sidebar-accent-foreground: 180 50% 70%; /* Lighter teal text */
+    --sidebar-border: 210 5% 25%; /* Medium dark gray border */
+    --sidebar-ring: 180 70% 70%; /* Brighter teal ring */
   }
 }
 
