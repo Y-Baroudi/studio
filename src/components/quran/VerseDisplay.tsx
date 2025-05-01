@@ -67,21 +67,11 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
       </CardHeader>
       <Separator className="mx-4 md:mx-6" />
       <CardContent className="p-4 md:p-6 flex-grow">
-        {/* Two-column layout for text */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:gap-6">
-          {/* English Translation Section (Left Column) */}
-          <div className="md:col-start-1">
-            <p className="text-foreground text-left tracking-wide" style={englishStyle}>
-              <span className="text-xs font-semibold opacity-70 mr-1">{ayahNumber}.</span>
-              {verse.englishTranslation}
-            </p>
-          </div>
+        {/* Single-column layout, Arabic on top, English on bottom */}
+        <div className="grid grid-cols-1 gap-4">
 
-          {/* Vertical Separator (Middle Column - hidden on small screens) */}
-          <Separator orientation="vertical" className="hidden md:block h-auto mx-auto bg-border/50"/>
-
-          {/* Arabic Text Section (Right Column) */}
-          <div dir="rtl" className="mt-4 md:mt-0 md:col-start-3">
+          {/* Arabic Text Section (Top) */}
+          <div dir="rtl">
             {/* Use font-amiri and apply specific Arabic styles */}
             <p className="font-amiri text-foreground text-right tracking-normal" style={arabicStyle}>
                {verse.arabicText}
@@ -89,6 +79,18 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
                <span className="text-sm font-normal opacity-70 mx-1 font-sans">﴿{ayahNumber}﴾</span>
             </p>
           </div>
+
+          {/* Horizontal Separator */}
+          <Separator className="my-2" />
+
+          {/* English Translation Section (Bottom) */}
+          <div>
+            <p className="text-foreground text-left tracking-wide" style={englishStyle}>
+              <span className="text-xs font-semibold opacity-70 mr-1">{ayahNumber}.</span>
+              {verse.englishTranslation}
+            </p>
+          </div>
+
         </div>
       </CardContent>
        {/* Placeholder for Bookmark Indicator - can be added conditionally */}
