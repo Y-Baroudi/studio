@@ -64,7 +64,13 @@ export function Controls({
        setIsAudioLoading(true); // Indicate attempt to load/play
        audioRef.current.play().catch(err => {
          console.error("Audio playback error:", err);
-         setPlaybackError("Could not play audio. Please check the reciter or try again.");
+         // Check the audio element's error property for more details
+         const audioError = audioRef.current?.error;
+         let errorMsg = "Could not play audio. Please check the reciter or try again.";
+         if (audioError) {
+           errorMsg = `Audio Error Code ${audioError.code}: ${audioError.message || 'Could not load audio.'}`;
+         }
+         setPlaybackError(errorMsg);
          setIsPlaying(false); // Ensure state reflects reality if play fails immediately
          setIsAudioLoading(false);
       });
@@ -80,6 +86,7 @@ export function Controls({
     const handlePlay = () => {
         setIsPlaying(true);
         setIsAudioLoading(false); // Play started, no longer loading
+        setPlaybackError(null); // Clear error on successful play
     }
     const handlePause = () => {
         setIsPlaying(false);
@@ -93,8 +100,32 @@ export function Controls({
        }
     };
     const handleError = (e: Event) => {
-       console.error("Audio Error:", e);
-       setPlaybackError("An error occurred during playback.");
+       // Log the specific error from the audio element if available
+       const audioError = audioElement.error;
+       console.error("Audio Error Event:", e);
+       console.error("Audio Element Error:", audioError); // Log the MediaError object
+       let errorMsg = "An error occurred during playback.";
+       if (audioError) {
+            // Provide more specific messages based on common error codes
+            switch (audioError.code) {
+                case MediaError.MEDIA_ERR_ABORTED:
+                    errorMsg = "Audio playback aborted.";
+                    break;
+                case MediaError.MEDIA_ERR_NETWORK:
+                    errorMsg = "A network error occurred while fetching the audio.";
+                    break;
+                case MediaError.MEDIA_ERR_DECODE:
+                    errorMsg = "The audio could not be decoded.";
+                    break;
+                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                    errorMsg = "Audio source not supported or unavailable.";
+                    break;
+                default:
+                    errorMsg = `An unknown audio error occurred (Code: ${audioError.code}).`;
+            }
+            errorMsg += ` Check console for details. URL: ${audioElement.currentSrc}`;
+       }
+       setPlaybackError(errorMsg);
        setIsPlaying(false);
        setIsAudioLoading(false);
     };
@@ -129,33 +160,28 @@ export function Controls({
           audioElement.pause();
        }
 
+       // Set source and attempt to load
        audioElement.src = audioUrl;
        audioElement.load(); // Important: load the new source
-       setPlaybackError(null);
-       setIsAudioLoading(true); // Assume loading will start
+       setPlaybackError(null); // Clear previous errors when source changes
+       setIsPlaying(false); // Reset playing state for new source
+       setIsAudioLoading(true); // Assume loading will start for the new source
 
-      if (wasPlaying && !isLoading) { // Check overall isLoading as well
-            // We don't auto-play here. Let the user press play again for the new verse.
-            // This avoids potential issues with autoplay restrictions and provides clearer UX.
-            setIsPlaying(false); // Ensure UI reflects paused state initially
-            // Auto-play attempt removed:
-            // audioElement.play().catch(...)
-      } else {
-          setIsPlaying(false);
-      }
+        // Don't attempt to autoplay here. Let user initiate play for the new source.
+        // This avoids issues with browser autoplay restrictions.
 
     } else if (audioElement) {
+        // Handle case where audioUrl becomes undefined (e.g., error fetching verse)
         if (!audioElement.paused) {
           audioElement.pause();
         }
         audioElement.removeAttribute('src');
-        audioElement.load();
+        audioElement.load(); // Load with no source to clear state
         setIsPlaying(false);
         setPlaybackError(null);
         setIsAudioLoading(false);
     }
    // Dependency array: Only re-run when the audio URL changes or the *overall* loading state changes.
-   // isPlaying is managed internally by event listeners, not needed here.
   }, [audioUrl, isLoading]);
 
 
