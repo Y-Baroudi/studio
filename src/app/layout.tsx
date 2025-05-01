@@ -1,12 +1,13 @@
+
 import type { Metadata, Viewport } from 'next';
-import { Geist_Sans, Geist_Mono } from 'geist/font'; // Correct imports for geist fonts
+import { GeistSans, GeistMono } from 'geist/font'; // Correct import names
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 // Using Geist Sans and Mono
-const geistSans = Geist_Sans;
-const geistMono = Geist_Mono;
+const geistSans = GeistSans; // Use the correctly imported variable
+const geistMono = GeistMono; // Use the correctly imported variable
 
 export const metadata: Metadata = {
   title: 'Quran Companion',
