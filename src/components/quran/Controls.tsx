@@ -11,11 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Play, Pause, SkipBack, SkipForward, Repeat, Volume2, VolumeX, Settings, Minus, Plus, BookCopy, BookOpenCheck, Gauge } from 'lucide-react'; // Removed Timer, BookOpenCheck - Added Gauge
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ThemeToggle } from '@/components/theme-toggle'; // Keep theme toggle here for quick access
-import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings'; // Import mappings
+import { Play, Pause, SkipBack, SkipForward, Repeat, Volume2, VolumeX, Gauge, BookCopy, BookOpenCheck } from 'lucide-react'; // Removed Settings icon
 import { formatTime } from '@/lib/utils'; // Import time formatting utility
+import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings'; // Import mappings
 
 const MAX_VERSE_NUMBER_DEFAULT = 6236; // Default total verses
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5];
@@ -25,11 +23,9 @@ interface ControlsProps {
   audioUrl: string | null | undefined;
   reciters: Reciter[];
   selectedReciter: string;
-  fontSize: number; // Keep for potential future use or remove if strictly only in SettingsPanel
   onNextVerse: () => void;
   onPreviousVerse: () => void;
   onReciterChange: (reciterId: string) => void;
-  onFontSizeChange: (value: number[]) => void; // Keep or remove based on above comment
   onVerseInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onVerseInputBlur: (e: ChangeEvent<HTMLInputElement>) => void;
   onVerseSliderChange: (value: number[]) => void;
@@ -44,11 +40,9 @@ export function Controls({
   audioUrl,
   reciters,
   selectedReciter,
-  fontSize, // May be unused now
   onNextVerse,
   onPreviousVerse,
   onReciterChange,
-  onFontSizeChange, // May be unused now
   onVerseInputChange,
   onVerseInputBlur,
   onVerseSliderChange,
@@ -316,10 +310,6 @@ export function Controls({
 }, [audioUrl, playbackSpeed, volume, isMuted, isRepeating]);
 
 
-  // --- Font Size Controls (REMOVED - Now in SettingsPanel) ---
-  // const increaseFontSize = () => onFontSizeChange([Math.min(fontSize + 2, 48)]);
-  // const decreaseFontSize = () => onFontSizeChange([Math.max(fontSize - 2, 10)]);
-
   const controlsDisabled = isLoading; // Base loading state
   const audioActionDisabled = controlsDisabled || isAudioLoading || !audioUrl || !!playbackError; // More specific for audio actions
 
@@ -337,52 +327,67 @@ export function Controls({
 
   return (
     <Card className="shadow-md rounded-lg overflow-hidden sticky bottom-4 backdrop-blur-sm bg-background/80 dark:bg-background/70 border w-full max-w-5xl mx-auto"> {/* Ensure card takes width */}
-      <CardContent className="p-4 flex flex-col gap-4">
+      <CardContent className="p-4 flex flex-col gap-3"> {/* Reduced gap */}
         {/* Audio element should be outside the visible content usually */}
         <audio ref={audioRef} preload="metadata" />
 
-        {/* Top Row: Verse Navigation (Slider & Input) */}
-        <div className="flex items-center gap-2 md:gap-4 w-full">
-            <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={onPreviousVerse} disabled={isLoading || verseNumber <= 1} aria-label="Previous Verse">
-                    <SkipBack className="h-5 w-5" />
-                </Button>
-            </TooltipTrigger> <TooltipContent><p>Previous Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
+        {/* Top Row: Verse Navigation (Slider & Input) & Jump To */}
+        <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4 w-full">
+             {/* Verse Slider & Number Input */}
+            <div className="flex items-center gap-2 flex-grow min-w-[200px]">
+                 <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                     <Button variant="ghost" size="icon" onClick={onPreviousVerse} disabled={isLoading || verseNumber <= 1} aria-label="Previous Verse">
+                        <SkipBack className="h-5 w-5" />
+                     </Button>
+                 </TooltipTrigger> <TooltipContent><p>Previous Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
 
-            <Slider value={[verseNumber]} onValueChange={onVerseSliderChange} min={1} max={MAX_VERSE_NUMBER} step={1} className="flex-1" aria-label="Navigate Verses" disabled={isLoading} />
+                 <Slider value={[verseNumber]} onValueChange={onVerseSliderChange} min={1} max={MAX_VERSE_NUMBER} step={1} className="flex-1" aria-label="Navigate Verses" disabled={isLoading} />
 
-            <Input type="number" min="1" max={MAX_VERSE_NUMBER} value={verseNumber} onChange={onVerseInputChange} onBlur={onVerseInputBlur} className="w-20 h-10 text-center border-input rounded-md text-sm shrink-0" aria-label="Current Verse Number" disabled={isLoading}/>
+                 <Input type="number" min="1" max={MAX_VERSE_NUMBER} value={verseNumber} onChange={onVerseInputChange} onBlur={onVerseInputBlur} className="w-20 h-9 text-center border-input rounded-md text-sm shrink-0" aria-label="Current Verse Number" disabled={isLoading}/>
 
-             <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={onNextVerse} disabled={isLoading || verseNumber >= MAX_VERSE_NUMBER} aria-label="Next Verse">
-                    <SkipForward className="h-5 w-5" />
-                </Button>
-            </TooltipTrigger> <TooltipContent><p>Next Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
+                 <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={onNextVerse} disabled={isLoading || verseNumber >= MAX_VERSE_NUMBER} aria-label="Next Verse">
+                        <SkipForward className="h-5 w-5" />
+                    </Button>
+                 </TooltipTrigger> <TooltipContent><p>Next Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
+            </div>
+
+             {/* Jump To Controls */}
+             <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                 <Select onValueChange={handleJuzSelect} disabled={isLoading}>
+                    <SelectTrigger className="w-[130px] h-9 text-sm shrink-0" aria-label="Jump to Juz"> <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Juz" /> </SelectTrigger>
+                    <SelectContent> <SelectGroup> <SelectLabel>Juz</SelectLabel> {Object.entries(JUZ_STARTS).map(([juz, startVerse]) => ( <SelectItem key={juz} value={juz}> Juz {juz} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
+                 </Select>
+                  <Select onValueChange={handlePageSelect} disabled={isLoading}>
+                    <SelectTrigger className="w-[130px] h-9 text-sm shrink-0" aria-label="Jump to Page"> <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Page" /> </SelectTrigger>
+                    <SelectContent> <SelectGroup> <SelectLabel>Page (Mushaf)</SelectLabel> {Object.entries(PAGE_STARTS).map(([page, startVerse]) => ( <SelectItem key={page} value={page}> Page {page} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
+                  </Select>
+             </div>
         </div>
 
-         {/* Middle Row: Audio Progress */}
-         <div className="flex items-center gap-2 w-full">
-             <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(currentTime)}</span>
-             <Slider
-                 value={duration > 0 ? [currentTime] : [0]} // Ensure value doesn't exceed duration visually
-                 onValueChange={handleProgressSliderChange}
-                 onPointerDown={handlePointerDown}
-                 onValueCommit={handleSeekCommit}
-                 min={0}
-                 max={duration > 0 ? duration : 1} // Use 1 as max if duration is 0 to avoid errors
-                 step={0.1}
-                 className="flex-1"
-                 aria-label="Audio Progress"
-                 disabled={audioActionDisabled || duration <= 0} // Disable if no duration
-             />
-             <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(duration)}</span>
-         </div>
 
-        {/* Bottom Row: Playback, Jumps, Settings */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
+         {/* Middle Row: Audio Progress, Main Controls, Reciter/Speed */}
+         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 md:gap-4 w-full">
+            {/* Progress Bar and Timestamps */}
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
+                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(currentTime)}</span>
+                <Slider
+                    value={duration > 0 ? [currentTime] : [0]}
+                    onValueChange={handleProgressSliderChange}
+                    onPointerDown={handlePointerDown}
+                    onValueCommit={handleSeekCommit}
+                    min={0}
+                    max={duration > 0 ? duration : 1}
+                    step={0.1}
+                    className="flex-1 cursor-pointer"
+                    aria-label="Audio Progress"
+                    disabled={audioActionDisabled || duration <= 0}
+                />
+                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(duration)}</span>
+            </div>
 
-            {/* Playback Controls (Left Group) */}
-            <div className="flex items-center gap-1 md:gap-2">
+             {/* Main Playback Controls (Centered) */}
+             <div className="flex items-center gap-1 md:gap-2 order-1 sm:order-2">
                  <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
                      <Button variant="ghost" size="icon" onClick={toggleRepeat} className={isRepeating ? 'text-primary' : ''} aria-pressed={isRepeating} aria-label="Repeat Verse" disabled={audioActionDisabled}>
                          <Repeat className="h-5 w-5" />
@@ -390,7 +395,7 @@ export function Controls({
                  </TooltipTrigger> <TooltipContent><p>{isRepeating ? 'Disable Repeat' : 'Repeat Verse'}</p></TooltipContent> </Tooltip> </TooltipProvider>
 
                  <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                    <Button variant="default" size="icon" onClick={togglePlayPause} disabled={audioActionDisabled} aria-label={isPlaying ? 'Pause' : 'Play'} className="w-12 h-12 rounded-full shadow-lg bg-primary hover:bg-primary/90 relative">
+                    <Button variant="default" size="icon" onClick={togglePlayPause} disabled={audioActionDisabled} aria-label={isPlaying ? 'Pause' : 'Play'} className="w-11 h-11 rounded-full shadow-lg bg-primary hover:bg-primary/90 relative">
                         {isAudioLoading && (
                             <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-full">
                                 <svg className="animate-spin h-5 w-5 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"> <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle> <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path> </svg>
@@ -405,115 +410,58 @@ export function Controls({
                         {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                     </Button>
                  </TooltipTrigger> <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent> </Tooltip> </TooltipProvider>
+             </div>
 
-                 <Slider
+
+              {/* Reciter, Speed, Volume (Right Aligned) */}
+            <div className="flex items-center gap-2 order-3 sm:order-3 justify-end">
+                 {/* Reciter Selection */}
+                 <Select value={selectedReciter} onValueChange={onReciterChange} disabled={reciters.length === 0 || isLoading}>
+                      <SelectTrigger className="w-[150px] h-9 text-sm shrink-0" aria-label="Select Reciter">
+                          <SelectValue placeholder="Select Reciter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                            <SelectLabel>Reciter</SelectLabel>
+                            {reciters.map((reciter) => ( <SelectItem key={reciter.id} value={reciter.id}> {reciter.name} </SelectItem> ))}
+                             {reciters.length === 0 && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                        </SelectGroup>
+                       </SelectContent>
+                  </Select>
+
+                  {/* Playback Speed */}
+                  <Select value={playbackSpeed.toString()} onValueChange={handlePlaybackSpeedChange} disabled={audioActionDisabled}>
+                       <SelectTrigger className="w-[70px] h-9 text-sm shrink-0" aria-label="Playback Speed">
+                            <Gauge className="h-4 w-4 text-muted-foreground mr-1"/>
+                            <SelectValue placeholder="Speed" />
+                       </SelectTrigger>
+                       <SelectContent>
+                           <SelectGroup>
+                               <SelectLabel>Speed</SelectLabel>
+                               {PLAYBACK_SPEEDS.map((speed) => (
+                                  <SelectItem key={speed} value={speed.toString()}> {speed}x </SelectItem>
+                               ))}
+                           </SelectGroup>
+                       </SelectContent>
+                  </Select>
+
+                  {/* Volume Slider (Inline) */}
+                  <Slider
                     value={[volume]}
                     onValueChange={handleVolumeChange}
                     min={0}
                     max={1}
                     step={0.05}
-                    className="w-20 hidden sm:flex"
+                    className="w-20 hidden md:flex h-9 items-center" // Only show on medium screens and up
                     aria-label="Volume"
                     disabled={audioActionDisabled}
                  />
-            </div>
-
-            {/* Jump To Controls (Center Group - ensure enough space or wrap) */}
-             <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-                 <Select onValueChange={handleJuzSelect} disabled={isLoading}>
-                    <SelectTrigger className="w-[130px] h-10 text-sm shrink-0" aria-label="Jump to Juz"> <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Juz" /> </SelectTrigger>
-                    <SelectContent> <SelectGroup> <SelectLabel>Juz</SelectLabel> {Object.entries(JUZ_STARTS).map(([juz, startVerse]) => ( <SelectItem key={juz} value={juz}> Juz {juz} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
-                 </Select>
-                  <Select onValueChange={handlePageSelect} disabled={isLoading}>
-                    <SelectTrigger className="w-[130px] h-10 text-sm shrink-0" aria-label="Jump to Page"> <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Page" /> </SelectTrigger>
-                    <SelectContent> <SelectGroup> <SelectLabel>Page (Mushaf)</SelectLabel> {Object.entries(PAGE_STARTS).map(([page, startVerse]) => ( <SelectItem key={page} value={page}> Page {page} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
-                  </Select>
              </div>
-
-
-            {/* Settings Popover (Right Group) - Contains Reciter, Speed, Theme */}
-            <Popover>
-            <PopoverTrigger asChild>
-            <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="Audio Settings" disabled={isLoading}> <Settings className="h-5 w-5" /> </Button>
-            </TooltipTrigger> <TooltipContent><p>Audio Settings</p></TooltipContent> </Tooltip> </TooltipProvider>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-4 space-y-4" align="end">
-                {/* Reciter Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="reciter-select">Reciter</Label>
-                  <Select value={selectedReciter} onValueChange={onReciterChange} disabled={reciters.length === 0 || isLoading}>
-                      <SelectTrigger id="reciter-select" className="w-full"> <SelectValue placeholder="Select Reciter" /> </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                            <SelectLabel>Reciter</SelectLabel>
-                            {reciters.map((reciter) => ( <SelectItem key={reciter.id} value={reciter.id}> {reciter.name} ({reciter.language.toUpperCase()}) </SelectItem> ))}
-                             {reciters.length === 0 && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                        </SelectGroup>
-                       </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Playback Speed */}
-                <div className="space-y-2">
-                  <Label htmlFor="speed-select" className="flex items-center gap-1.5">
-                      <Gauge className="h-4 w-4 text-muted-foreground"/> Playback Speed
-                   </Label>
-                    <Select value={playbackSpeed.toString()} onValueChange={handlePlaybackSpeedChange} disabled={audioActionDisabled}>
-                         <SelectTrigger id="speed-select" className="w-full">
-                             <SelectValue placeholder="Speed" />
-                         </SelectTrigger>
-                         <SelectContent>
-                             <SelectGroup>
-                                 <SelectLabel>Speed</SelectLabel>
-                                 {PLAYBACK_SPEEDS.map((speed) => (
-                                    <SelectItem key={speed} value={speed.toString()}> {speed}x </SelectItem>
-                                 ))}
-                             </SelectGroup>
-                         </SelectContent>
-                    </Select>
-                </div>
-
-                 {/* Volume Slider (Inside Popover for smaller screens) */}
-                 <div className="space-y-2 sm:hidden">
-                    <Label htmlFor="volume-slider-popover">Volume</Label>
-                    <Slider
-                        id="volume-slider-popover"
-                        value={[volume]}
-                        onValueChange={handleVolumeChange}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        className="w-full"
-                        aria-label="Volume"
-                        disabled={audioActionDisabled}
-                     />
-                 </div>
-
-                {/* Font Size - REMOVED FROM HERE */}
-                {/*
-                <div className="space-y-2">
-                  <Label htmlFor="font-size-slider">Font Size ({fontSize}px)</Label>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={decreaseFontSize} disabled={fontSize <= 10 || isLoading}> <Minus className="h-4 w-4" /> </Button>
-                      <Slider id="font-size-slider" min={10} max={48} step={2} value={[fontSize]} onValueChange={onFontSizeChange} className="flex-1" aria-label="Adjust font size" disabled={isLoading} />
-                      <Button variant="outline" size="icon" onClick={increaseFontSize} disabled={fontSize >= 48 || isLoading}> <Plus className="h-4 w-4" /> </Button>
-                  </div>
-                </div>
-                */}
-
-                {/* Theme Toggle */}
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <Label>Theme</Label>
-                  <ThemeToggle />
-                </div>
-            </PopoverContent>
-            </Popover>
         </div>
 
         {/* Error Message Area */}
         {playbackError && (
-            <div className="mt-2 px-4 py-2 text-center text-xs text-destructive bg-destructive/10 rounded-md border border-destructive/30">
+            <div className="mt-2 px-3 py-1.5 text-center text-xs text-destructive bg-destructive/10 rounded-md border border-destructive/30">
             {playbackError}
             </div>
         )}

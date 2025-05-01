@@ -15,10 +15,11 @@ import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button'; // For settings toggle
 import { Settings } from 'lucide-react'; // Icon for settings
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // For FAB tooltip
 
 // Default values
 const DEFAULT_VERSE_NUMBER = 1;
-const DEFAULT_TRANSLATION_ID = SUPPORTED_TRANSLATIONS[0].id; // 'en.clearquran'
+const DEFAULT_TRANSLATION_ID = SUPPORTED_TRANSLATIONS[0]?.id ?? 'en.clearquran'; // Use optional chaining and fallback
 const DEFAULT_RECITER_ID = 'ar.alafasy';
 const DEFAULT_FONT_SIZE = 16; // Default English font size
 const DEFAULT_ARABIC_FONT_SIZE = 24; // Default Arabic font size
@@ -310,7 +311,7 @@ export function ReaderView() {
    const isVerseUnavailable = !isLoadingVerse && !currentVerseData;
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 pb-24"> {/* Added padding-bottom */}
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 pb-24 relative"> {/* Added relative positioning for FAB */}
        <Card
          className="shadow-md rounded-lg overflow-hidden border border-border" // Use theme border
          onTouchStart={handleTouchStart}
@@ -319,7 +320,7 @@ export function ReaderView() {
          style={{ touchAction: 'pan-y' }}
         >
         <CardContent className="p-0 relative"> {/* Remove default padding */}
-         {/* Buttons positioned top-right */}
+         {/* Notes Button positioned top-right */}
          <div className="absolute top-2 right-2 z-10 flex gap-2">
              <NotesSidebar
                 currentVerseNumber={currentVerseNumber}
@@ -328,17 +329,7 @@ export function ReaderView() {
                 surahName={currentVerseData?.surah?.englishName ?? ''}
                 ayahNumber={currentVerseData?.verseReference?.split(':')[1] ?? ''}
              />
-             {/* Explicit Settings Panel Trigger Button */}
-             <Button
-                variant="outline"
-                size="icon"
-                aria-label="Open Settings"
-                onClick={toggleSettingsPanel} // Use the toggle function
-                disabled={isLoading} // Keep disabled logic if needed
-             >
-                 <Settings className="h-5 w-5" />
-             </Button>
-
+             {/* REMOVED Settings Panel Trigger Button from here */}
          </div>
          {/* Loading and Error States */}
          {isLoadingMeta && !error && (
@@ -390,23 +381,42 @@ export function ReaderView() {
 
       <Controls
         verseNumber={currentVerseNumber}
-        // Use nullish coalescing for potentially null verse data
         audioUrl={currentVerseData?.audioUrl ?? null}
         reciters={reciters}
         selectedReciter={selectedReciter}
-        // fontSize={fontSize} // Pass english font size to controls (for popover) - REMOVED, handled in Settings
         onNextVerse={handleNextVerse}
         onPreviousVerse={handlePreviousVerse}
         onReciterChange={handleReciterChange}
-        // onFontSizeChange={handleFontSizeChange} // REMOVED, handled in Settings
         onVerseInputChange={handleVerseInputChange}
         onVerseInputBlur={handleVerseInputBlur}
         onVerseSliderChange={handleVerseSliderChange}
         onJuzChange={handleJuzChange}
         onPageChange={handlePageChange}
-        isLoading={isLoading || isVerseUnavailable} // Controls disabled if loading OR if verse is definitively unavailable
+        isLoading={isLoading || isVerseUnavailable}
         quranMeta={quranMeta}
       />
+
+       {/* Floating Action Button (FAB) for Settings */}
+       <TooltipProvider>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                    variant="default" // Use default variant for FAB appearance
+                    size="icon"
+                    className="fixed bottom-24 right-6 z-20 h-14 w-14 rounded-full shadow-lg" // FAB styling
+                    aria-label="Open Settings"
+                    onClick={toggleSettingsPanel}
+                    disabled={isLoading}
+                >
+                    <Settings className="h-6 w-6" />
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+                <p>Display Settings</p>
+            </TooltipContent>
+        </Tooltip>
+       </TooltipProvider>
+
 
        {/* Settings Panel Component (managed visibility via state) */}
       <SettingsPanel
