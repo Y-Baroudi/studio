@@ -8,18 +8,20 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"
+} from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { Notebook } from 'lucide-react';
 
 interface NotesSidebarProps {
   currentVerseNumber: number;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
 }
 
-// This is a placeholder for the future notes feature.
-export function NotesSidebar({ currentVerseNumber }: NotesSidebarProps) {
+// Updated NotesSidebar to be controlled externally
+export function NotesSidebar({ currentVerseNumber, isOpen, onOpenChange }: NotesSidebarProps) {
   return (
-     <Sheet>
+     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
          <Button variant="outline" size="icon" aria-label="Open Notes">
             <Notebook className="h-5 w-5" />
