@@ -78,7 +78,8 @@ export interface Reciter {
  * Base URL for the alquran.cloud API v1.
  */
 const API_BASE_URL = 'https://api.alquran.cloud/v1';
-const AUDIO_CDN_BASE_URL = 'https://cdn.islamic.network/quran/audio'; // Or cdn.alquran.cloud based on API
+// const AUDIO_CDN_BASE_URL = 'https://cdn.islamic.network/quran/audio'; // Old base URL
+const AUDIO_CDN_BASE_URL = 'https://cdn.alquran.cloud/media/audio/ayah'; // New base URL structure
 
 /**
  * Fetches the metadata for the Quran (Surah names, verse counts, etc.).
@@ -218,29 +219,37 @@ export async function getVerse(
 
     // Basic validation of response structure
     if (!data.data || !Array.isArray(data.data) || data.data.length < 2) {
+        console.error(`Invalid verse data format received for ${verseReference}. Response:`, JSON.stringify(data));
         throw new Error(`Invalid verse data format received for ${verseReference}`);
     }
+
+    // Log the received data for debugging purposes
+    // console.log(`API Response Data for ${verseReference}:`, JSON.stringify(data.data, null, 2));
 
     // Find the correct editions in the response array
     // The order might not be guaranteed, so check identifiers
     const audioEditionData = data.data.find((ed: any) => ed.edition.identifier === reciterIdentifier);
     const translationEditionData = data.data.find((ed: any) => ed.edition.identifier === translationIdentifier);
 
+     if (!audioEditionData) {
+         console.error(`Audio edition '${reciterIdentifier}' not found in response for verse ${verseReference}. Available identifiers:`, data.data.map((ed: any) => ed.edition.identifier));
+     }
+     if (!translationEditionData) {
+         console.error(`Translation edition '${translationIdentifier}' not found in response for verse ${verseReference}. Available identifiers:`, data.data.map((ed: any) => ed.edition.identifier));
+     }
+
      if (!audioEditionData || !translationEditionData) {
-       console.error(`Required editions not found in API response for verse ${verseReference}. Reciter: ${reciterIdentifier}, Translation: ${translationIdentifier}`);
-       // Log the received identifiers for debugging
-       console.log("Available identifiers:", data.data.map((ed: any) => ed.edition.identifier));
-      throw new Error(`Required editions not found in API response for ${verseReference}.`);
-    }
+       // Removed the redundant console.error from the original code as it's handled above
+       // console.error(`Required editions not found in API response for verse ${verseReference}. Reciter: ${reciterIdentifier}, Translation: ${translationIdentifier}`);
+       // console.log("Available identifiers:", data.data.map((ed: any) => ed.edition.identifier)); // Already logged above if missing
+       throw new Error(`Required editions not found in API response for ${verseReference}.`);
+     }
 
-     // Construct audio URL using the standard CDN pattern
-     // Note: The API *might* provide an audio URL directly (`audioEditionData.audio`),
-     // but often the CDN pattern is more reliable and consistent. Double-check API docs.
-     // Using 64kbps audio for smaller size by default, API might default to 128.
-     const audioQuality = '64'; // or '128'
-     const audioUrl = `${AUDIO_CDN_BASE_URL}/${audioQuality}/${reciterIdentifier}/${absoluteVerseNumber}.mp3`;
+     // Construct audio URL using the cdn.alquran.cloud pattern based on Surah:Ayah reference.
+     // Example: https://cdn.alquran.cloud/media/audio/ayah/ar.alafasy/1/1 (for Surah 1, Ayah 1)
+     // Note: The API might provide `audioEditionData.audioSecondary` which could be used alternatively.
+     const audioUrl = `${AUDIO_CDN_BASE_URL}/${reciterIdentifier}/${verseReference}`;
 
-     // Use absoluteVerseNumber from input, not calculated from potentially incomplete meta
     return {
       verseNumber: absoluteVerseNumber,
       verseReference: verseReference,
