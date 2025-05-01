@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -61,14 +62,15 @@ export function ReaderView() {
        if (verse) {
           setCurrentVerseData(verse);
         } else {
-           // Handle case where getVerse returns null (e.g., 404 or other fetch error)
-           setError(`Failed to load verse ${verseNum}. It might be invalid or unavailable.`);
+           // Handle case where getVerse returns null (e.g., 404 or other critical fetch error)
+           setError(`Failed to load essential data for verse ${verseNum}. It might be invalid or unavailable.`);
            setCurrentVerseData(null); // Clear stale data
         }
 
     } catch (err) {
-      console.error('Error fetching verse:', err);
-      setError('Failed to load verse data. Please try again.');
+      // This catch block might be less likely to be hit now with errors handled inside getVerse
+      console.error('Error fetching verse in ReaderView:', err);
+      setError('An unexpected error occurred while loading verse data. Please try again.');
       setCurrentVerseData(null); // Clear stale data on error
     } finally {
       setIsLoadingVerse(false);

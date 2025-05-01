@@ -78,29 +78,28 @@ export interface Reciter {
  * Base URL for the alquran.cloud API v1.
  */
 const API_BASE_URL = 'https://api.alquran.cloud/v1';
-// const AUDIO_CDN_BASE_URL = 'https://cdn.islamic.network/quran/audio'; // Old base URL
 const AUDIO_CDN_BASE_URL = 'https://cdn.alquran.cloud/media/audio/ayah'; // New base URL structure
 
 /**
  * Fetches the metadata for the Quran (Surah names, verse counts, etc.).
+ * Uses `fetch` with caching options.
  * @returns A promise that resolves to the QuranMeta object.
  */
 export async function getQuranMeta(): Promise<QuranMeta> {
   try {
-    const response = await fetch(`${API_BASE_URL}/meta`);
+    // Use cache: 'force-cache' for metadata as it changes rarely.
+    const response = await fetch(`${API_BASE_URL}/meta`, { cache: 'force-cache' });
     if (!response.ok) {
       throw new Error(`API error fetching metadata: ${response.statusText}`);
     }
     const data = await response.json();
-    // Basic validation
     if (!data.data || !data.data.surahs || !data.data.surahs.references) {
         throw new Error('Invalid metadata format received from API.');
     }
-    // Map API response to our QuranMeta interface if needed, or assume it matches
     return data.data as QuranMeta;
   } catch (error) {
     console.error("Failed to fetch Quran metadata:", error);
-    throw error; // Re-throw to be handled by the caller
+    throw error;
   }
 }
 
@@ -140,52 +139,52 @@ export function absoluteVerseToSurahAyah(
 
 /**
  * Asynchronously retrieves a list of available audio reciters (editions).
+ * Uses `fetch` with caching options.
  *
  * @returns A promise that resolves to a list of Reciter objects.
  */
 export async function getReciters(): Promise<Reciter[]> {
    try {
-    // Fetch audio editions that are verse-by-verse
-    const response = await fetch(`${API_BASE_URL}/edition?format=audio&type=versebyverse`);
+    // Cache reciter list for a reasonable time (e.g., revalidate after 1 hour)
+    const response = await fetch(`${API_BASE_URL}/edition?format=audio&type=versebyverse`, {
+        next: { revalidate: 3600 } // Revalidate after 1 hour
+    });
      if (!response.ok) {
       throw new Error(`API error fetching reciters: ${response.statusText}`);
     }
     const data = await response.json();
 
-     // Validate response structure (adjust based on actual API response)
      if (!data || !data.data || !Array.isArray(data.data)) {
        throw new Error('Invalid reciters format received from API.');
      }
 
-    // Map API response to our Reciter interface
     return data.data.map((edition: any) => ({
        id: edition.identifier,
-       // Prefer englishName if available, fallback to name
        name: edition.englishName || edition.name || edition.identifier,
        language: edition.language || 'unknown',
     }));
   } catch (error) {
     console.error("Failed to fetch reciters:", error);
-    // Return a default or empty list on error? Or rethrow? Rethrowing is usually better.
-     // Return placeholder data as fallback for now, remove in production
-     console.warn('getReciters() is using placeholder data due to fetch error.');
+    // Provide a minimal fallback or rethrow
+    console.warn('getReciters() returning minimal fallback due to error.');
      return [
        { id: 'ar.alafasy', name: 'Mishary Rashid Al-Afasy', language: 'ar' },
-       { id: 'ar.saoodshuraym', name: 'Sa`ud ash-Shuraym', language: 'ar' },
-       { id: 'en.walk', name: 'Ibrahim Walk (English)', language: 'en' },
+       // Add other known essential reciters if desired as fallback
      ];
-    // throw error;
+    // throw error; // Or rethrow if a fallback isn't suitable
   }
 }
 
 /**
  * Asynchronously retrieves a specific verse's data including text, translation, and audio URL.
+ * Fetches audio/Arabic and translation in separate calls for robustness.
+ * Uses `fetch` with caching options.
  *
  * @param absoluteVerseNumber The absolute verse number (1-6236).
  * @param translationIdentifier The identifier for the desired translation (e.g., "en.clearquran").
  * @param reciterIdentifier The identifier for the desired audio reciter (e.g., "ar.alafasy").
  * @param metaData The Quran metadata object (needed for verse mapping).
- * @returns A promise that resolves to a Verse object or null if an error occurs.
+ * @returns A promise that resolves to a Verse object or null if a critical error occurs (e.g., cannot fetch Arabic text).
  */
 export async function getVerse(
   absoluteVerseNumber: number,
@@ -202,64 +201,67 @@ export async function getVerse(
 
    const { reference: verseReference, surahMeta } = verseLocation;
 
-   // Define the editions to fetch. Arabic text comes from the reciter's edition.
-   const editions = `${reciterIdentifier},${translationIdentifier}`;
-
   try {
-    const response = await fetch(`${API_BASE_URL}/ayah/${verseReference}/editions/${editions}`);
-    if (!response.ok) {
-       // Handle common errors like 404 for invalid verses/editions
-      if (response.status === 404) {
-         console.warn(`Verse ${verseReference} or editions (${editions}) not found.`);
-         return null; // Indicate verse data couldn't be found
-       }
-      throw new Error(`API error fetching verse ${verseReference}: ${response.status} ${response.statusText}`);
+    // --- Fetch Audio/Arabic data ---
+    // Cache verse data, revalidate based on expectation of changes (e.g., daily)
+    const audioResponse = await fetch(`${API_BASE_URL}/ayah/${verseReference}/${reciterIdentifier}`, {
+        next: { revalidate: 86400 } // Revalidate after 1 day
+    });
+
+    if (!audioResponse.ok) {
+        if (audioResponse.status === 404) {
+            console.warn(`Ayah ${verseReference} not found for reciter ${reciterIdentifier}.`);
+            return null; // Arabic text is essential, return null if not found
+        }
+        throw new Error(`API error fetching audio/Arabic for ${verseReference} (${reciterIdentifier}): ${audioResponse.status} ${audioResponse.statusText}`);
     }
-    const data = await response.json();
+    const audioData = await audioResponse.json();
+    // Use optional chaining and nullish coalescing for safer access
+    const arabicText = audioData?.data?.text;
+     if (!arabicText) {
+        console.error(`Arabic text missing in response for ${verseReference} (${reciterIdentifier}). Response:`, JSON.stringify(audioData));
+        throw new Error(`Arabic text missing for ${verseReference} (${reciterIdentifier})`);
+     }
 
-    // Basic validation of response structure
-    if (!data.data || !Array.isArray(data.data) || data.data.length < 2) {
-        console.error(`Invalid verse data format received for ${verseReference}. Response:`, JSON.stringify(data));
-        throw new Error(`Invalid verse data format received for ${verseReference}`);
+    // Construct audio URL using the standard CDN pattern
+    const audioUrl = `${AUDIO_CDN_BASE_URL}/${reciterIdentifier}/${verseReference}`;
+
+    // --- Fetch Translation data ---
+    let englishTranslation = "Translation not available."; // Default text
+    try {
+      const translationResponse = await fetch(`${API_BASE_URL}/ayah/${verseReference}/${translationIdentifier}`, {
+          next: { revalidate: 86400 } // Revalidate after 1 day
+      });
+
+      if (translationResponse.ok) {
+        const translationData = await translationResponse.json();
+        // Use optional chaining and nullish coalescing
+        englishTranslation = translationData?.data?.text ?? englishTranslation;
+      } else if (translationResponse.status === 404) {
+          console.warn(`Translation '${translationIdentifier}' not found for verse ${verseReference}.`);
+          // Keep the default "Translation not available." message
+      } else {
+         // Log non-404 errors for translation but don't fail the whole verse load
+         console.error(`API error fetching translation for ${verseReference} (${translationIdentifier}): ${translationResponse.status} ${translationResponse.statusText}`);
+      }
+    } catch (translationError) {
+       // Catch fetch errors specifically for translation
+       console.error(`Failed to fetch translation ${translationIdentifier} for verse ${verseReference}:`, translationError);
     }
 
-    // Log the received data for debugging purposes
-    // console.log(`API Response Data for ${verseReference}:`, JSON.stringify(data.data, null, 2));
-
-    // Find the correct editions in the response array
-    // The order might not be guaranteed, so check identifiers
-    const audioEditionData = data.data.find((ed: any) => ed.edition.identifier === reciterIdentifier);
-    const translationEditionData = data.data.find((ed: any) => ed.edition.identifier === translationIdentifier);
-
-     if (!audioEditionData) {
-         console.error(`Audio edition '${reciterIdentifier}' not found in response for verse ${verseReference}. Available identifiers:`, data.data.map((ed: any) => ed.edition.identifier));
-     }
-     if (!translationEditionData) {
-         console.error(`Translation edition '${translationIdentifier}' not found in response for verse ${verseReference}. Available identifiers:`, data.data.map((ed: any) => ed.edition.identifier));
-     }
-
-     if (!audioEditionData || !translationEditionData) {
-       // Removed the redundant console.error from the original code as it's handled above
-       // console.error(`Required editions not found in API response for verse ${verseReference}. Reciter: ${reciterIdentifier}, Translation: ${translationIdentifier}`);
-       // console.log("Available identifiers:", data.data.map((ed: any) => ed.edition.identifier)); // Already logged above if missing
-       throw new Error(`Required editions not found in API response for ${verseReference}.`);
-     }
-
-     // Construct audio URL using the cdn.alquran.cloud pattern based on Surah:Ayah reference.
-     // Example: https://cdn.alquran.cloud/media/audio/ayah/ar.alafasy/1/1 (for Surah 1, Ayah 1)
-     // Note: The API might provide `audioEditionData.audioSecondary` which could be used alternatively.
-     const audioUrl = `${AUDIO_CDN_BASE_URL}/${reciterIdentifier}/${verseReference}`;
-
+    // --- Combine and Return ---
     return {
       verseNumber: absoluteVerseNumber,
       verseReference: verseReference,
-      arabicText: audioEditionData.text, // Get Arabic text from the audio edition
-      englishTranslation: translationEditionData.text,
-      audioUrl: audioUrl, // Use the constructed CDN URL
+      arabicText: arabicText,
+      englishTranslation: englishTranslation,
+      audioUrl: audioUrl,
       surah: surahMeta,
     };
+
   } catch (error) {
-    console.error(`Failed to fetch verse ${verseReference}:`, error);
-    return null; // Return null on error to allow the UI to handle it
+    // Catch errors primarily from the audio/Arabic fetch or critical data processing
+    console.error(`Failed to fetch critical verse data for ${verseReference} (Reciter: ${reciterIdentifier}):`, error);
+    return null; // Return null on critical errors
   }
 }
