@@ -19,7 +19,7 @@ const MAX_VERSE_NUMBER = 6236; // Total verses in the Quran
 
 interface ControlsProps {
   verseNumber: number;
-  audioUrl: string | undefined;
+  audioUrl: string | null | undefined; // Allow null for audioUrl
   reciters: Reciter[];
   selectedReciter: string;
   fontSize: number;
@@ -68,7 +68,7 @@ export function Controls({
          const audioError = audioRef.current?.error;
          let errorMsg = "Could not play audio. Please check the reciter or try again.";
          if (audioError) {
-           errorMsg = `Audio Error Code ${audioError.code}: ${audioError.message || 'Could not load audio.'}`;
+           errorMsg = `Audio Error Code ${audioError.code}: ${audioError.message || 'Could not load audio.'} URL: ${audioRef.current?.currentSrc}`;
          }
          setPlaybackError(errorMsg);
          setIsPlaying(false); // Ensure state reflects reality if play fails immediately
@@ -171,14 +171,14 @@ export function Controls({
         // This avoids issues with browser autoplay restrictions.
 
     } else if (audioElement) {
-        // Handle case where audioUrl becomes undefined (e.g., error fetching verse)
+        // Handle case where audioUrl becomes null or undefined (e.g., error fetching verse or no audio)
         if (!audioElement.paused) {
           audioElement.pause();
         }
         audioElement.removeAttribute('src');
         audioElement.load(); // Load with no source to clear state
         setIsPlaying(false);
-        setPlaybackError(null);
+        setPlaybackError(audioUrl === null ? "Audio not available for this reciter/verse." : null); // Specific message if null
         setIsAudioLoading(false);
     }
    // Dependency array: Only re-run when the audio URL changes or the *overall* loading state changes.
@@ -207,7 +207,10 @@ export function Controls({
    const decreaseFontSize = () => onFontSizeChange([Math.max(fontSize - 2, 10)]);
 
    // Disable controls if overall data is loading OR if the audio element itself is loading/buffering
+   // Also disable play/mute/repeat if audioUrl is explicitly null or undefined
    const controlsDisabled = isLoading || isAudioLoading;
+   const audioActionDisabled = controlsDisabled || !audioUrl || !!playbackError;
+
 
   return (
     <Card className="shadow-md rounded-lg overflow-hidden sticky bottom-4 backdrop-blur-sm bg-background/80 dark:bg-background/70 border">
@@ -283,7 +286,7 @@ export function Controls({
                  className={isRepeating ? 'text-primary' : ''}
                  aria-pressed={isRepeating}
                  aria-label="Repeat Verse"
-                 disabled={controlsDisabled || !audioUrl} // Disable if general loading or audio loading/no URL
+                 disabled={audioActionDisabled} // Disable based on combined state
                >
                  <Repeat className="h-5 w-5" />
                </Button>
@@ -299,7 +302,7 @@ export function Controls({
                   variant="default"
                   size="icon"
                   onClick={togglePlayPause}
-                  disabled={controlsDisabled || !audioUrl || !!playbackError} // Disable if general/audio loading, no URL, or error
+                  disabled={audioActionDisabled} // Disable based on combined state
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                   className="w-12 h-12 rounded-full shadow-lg bg-primary hover:bg-primary/90 relative"
                  >
@@ -329,7 +332,7 @@ export function Controls({
                  onClick={toggleMute}
                  aria-pressed={isMuted}
                  aria-label={isMuted ? 'Unmute' : 'Mute'}
-                 disabled={controlsDisabled || !audioUrl} // Disable if general/audio loading or no URL
+                 disabled={audioActionDisabled} // Disable based on combined state
                >
                  {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                </Button>

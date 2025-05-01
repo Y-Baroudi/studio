@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Service functions for interacting with the alquran.cloud API v1.
  * Provides functions to fetch Quran metadata, reciters, and individual verse data.
@@ -47,9 +48,9 @@ export interface Verse {
    */
   englishTranslation: string;
   /**
-   * The audio URL for the verse.
+   * The audio URL for the verse. Can be null if not found.
    */
-  audioUrl: string;
+  audioUrl: string | null; // Changed from string to allow null
   /**
    * Surah metadata for the verse.
    */
@@ -78,7 +79,7 @@ export interface Reciter {
  * Base URL for the alquran.cloud API v1.
  */
 const API_BASE_URL = 'https://api.alquran.cloud/v1';
-const AUDIO_CDN_BASE_URL = 'https://cdn.alquran.cloud/media/audio/ayah'; // New base URL structure
+// const AUDIO_CDN_BASE_URL = 'https://cdn.alquran.cloud/media/audio/ayah'; // Deprecated - URL is in response now
 
 /**
  * Fetches the metadata for the Quran (Surah names, verse counts, etc.).
@@ -177,14 +178,14 @@ export async function getReciters(): Promise<Reciter[]> {
 
 /**
  * Asynchronously retrieves a specific verse's data including text, translation, and audio URL.
- * Fetches audio/Arabic and translation in separate calls for robustness.
+ * Fetches multiple editions (Arabic/Audio + Translation) in a single API call.
  * Uses `fetch` with caching options.
  *
  * @param absoluteVerseNumber The absolute verse number (1-6236).
  * @param translationIdentifier The identifier for the desired translation (e.g., "en.clearquran").
  * @param reciterIdentifier The identifier for the desired audio reciter (e.g., "ar.alafasy").
  * @param metaData The Quran metadata object (needed for verse mapping).
- * @returns A promise that resolves to a Verse object or null if a critical error occurs (e.g., cannot fetch Arabic text).
+ * @returns A promise that resolves to a Verse object or null if a critical error occurs (e.g., cannot fetch verse data).
  */
 export async function getVerse(
   absoluteVerseNumber: number,
@@ -202,66 +203,87 @@ export async function getVerse(
    const { reference: verseReference, surahMeta } = verseLocation;
 
   try {
-    // --- Fetch Audio/Arabic data ---
+    // --- Fetch multiple editions (Audio/Arabic + Translation) in one call ---
+    const editions = `${reciterIdentifier},${translationIdentifier}`;
+    const apiUrl = `${API_BASE_URL}/ayah/${verseReference}/editions/${editions}`;
     // Cache verse data, revalidate based on expectation of changes (e.g., daily)
-    const audioResponse = await fetch(`${API_BASE_URL}/ayah/${verseReference}/${reciterIdentifier}`, {
+    const response = await fetch(apiUrl, {
         next: { revalidate: 86400 } // Revalidate after 1 day
     });
 
-    if (!audioResponse.ok) {
-        if (audioResponse.status === 404) {
-            console.warn(`Ayah ${verseReference} not found for reciter ${reciterIdentifier}.`);
-            return null; // Arabic text is essential, return null if not found
+    if (!response.ok) {
+        if (response.status === 404) {
+            console.warn(`Ayah ${verseReference} not found for editions ${editions}.`);
+            return null; // Verse doesn't exist for these editions
         }
-        throw new Error(`API error fetching audio/Arabic for ${verseReference} (${reciterIdentifier}): ${audioResponse.status} ${audioResponse.statusText}`);
+        throw new Error(`API error fetching editions for ${verseReference} (${editions}): ${response.status} ${response.statusText}`);
     }
-    const audioData = await audioResponse.json();
-    // Use optional chaining and nullish coalescing for safer access
-    const arabicText = audioData?.data?.text;
-     if (!arabicText) {
-        console.error(`Arabic text missing in response for ${verseReference} (${reciterIdentifier}). Response:`, JSON.stringify(audioData));
-        throw new Error(`Arabic text missing for ${verseReference} (${reciterIdentifier})`);
-     }
 
-    // Construct audio URL using the standard CDN pattern
-    const audioUrl = `${AUDIO_CDN_BASE_URL}/${reciterIdentifier}/${verseReference}`;
+    const result = await response.json();
 
-    // --- Fetch Translation data ---
-    let englishTranslation = "Translation not available."; // Default text
-    try {
-      const translationResponse = await fetch(`${API_BASE_URL}/ayah/${verseReference}/${translationIdentifier}`, {
-          next: { revalidate: 86400 } // Revalidate after 1 day
-      });
+    if (result.code !== 200 || !Array.isArray(result.data) || result.data.length === 0) {
+        console.error(`Invalid data format or empty data received for ${verseReference} (${editions}). Response:`, JSON.stringify(result));
+        throw new Error(`Invalid data format received for ${verseReference}.`);
+    }
 
-      if (translationResponse.ok) {
-        const translationData = await translationResponse.json();
-        // Use optional chaining and nullish coalescing
-        englishTranslation = translationData?.data?.text ?? englishTranslation;
-      } else if (translationResponse.status === 404) {
-          console.warn(`Translation '${translationIdentifier}' not found for verse ${verseReference}.`);
-          // Keep the default "Translation not available." message
-      } else {
-         // Log non-404 errors for translation but don't fail the whole verse load
-         console.error(`API error fetching translation for ${verseReference} (${translationIdentifier}): ${translationResponse.status} ${translationResponse.statusText}`);
-      }
-    } catch (translationError) {
-       // Catch fetch errors specifically for translation
-       console.error(`Failed to fetch translation ${translationIdentifier} for verse ${verseReference}:`, translationError);
+    // --- Process the response ---
+    let arabicText: string | null = null;
+    let englishTranslation: string | null = null;
+    let audioUrl: string | null = null;
+
+    // Find the data for each requested edition
+    const audioEditionData = result.data.find((ed: any) => ed?.edition?.identifier === reciterIdentifier);
+    const translationEditionData = result.data.find((ed: any) => ed?.edition?.identifier === translationIdentifier);
+
+    if (audioEditionData) {
+        arabicText = audioEditionData.text;
+        audioUrl = audioEditionData.audio; // Extract audio URL directly
+        if (!arabicText) {
+             console.warn(`Arabic text missing for reciter ${reciterIdentifier} in verse ${verseReference}.`);
+        }
+        if (!audioUrl) {
+             console.warn(`Audio URL missing for reciter ${reciterIdentifier} in verse ${verseReference}.`);
+        }
+    } else {
+        console.warn(`Reciter edition ${reciterIdentifier} not found in response for verse ${verseReference}.`);
+        // Attempt to get Arabic text from translation data if audio is missing
+        // This assumes the translation endpoint might also return the Arabic text sometimes
+        if (translationEditionData && translationEditionData.text && !arabicText) {
+             // Be cautious: Check if translation data actually contains the Arabic text if needed
+             // For simplicity, we assume the primary source is the audio edition here.
+             // arabicText = translationEditionData.text; // Uncomment if this logic is desired
+        }
+    }
+
+    if (translationEditionData) {
+        englishTranslation = translationEditionData.text;
+        if (!englishTranslation) {
+             console.warn(`English translation missing for ${translationIdentifier} in verse ${verseReference}.`);
+        }
+    } else {
+         console.warn(`Translation edition ${translationIdentifier} not found in response for verse ${verseReference}.`);
+    }
+
+
+    // If we couldn't get the Arabic text (essential), return null
+    if (!arabicText) {
+         console.error(`Could not retrieve essential Arabic text for verse ${verseReference}.`);
+         return null;
     }
 
     // --- Combine and Return ---
     return {
       verseNumber: absoluteVerseNumber,
       verseReference: verseReference,
-      arabicText: arabicText,
-      englishTranslation: englishTranslation,
-      audioUrl: audioUrl,
+      arabicText: arabicText, // Non-null asserted due to check above
+      englishTranslation: englishTranslation ?? "Translation not available.", // Provide default if null
+      audioUrl: audioUrl, // Can be null if missing
       surah: surahMeta,
     };
 
   } catch (error) {
-    // Catch errors primarily from the audio/Arabic fetch or critical data processing
-    console.error(`Failed to fetch critical verse data for ${verseReference} (Reciter: ${reciterIdentifier}):`, error);
+    // Catch fetch errors or other processing errors
+    console.error(`Failed to process verse data for ${verseReference} (Reciter: ${reciterIdentifier}, Translation: ${translationIdentifier}):`, error);
     return null; // Return null on critical errors
   }
 }

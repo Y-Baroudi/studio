@@ -177,7 +177,7 @@ export function ReaderView() {
 
       <Controls
         verseNumber={currentVerseNumber}
-        audioUrl={currentVerseData?.audioUrl}
+        audioUrl={currentVerseData?.audioUrl} // Pass the potentially null audioUrl
         reciters={reciters}
         selectedReciter={selectedReciter}
         fontSize={fontSize}
