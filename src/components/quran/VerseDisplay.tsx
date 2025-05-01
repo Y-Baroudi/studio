@@ -5,19 +5,22 @@ import { cn } from '@/lib/utils';
 
 interface VerseDisplayProps {
   verse: Verse;
-  fontSize: number; // Font size in pixels
+  fontSize: number; // Base font size for English text in pixels
 }
 
 export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
-  const textStyle = {
+  // English text styles based on the passed prop (default 16px)
+  const englishStyle = {
     fontSize: `${fontSize}px`,
-    lineHeight: `${fontSize * 1.6}px`, // Adjust line height based on font size
+    lineHeight: '1.6', // Relative line height
+    letterSpacing: '0.01em', // Subtle letter spacing
   };
 
+  // Arabic text styles (fixed size as requested)
   const arabicStyle = {
-    ...textStyle,
-    fontSize: `${fontSize * 1.5}px`, // Make Arabic slightly larger
-    lineHeight: `${fontSize * 2.5}px`, // Increase line height for Arabic
+    fontSize: '24px', // Fixed Arabic font size
+    lineHeight: '1.8', // Fixed Arabic line height
+    letterSpacing: '0.005em', // Subtle letter spacing for Arabic
   };
 
   const surahName = verse.surah ? `${verse.surah.englishName} (${verse.surah.name})` : 'The Quran';
@@ -36,7 +39,8 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
            </div>
            {/* Arabic Title */}
            <div className="text-right">
-              <CardTitle className="text-lg font-uthmani font-normal text-foreground">{verse.surah?.name ?? 'القرآن'}</CardTitle>
+              {/* Use font-amiri for the Arabic title */}
+              <CardTitle className="text-lg font-amiri font-normal text-foreground">{verse.surah?.name ?? 'القرآن'}</CardTitle>
              <CardDescription className="text-right text-foreground/70">
                الآية {verse.verseReference.split(':')[1]}
              </CardDescription>
@@ -50,7 +54,7 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:gap-6">
           {/* English Translation Section (Left Column) */}
           <div className="md:col-start-1">
-            <p className="text-foreground text-left" style={textStyle}>
+            <p className="text-foreground text-left tracking-wide" style={englishStyle}>
               {verse.englishTranslation}
             </p>
           </div>
@@ -60,7 +64,8 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
 
           {/* Arabic Text Section (Right Column) */}
           <div dir="rtl" className="mt-4 md:mt-0 md:col-start-3">
-            <p className="font-uthmani text-foreground text-right" style={arabicStyle}>
+             {/* Use font-amiri and apply specific Arabic styles */}
+            <p className="font-amiri text-foreground text-right tracking-normal" style={arabicStyle}>
               {verse.arabicText}
             </p>
           </div>

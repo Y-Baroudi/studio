@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 const DEFAULT_VERSE_NUMBER = 1;
 const DEFAULT_TRANSLATION = 'en.clearquran'; // Using "The Clear Quran" translation identifier
 const DEFAULT_RECITER_ID = 'ar.alafasy'; // Mishary Rashid Al-Afasy identifier
+const DEFAULT_FONT_SIZE = 16; // Default English font size in pixels
 
 export function ReaderView() {
   const [quranMeta, setQuranMeta] = useState<QuranMeta | null>(null);
@@ -21,7 +22,7 @@ export function ReaderView() {
   const [reciters, setReciters] = useState<Reciter[]>([]);
   const [selectedReciter, setSelectedReciter] = useState<string>(DEFAULT_RECITER_ID);
   const [currentVerseNumber, setCurrentVerseNumber] = useState<number>(DEFAULT_VERSE_NUMBER);
-  const [fontSize, setFontSize] = useState<number>(16); // Default font size in pixels
+  const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE); // Use new default
   const [isLoadingMeta, setIsLoadingMeta] = useState<boolean>(true);
   const [isLoadingVerse, setIsLoadingVerse] = useState<boolean>(true);
   const [isLoadingReciters, setIsLoadingReciters] = useState<boolean>(true);
@@ -52,6 +53,7 @@ export function ReaderView() {
     if (!meta) {
        setError("Cannot load verse: Quran metadata is missing.");
        setIsLoadingVerse(false);
+       setCurrentVerseData(null); // Clear verse data if metadata is missing
        return; // Don't proceed without metadata
     }
     setIsLoadingVerse(true);
@@ -112,6 +114,10 @@ export function ReaderView() {
      // Fetch verse data only when metadata is loaded, a reciter is selected, and verse number changes
      if (quranMeta && selectedReciter && !isLoadingMeta) {
        fetchVerseData(currentVerseNumber, selectedReciter, quranMeta);
+     } else if (!quranMeta && !isLoadingMeta) {
+        // Handle case where metadata failed to load
+        setError("Quran metadata failed to load, cannot fetch verse.");
+        setCurrentVerseData(null);
      }
      // If metadata or reciter is missing/loading, the fetchVerseData callback handles it.
   }, [currentVerseNumber, selectedReciter, quranMeta, fetchVerseData, isLoadingMeta]);
@@ -162,9 +168,10 @@ export function ReaderView() {
          {/* Display specific loading states or a general one */}
          {isLoadingMeta && <p className="text-center text-muted-foreground">Loading Quran structure...</p>}
          {error && <p className="text-destructive text-center mb-4">{error}</p>}
-         {isLoadingVerse && !isLoadingMeta ? ( // Show verse skeleton only if meta is loaded but verse isn't
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         {isLoadingVerse && !isLoadingMeta && !error ? ( // Show verse skeleton only if meta loaded, verse loading, and no error
+           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6">
              <Skeleton className="h-40 w-full" />
+             <Skeleton className="h-px w-full md:h-full md:w-px bg-border" /> {/* Divider Skeleton */}
              <Skeleton className="h-40 w-full" />
            </div>
          ) : currentVerseData ? (

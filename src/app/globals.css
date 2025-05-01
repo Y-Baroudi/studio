@@ -88,7 +88,7 @@ body {
   }
 }
 
-/* Custom Arabic Font */
+/* Custom Arabic Font - Uthmani (Original) */
 @font-face {
   font-family: 'Uthmani';
   src: url('/fonts/UthmanicHafs1Ver09.otf') format('opentype');
@@ -97,7 +97,23 @@ body {
   font-display: swap;
 }
 
+/* Custom Arabic Font - Amiri (New) */
+@font-face {
+  font-family: 'Amiri';
+  /* Assuming Amiri-Regular.ttf is placed in public/fonts */
+  src: url('/fonts/Amiri-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 .font-uthmani {
   font-family: 'Uthmani', serif; /* Fallback to serif */
-  line-height: 2; /* Adjust line height for Arabic */
+  /* Keep line-height here if needed specifically for Uthmani elsewhere */
+}
+
+.font-amiri {
+  font-family: 'Amiri', 'Uthmani', serif; /* Use Amiri, fallback to Uthmani, then generic serif */
+  /* Line height will be set inline via styles now */
 }
