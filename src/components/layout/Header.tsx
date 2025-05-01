@@ -11,7 +11,7 @@ export function Header() {
           <Link href="/" className="mr-6 flex items-center space-x-2">
              <BookOpen className="h-7 w-7 text-primary" /> {/* Slightly larger icon */}
             <span className="text-lg font-bold sm:inline-block"> {/* Larger title */}
-              Quran Companion
+              Qu'ran Meezan
             </span>
           </Link>
           {/* Optional Nav Links can go here */}
