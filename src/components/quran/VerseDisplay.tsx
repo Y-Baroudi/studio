@@ -18,13 +18,16 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
 
   // Arabic text styles (now 24px)
   const arabicStyle = {
-    fontSize: '24px',
-    lineHeight: '1.8',
+    fontSize: '24px', // Increased size
+    lineHeight: '1.8', // Adjusted line height
     letterSpacing: '0.005em',
   };
 
   // Determine if Bismillah should be shown
-  const showBismillah = verse.surah?.number !== 1 && verse.surah?.number !== 9;
+  // Bismillah is shown at the start of every Surah except Surah 9 (At-Tawbah)
+  // It should appear if the current verse is the *first* ayah of any surah *other than* 1 (Al-Fatihah, implicitly included) and 9.
+  const ayahNumberInSurah = parseInt(verse.verseReference.split(':')[1], 10);
+  const showBismillah = ayahNumberInSurah === 1 && verse.surah?.number !== 1 && verse.surah?.number !== 9;
   const bismillahText = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
   const ayahNumber = verse.verseReference.split(':')[1];
@@ -46,7 +49,7 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
                {verse.surah?.number}. {verse.surah?.englishName ?? 'The Quran'}
             </CardTitle>
             <CardDescription className="text-left text-foreground/70">
-              {verse.surah?.englishNameTranslation} ({verse.surah?.numberOfAyahs} verses)
+              {verse.surah?.englishNameTranslation} ({verse.surah?.numberOfAyahs} Ayahs)
             </CardDescription>
           </div>
           {/* Arabic Title */}
@@ -55,7 +58,8 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
             <CardTitle className="text-lg font-amiri font-normal text-foreground">
                {verse.surah?.name ? `${verse.surah.name} - ${verse.surah.number}` : 'القرآن'}
             </CardTitle>
-            <CardDescription className="text-right text-foreground/70">
+             {/* Make revelation type smaller and italic */}
+            <CardDescription className="text-right text-xs italic text-foreground/60">
                {verse.surah?.revelationType}
              </CardDescription>
           </div>
@@ -81,6 +85,7 @@ export function VerseDisplay({ verse, fontSize }: VerseDisplayProps) {
             {/* Use font-amiri and apply specific Arabic styles */}
             <p className="font-amiri text-foreground text-right tracking-normal" style={arabicStyle}>
                {verse.arabicText}
+               {/* Styling for the Arabic verse number indicator */}
                <span className="text-sm font-normal opacity-70 mx-1 font-sans">﴿{ayahNumber}﴾</span>
             </p>
           </div>
