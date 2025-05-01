@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -60,9 +61,10 @@ export function Controls({
       audioRef.current.play().catch(err => {
          console.error("Audio playback error:", err);
          setPlaybackError("Could not play audio. Please check the reciter or try again.");
-         setIsPlaying(false); // Ensure state reflects reality
+         setIsPlaying(false); // Ensure state reflects reality if play fails immediately
       });
     }
+    // isPlaying state will be updated by the 'play'/'pause' event listeners
   }, [isPlaying, isLoading, audioUrl]);
 
   // Update state when audio play/pause events occur
@@ -73,8 +75,8 @@ export function Controls({
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
     const handleEnded = () => {
-       setIsPlaying(false);
-       if (!isRepeating) {
+       setIsPlaying(false); // Ensure state is false when ended
+       if (!isRepeating && !audioElement.loop) { // Check loop property directly as well
          onNextVerse(); // Move to next verse if not repeating
        }
     };
@@ -88,6 +90,9 @@ export function Controls({
     audioElement.addEventListener('pause', handlePause);
     audioElement.addEventListener('ended', handleEnded);
     audioElement.addEventListener('error', handleError);
+    // Listen for 'stalled' or 'waiting' if more robust loading indication is needed
+    // audioElement.addEventListener('waiting', () => setIsLoading(true)); // Example
+    // audioElement.addEventListener('playing', () => setIsLoading(false)); // Example
 
     // Cleanup listeners
     return () => {
@@ -95,44 +100,78 @@ export function Controls({
       audioElement.removeEventListener('pause', handlePause);
       audioElement.removeEventListener('ended', handleEnded);
       audioElement.removeEventListener('error', handleError);
+      // audioElement.removeEventListener('waiting', () => setIsLoading(true));
+      // audioElement.removeEventListener('playing', () => setIsLoading(false));
     };
-  }, [isRepeating, onNextVerse]);
+  }, [isRepeating, onNextVerse]); // Dependencies: onNextVerse and isRepeating influence the 'ended' behavior
 
-  // Handle audio source change
+  // Handle audio source change (e.g., changing verse or reciter)
    useEffect(() => {
-    if (audioRef.current && audioUrl) {
-      const wasPlaying = isPlaying;
-      audioRef.current.src = audioUrl;
-      audioRef.current.load(); // Important to load the new source
-       setIsPlaying(false); // Reset playing state
-      setPlaybackError(null); // Clear errors on source change
+    const audioElement = audioRef.current;
+    if (audioElement && audioUrl) {
+      // Determine if audio was playing *before* we change the source
+      const wasPlaying = !audioElement.paused && !audioElement.ended && audioElement.readyState > 0;
 
-      // Optionally autoplay if it was playing before
-       if (wasPlaying && !isLoading) {
-         // Delay slightly to ensure the new source is loaded
-         setTimeout(() => {
-           audioRef.current?.play().catch(err => {
-             console.error("Audio playback error after source change:", err);
-             setPlaybackError("Could not automatically play new audio.");
-           });
-         }, 100); // Adjust delay if needed
-       }
+      // Stop current playback explicitly before changing source
+      // This prevents the 'ended' event from potentially firing and auto-advancing verse
+      if (!audioElement.paused) {
+         audioElement.pause();
+         // setIsPlaying(false); // Let the 'pause' event handler manage state
+      }
+
+      // Set the new source and initiate loading
+      audioElement.src = audioUrl;
+      audioElement.load();
+      setPlaybackError(null); // Clear previous errors
+
+      // If the audio was playing before the source changed, attempt to resume.
+      if (wasPlaying && !isLoading) {
+        // Attempt to play. The browser might delay playback until enough data is loaded.
+        // The 'play' event listener will set isPlaying = true if successful.
+        // A short delay might still be needed in some browsers, but try without first.
+        // setTimeout(() => { // Optional: reinstate if direct play fails often
+            audioElement.play().catch(err => {
+                console.error("Audio playback error after source change:", err);
+                setPlaybackError("Could not automatically play new audio.");
+                // isPlaying state should remain false or be handled by 'pause' listener
+            });
+        // }, 50); // e.g., 50ms delay
+      } else {
+          // If it wasn't playing or verse is loading, ensure the UI state is not 'playing'
+          // (although event listeners should handle this, belt-and-suspenders)
+          setIsPlaying(false);
+      }
+
+    } else if (audioElement) {
+        // Handle case where audioUrl becomes undefined/null (e.g., error loading verse data)
+        if (!audioElement.paused) {
+          audioElement.pause();
+        }
+        audioElement.removeAttribute('src'); // Remove source attribute
+        audioElement.load(); // Reset element state
+        setIsPlaying(false);
+        setPlaybackError(null);
     }
-   }, [audioUrl, isLoading, isPlaying]); // isPlaying added to optionally restart playback
+    // This effect should ONLY re-run if the audio source URL changes or the *verse* loading state changes.
+    // It should NOT re-run just because the play/pause state (isPlaying) changed.
+  }, [audioUrl, isLoading]); // Removed isPlaying from dependencies
+
 
   // Toggle repeat
   const toggleRepeat = () => {
-    setIsRepeating(!isRepeating);
+    const newRepeatState = !isRepeating;
+    setIsRepeating(newRepeatState);
     if (audioRef.current) {
-      audioRef.current.loop = !isRepeating;
+      audioRef.current.loop = newRepeatState; // Set the loop property on the audio element
     }
   };
 
   // Toggle mute
    const toggleMute = () => {
      if (audioRef.current) {
-       audioRef.current.muted = !isMuted;
-       setIsMuted(!isMuted);
+       const newMuteState = !isMuted;
+       audioRef.current.muted = newMuteState;
+       setIsMuted(newMuteState);
      }
    };
 
@@ -142,6 +181,8 @@ export function Controls({
   return (
     <Card className="shadow-md rounded-lg overflow-hidden sticky bottom-4 backdrop-blur-sm bg-background/80 dark:bg-background/70 border">
       <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* preload="metadata" helps load duration and basic info quickly */}
+        {/* Consider adding crossOrigin="anonymous" if fetching from different domains and needed */}
         <audio ref={audioRef} preload="metadata" />
 
          {/* Verse Navigation & Input */}
@@ -338,3 +379,5 @@ export function Controls({
     </Card>
   );
 }
+
+      
