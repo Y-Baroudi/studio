@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'; // Added useEffect
 import type { Verse } from '@/services/alquran-cloud';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Bookmark, Tag, Share2, StickyNote, Volume2, PlayCircle } from 'lucide-react'; // Removed PauseCircle as playing indicator is different now
+import { Bookmark, Tag, Share2, StickyNote, Volume2 } from 'lucide-react'; // Removed PauseCircle/PlayCircle
 import {
   ContextMenu,
   ContextMenuContent,
@@ -160,9 +160,9 @@ export function VerseDisplay({
         {/* Main Verse Container */}
         <div
           className={cn(
-            "verse-container", // Base class with styling from globals.css
+            "verse-container", // Base class with styling from globals.css (includes base px-4)
             isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50", // Highlight focused verse
-            isPlaying && "playing" // Apply 'playing' class for audio highlight
+            isPlaying && "playing" // Apply 'playing' class for audio highlight (CSS handles border and padding adjustment)
           )}
           onClick={() => onClick(verse.verseNumber)}
           aria-current={isHighlighted ? "true" : "false"}
