@@ -35,6 +35,7 @@ const DEFAULT_RECITER_ID = 'ar.alafasy';
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_ARABIC_FONT_SIZE = 24;
 const DEFAULT_LINE_HEIGHT = 1.8;
+const DEFAULT_TRANSLATION_LINE_HEIGHT = 1.6; // Added specific line height for translation
 const SWIPE_THRESHOLD = 50;
 const VERSES_TO_LOAD_AT_ONCE = 10; // Adjust number of verses per batch
 const BISMILLAH_TEXT = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
@@ -51,9 +52,11 @@ export function ReaderView() {
   const [displayedVerses, setDisplayedVerses] = useState<Verse[]>([]); // Holds all loaded verses
   const [playingVerseNumber, setPlayingVerseNumber] = useState<number | null>(null); // Track playing audio
 
+  // State for font sizes and line heights, managed by SettingsPanel
   const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE);
   const [arabicFontSize, setArabicFontSize] = useState<number>(DEFAULT_ARABIC_FONT_SIZE);
-  const [lineHeight, setLineHeight] = useState<number>(DEFAULT_LINE_HEIGHT);
+  const [lineHeight, setLineHeight] = useState<number>(DEFAULT_LINE_HEIGHT); // Primarily for Arabic
+  const [translationLineHeight, setTranslationLineHeight] = useState<number>(DEFAULT_TRANSLATION_LINE_HEIGHT); // For English
 
   const [isLoadingMeta, setIsLoadingMeta] = useState<boolean>(true);
   const [isLoadingReciters, setIsLoadingReciters] = useState<boolean>(true);
@@ -75,6 +78,9 @@ export function ReaderView() {
   const verseRefs = useRef<Map<number, HTMLDivElement | null>>(new Map()); // Refs for individual verse elements
   const isProgrammaticScroll = useRef<boolean>(false); // Flag to prevent scroll events during programmatic scroll
   const programmaticScrollTimeout = useRef<NodeJS.Timeout | null>(null); // Timeout for programmatic scroll flag
+  const fixedHeaderRef = useRef<HTMLDivElement>(null); // Ref for the fixed header
+  const controlsRef = useRef<HTMLDivElement>(null); // Ref for the controls component
+
 
   // useInView setup requires the root element to exist when initialized.
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
@@ -82,6 +88,16 @@ export function ReaderView() {
     root: scrollContainerRef.current, // Pass the ref here
     rootMargin: '0px 0px 100px 0px', // Trigger loading a bit before the element is fully in view
   });
+
+   // --- Apply dynamic styles ---
+   useEffect(() => {
+     const root = document.documentElement;
+     root.style.setProperty('--arabic-font-size', `${arabicFontSize}px`);
+     root.style.setProperty('--translation-font-size', `${fontSize}px`);
+     root.style.setProperty('--verse-line-height', `${lineHeight}`);
+     root.style.setProperty('--translation-line-height', `${translationLineHeight}`);
+   }, [arabicFontSize, fontSize, lineHeight, translationLineHeight]);
+
 
   // --- Fetch Metadata, Reciters, Translations ---
   const fetchInitialData = useCallback(async () => {
@@ -534,6 +550,9 @@ export function ReaderView() {
   const handleFontSizeChange = (value: number[]) => setFontSize(value[0]);
   const handleArabicFontSizeChange = (value: number[]) => setArabicFontSize(value[0]);
   const handleLineHeightChange = (value: number[]) => setLineHeight(value[0]);
+  // Need handler for translation line height too if adjustable
+  const handleTranslationLineHeightChange = (value: number[]) => setTranslationLineHeight(value[0]);
+
 
   // --- Verse Input/Slider Handlers ---
   const handleVerseInputBlur = (e: ChangeEvent<HTMLInputElement>) => {
@@ -684,12 +703,33 @@ export function ReaderView() {
   const currentSurahMetaData = quranMeta?.surahs.references.find(s => s?.number === currentSurahNumber) ?? null;
   const showBismillah = currentSurahMetaData && currentSurahMetaData.number !== 1 && currentSurahMetaData.number !== 9;
 
+  // Calculate scroll container height dynamically
+  const [scrollContainerHeight, setScrollContainerHeight] = useState('calc(100vh - 200px)'); // Default guess
+
+  useEffect(() => {
+      const headerHeight = fixedHeaderRef.current?.offsetHeight ?? 0;
+      const controlsHeight = controlsRef.current?.offsetHeight ?? 0;
+      const calculatedHeight = `calc(100vh - ${headerHeight}px - ${controlsHeight}px - 1rem)`; // 1rem buffer
+      // console.log(`Calculated Height: ${calculatedHeight} (Header: ${headerHeight}, Controls: ${controlsHeight})`);
+      setScrollContainerHeight(calculatedHeight);
+  }, [fixedHeaderRef.current, controlsRef.current, isMobile]); // Recalculate on mobile toggle too
+
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-4 pb-32 relative">
+    // Add direction based on language for overall layout (useful for LTR/RTL consistency)
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-0 pb-0 relative" dir="ltr">
 
       {/* Fixed Surah Header */}
-      <div className="sticky top-0 z-20 bg-background border-b border-border shadow-sm p-3 md:p-4">
+      <div
+        ref={fixedHeaderRef} // Add ref
+        className="sticky top-0 z-20 bg-background border-b border-border shadow-sm p-3 md:p-4 sticky-header" // Apply sticky class
+        style={{
+            position: '-webkit-sticky', /* Safari */
+            position: 'sticky',
+            top: 0,
+            zIndex: 1000, /* Ensure it's on top */
+        }}
+        >
          {currentSurahMetaData ? (
              <div className="flex justify-between items-start gap-4">
                {/* Left: English Info */}
@@ -727,11 +767,14 @@ export function ReaderView() {
       {/* Main Scrollable Content Area */}
        {/* Apply Tailwind classes for overflow and height */}
       <div
-        className="flex-grow overflow-hidden rounded-lg border border-border shadow-md relative bg-card h-[calc(100vh-280px)]" // Adjusted height, use vh and subtract header/controls height
+        className="flex-grow overflow-hidden rounded-lg relative bg-card" // Removed fixed height, rely on dynamic calculation
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto' }} // Allow vertical pan
+        style={{
+            touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto',
+            height: scrollContainerHeight // Apply calculated height
+        }}
       >
           {/* Wrap content in ScrollArea, ensure it fills parent height */}
           <ScrollArea
@@ -798,9 +841,9 @@ export function ReaderView() {
                 <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)}>
                     <VerseDisplay
                         verse={verse}
-                        fontSize={fontSize}
-                        arabicFontSize={arabicFontSize}
-                        lineHeight={lineHeight}
+                        fontSize={fontSize} // Passed but CSS variables are used now
+                        arabicFontSize={arabicFontSize} // Passed but CSS variables are used now
+                        lineHeight={lineHeight} // Passed but CSS variables are used now
                         onContextMenu={handleVerseContextMenu}
                         onClick={handleVerseClick} // Pass click handler
                         isHighlighted={verse.verseNumber === currentAbsoluteVerse}
@@ -853,31 +896,34 @@ export function ReaderView() {
       </div>
 
 
-      {/* Controls fixed at the bottom */}
-      <Controls
-        verseNumber={currentAbsoluteVerse}
-        audioUrl={currentVerseDataForAudio?.audioUrl ?? null} // Pass audio URL for the *focused* verse
-        reciters={reciters}
-        selectedReciter={selectedReciter}
-        onNextVerse={handleNextVerseFocus} // Changed to focus control
-        onPreviousVerse={handlePreviousVerseFocus} // Changed to focus control
-        onReciterChange={handleReciterChange}
-        onVerseInputChange={handleVerseInputChange} // Sync local state in Controls
-        onVerseInputBlur={handleVerseInputBlur} // Trigger navigation
-        onVerseSliderChange={handleVerseSliderChange} // Visual update only (updates currentAbsoluteVerse)
-        onVerseSliderCommit={handleVerseSliderCommit} // Navigation on release
-        onJuzChange={handleJuzChange}
-        onPageChange={handlePageChange}
-        isLoading={isAnythingLoading} // Disable controls if anything is loading
-        isLoadingReciters={isLoadingReciters} // Pass reciter loading state
-        quranMeta={quranMeta}
-        onPlay={handleAudioPlay}
-        onPause={handleAudioPause}
-        onEnded={handleAudioEnd}
-        onError={handleAudioError}
-        updatePlayingVerse={updatePlayingVerseCallback}
-        onOpenSettings={toggleSettingsPanel} // Pass the toggle function
-      />
+       {/* Controls Area */}
+       <div ref={controlsRef} className="sticky bottom-0 z-10 w-full">
+         <Controls
+           verseNumber={currentAbsoluteVerse}
+           audioUrl={currentVerseDataForAudio?.audioUrl ?? null} // Pass audio URL for the *focused* verse
+           reciters={reciters}
+           selectedReciter={selectedReciter}
+           onNextVerse={handleNextVerseFocus} // Changed to focus control
+           onPreviousVerse={handlePreviousVerseFocus} // Changed to focus control
+           onReciterChange={handleReciterChange}
+           onVerseInputChange={handleVerseInputChange} // Sync local state in Controls
+           onVerseInputBlur={handleVerseInputBlur} // Trigger navigation
+           onVerseSliderChange={handleVerseSliderChange} // Visual update only (updates currentAbsoluteVerse)
+           onVerseSliderCommit={handleVerseSliderCommit} // Navigation on release
+           onJuzChange={handleJuzChange}
+           onPageChange={handlePageChange}
+           isLoading={isAnythingLoading} // Disable controls if anything is loading
+           isLoadingReciters={isLoadingReciters} // Pass reciter loading state
+           quranMeta={quranMeta}
+           onPlay={handleAudioPlay}
+           onPause={handleAudioPause}
+           onEnded={handleAudioEnd}
+           onError={handleAudioError}
+           updatePlayingVerse={updatePlayingVerseCallback}
+           onOpenSettings={toggleSettingsPanel} // Pass the toggle function
+         />
+       </div>
+
 
        {/* Floating Action Buttons (FAB) Area */}
        <div className="fixed bottom-24 right-4 md:right-6 z-20 flex flex-col gap-3">
@@ -942,6 +988,8 @@ export function ReaderView() {
         onFontSizeChange={handleFontSizeChange}
         onArabicFontSizeChange={handleArabicFontSizeChange}
         onLineHeightChange={handleLineHeightChange}
+        // Pass translation line height handler if needed in SettingsPanel
+        // onTranslationLineHeightChange={handleTranslationLineHeightChange}
         onTranslationChange={handleTranslationChange}
         isLoading={isLoadingTranslations || isLoadingMeta} // Disable relevant controls while loading
       />

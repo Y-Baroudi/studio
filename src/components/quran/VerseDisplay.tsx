@@ -59,8 +59,8 @@ export function VerseDisplay({
 
   // --- Verse Number ---
   // Ensure verseReference exists and split safely
-  const ayahNumberDisplay = verse.verseReference?.split(':')[1] ?? '?';
-  const surahNumberDisplay = verse.verseReference?.split(':')[0] ?? '?';
+  const ayahNumberDisplay = verse.ayahNumberInSurah?.toString() ?? '?'; // Use ayahNumberInSurah directly
+  const surahNumberDisplay = verse.surah?.number?.toString() ?? '?';
   const verseReferenceDisplay = `${surahNumberDisplay}:${ayahNumberDisplay}`;
 
 
@@ -167,7 +167,7 @@ export function VerseDisplay({
         {/* Main Verse Container */}
         <div
           className={cn(
-            "relative border-b border-border/30 py-4 px-2 md:px-4 mb-6 pb-6", // Base padding and margin
+            "relative border-b border-border/30 py-4 px-2 md:px-4 mb-6 pb-10", // Increased bottom padding for verse numbers
             "transition-colors duration-200 cursor-pointer",
             "hover:bg-accent/5 dark:hover:bg-accent/10",
             isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 border-l-2 border-primary pl-3",
@@ -201,56 +201,56 @@ export function VerseDisplay({
             <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
 
                {/* Arabic Text Column (Right for LTR context, but RTL content) */}
-                <div dir="rtl" className="order-1 flex flex-col items-end">
+                <div dir="rtl" className="order-1 flex flex-col items-end relative"> {/* Add relative positioning */}
                   {/* Arabic Text Paragraph */}
                   <p
                     className={cn(
-                        "font-amiri text-foreground text-right mb-2", // Use Amiri, align right
-                        "text-2xl leading-loose tracking-normal", // Tailwind classes for size & line height
+                        "font-amiri text-foreground text-right! mb-2 text-arabic-display", // Use new class, force alignment
+                        // Using CSS variables now for font size / line height: text-2xl leading-loose tracking-normal
                     )}
                     lang="ar"
                   >
                     {displayArabicText}
-                     {/* Arabic Verse Number Indicator (inside the paragraph) */}
-                     <span
-                       className={cn(
-                        "text-xs font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none",
-                        "align-baseline" // Adjust vertical alignment if needed
-                       )}
-                       dir="ltr" // Ensure number renders LTR
-                       aria-hidden="true"
-                     >
-                       ﴿{ayahNumberDisplay}﴾
-                     </span>
                   </p>
+                  {/* Arabic Verse Number Indicator (absolute positioned) */}
+                  <span
+                    className={cn(
+                      "verse-number-arabic text-foreground/60 font-sans", // Use new class
+                      "absolute bottom-0 right-2" // Position bottom-right
+                    )}
+                    dir="ltr" // Ensure number renders LTR
+                    aria-hidden="true"
+                  >
+                    ﴿{verseReferenceDisplay}﴾
+                  </span>
                </div>
 
               {/* Vertical Separator (Hidden on mobile) */}
               <Separator orientation="vertical" className="h-auto hidden md:block order-2 border-border/50" />
 
               {/* English Translation Column (Left for LTR context) */}
-                <div dir="ltr" className="order-2 md:order-1 flex flex-col items-start">
+                <div dir="ltr" className="order-2 md:order-1 flex flex-col items-start relative"> {/* Add relative positioning */}
                    {/* English Translation Paragraph */}
                   <p
                     className={cn(
-                        "text-foreground text-left", // Align left
-                        "text-base leading-relaxed tracking-wide" // Tailwind classes for size & line height
+                        "text-foreground text-left! text-translation-display", // Use new class, force alignment
+                        // Using CSS variables now for font size / line height: text-base leading-relaxed tracking-wide
                     )}
                     lang="en"
                   >
                      {displayEnglishTranslation}
-                      {/* English Verse Number Indicator (inside the paragraph) */}
-                     <span
-                       className={cn(
-                        "text-xs font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none",
-                        "align-baseline" // Adjust vertical alignment if needed
-                       )}
-                       aria-hidden="true"
-                     >
-                       ({verseReferenceDisplay})
-                     </span>
                   </p>
-               </div>
+                  {/* English Verse Number Indicator (absolute positioned) */}
+                  <span
+                    className={cn(
+                      "verse-number-translation text-foreground/60 font-sans", // Use new class
+                       "absolute bottom-0 left-2" // Position bottom-left
+                    )}
+                    aria-hidden="true"
+                  >
+                    ({verseReferenceDisplay})
+                  </span>
+                </div>
             </div>
         </div>
       </ContextMenuTrigger>
