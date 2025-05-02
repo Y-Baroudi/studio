@@ -160,11 +160,9 @@ export function VerseDisplay({
         {/* Main Verse Container */}
         <div
           className={cn(
-            "border-b border-border/30 py-4 px-2 md:px-4 mb-6", // Add margin-bottom for spacing
-            "transition-colors duration-200 cursor-pointer",
-            "hover:bg-accent/5 dark:hover:bg-accent/10",
-            isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 border-l-2 border-primary pl-3",
-            isPlaying && "bg-accent/10 dark:bg-accent/15 rounded-md"
+            "verse-container", // Base class with styling from globals.css
+            isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50", // Highlight focused verse
+            isPlaying && "playing" // Apply 'playing' class for audio highlight
           )}
           onClick={() => onClick(verse.verseNumber)}
           aria-current={isHighlighted ? "true" : "false"}
@@ -172,6 +170,10 @@ export function VerseDisplay({
           role="article"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(verse.verseNumber); }}
+          // Add data attributes for potential targeting
+          data-surah={verse.surah?.number}
+          data-verse={verse.ayahNumberInSurah}
+          data-verse-abs={verse.verseNumber}
         >
 
            {/* Grid layout for Arabic and Translation */}
@@ -189,7 +191,7 @@ export function VerseDisplay({
                   >
                     {displayArabicText}
                     {/* Inline Verse Number */}
-                     <span className="verse-number-inline-arabic" dir="ltr">({verseReferenceDisplay})</span>
+                     <span className="verse-number-inline" dir="ltr">({verseReferenceDisplay})</span>
                   </p>
                </div>
 
@@ -208,7 +210,7 @@ export function VerseDisplay({
                   >
                      {displayEnglishTranslation}
                      {/* Inline Verse Number */}
-                     <span className="verse-number-inline-translation">({verseReferenceDisplay})</span>
+                     <span className="verse-number-inline">({verseReferenceDisplay})</span>
                   </p>
                 </div>
             </div>

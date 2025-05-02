@@ -180,14 +180,31 @@ body {
   }
 
   /* Inline Verse Number Indicators */
-  .verse-number-inline-arabic,
-  .verse-number-inline-translation {
+  .verse-number-inline {
     @apply inline-block mx-1 font-sans text-muted-foreground text-opacity-70; /* Use muted foreground */
     font-size: 0.6em !important; /* Smaller size */
     line-height: 1; /* Prevent interference */
     direction: ltr !important; /* Force LTR for numbers */
     vertical-align: middle; /* Better alignment */
     user-select: none; /* Prevent selection */
+  }
+
+  /* Verse Container Styling */
+  .verse-container {
+    @apply transition-colors duration-300 ease-in-out;
+    border-left: 0px solid transparent; /* Start with no border */
+    padding-left: 0;
+    margin-bottom: 1rem; /* Spacing between verses */
+    padding-bottom: 1rem; /* Spacing before border */
+    border-bottom-width: 1px;
+    border-bottom-color: hsl(var(--border) / 0.3); /* Use theme border */
+  }
+
+  /* Highlight style for the currently playing verse */
+  .verse-container.playing {
+    @apply bg-primary/10 dark:bg-primary/15 rounded-md; /* Use theme primary with opacity */
+    border-left: 4px solid hsl(var(--primary)); /* Solid primary border */
+    padding-left: 1rem; /* Indent when highlighted */
   }
 }
 
