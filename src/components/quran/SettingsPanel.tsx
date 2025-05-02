@@ -24,12 +24,12 @@ interface SettingsPanelProps {
   fontSize: number;
   arabicFontSize: number;
   lineHeight: number;
-  translations: Translation[];
-  selectedTranslation: string;
+  translations: Translation[]; // Expecting array of Translation objects
+  selectedTranslation: string; // Expecting the ID string
   onFontSizeChange: (value: number[]) => void;
   onArabicFontSizeChange: (value: number[]) => void;
   onLineHeightChange: (value: number[]) => void;
-  onTranslationChange: (translationId: string) => void;
+  onTranslationChange: (translationId: string) => void; // Handler takes the ID string
   isLoading: boolean; // For disabling controls while loading
   // Add props for background color and UI toggles later
 }
@@ -40,7 +40,7 @@ export function SettingsPanel({
   fontSize,
   arabicFontSize,
   lineHeight,
-  translations,
+  translations = [], // Default to empty array
   selectedTranslation,
   onFontSizeChange,
   onArabicFontSizeChange,
@@ -58,6 +58,9 @@ export function SettingsPanel({
   // Line Height Controls
   const increaseLineHeight = () => onLineHeightChange([Math.min(lineHeight + 0.1, 2.5)]);
   const decreaseLineHeight = () => onLineHeightChange([Math.max(lineHeight - 0.1, 1.2)]);
+
+  // Find the name of the selected translation for display
+  const selectedTranslationName = translations.find(t => t.id === selectedTranslation)?.name ?? "Select Translation";
 
   return (
      // The Sheet component itself is still used, but it's controlled by the isOpen prop
@@ -81,22 +84,26 @@ export function SettingsPanel({
                 <TextQuote className="h-4 w-4 text-muted-foreground"/> Translation
              </Label>
              <Select
-                value={selectedTranslation}
-                onValueChange={onTranslationChange}
+                value={selectedTranslation || ""} // Use selected ID or empty string if null/undefined
+                onValueChange={onTranslationChange} // Calls handler with the selected ID (string)
                 disabled={isLoading || translations.length === 0}
               >
                <SelectTrigger id="translation-select" className="w-full">
-                  <SelectValue placeholder="Select Translation" />
+                 {/* Display the name of the selected translation */}
+                  <SelectValue placeholder="Select Translation">{selectedTranslationName}</SelectValue>
                </SelectTrigger>
                <SelectContent>
                  <SelectGroup>
                     <SelectLabel>English Translations</SelectLabel>
-                     {translations.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
+                     {/* Ensure translations is an array before mapping */}
+                     {Array.isArray(translations) && translations.map((t) => (
+                        <SelectItem key={t.id} value={t.id}> {/* Value is the ID */}
                            {t.name} <span className="text-xs text-muted-foreground ml-1">({t.translator})</span>
                         </SelectItem>
                      ))}
-                     {translations.length === 0 && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                     {/* Show loading/empty state */}
+                     {isLoading && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                     {!isLoading && translations.length === 0 && <SelectItem value="none" disabled>No translations available</SelectItem>}
                  </SelectGroup>
                </SelectContent>
              </Select>
