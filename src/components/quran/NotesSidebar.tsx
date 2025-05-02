@@ -8,9 +8,9 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
-  SheetFooter, // Import Footer
-  SheetClose, // Import Close
+  // SheetTrigger, // Removed SheetTrigger import
+  SheetFooter,
+  SheetClose,
 } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea'; // Use Textarea for notes
@@ -111,18 +111,9 @@ export function NotesSidebar({
   const hasNote = noteContent.length > 0 || tags.length > 0; // Simple check based on current state
 
   return (
+     // The Sheet component itself is still used, but it's controlled by the isOpen prop
      <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetTrigger asChild>
-         <Button variant="outline" size="icon" aria-label="Open Notes" className="relative">
-            <Notebook className="h-5 w-5" />
-            {/* Note Indicator: Simple dot if note exists */}
-            {/* Replace with actual logic based on saved notes */}
-            {/* {hasNote && ( */}
-            {/*   <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" title="Note exists" /> */}
-            {/* )} */}
-             <span className="sr-only">Open Notes Panel</span>
-          </Button>
-      </SheetTrigger>
+      {/* The SheetTrigger is removed from here. The FAB in ReaderView now controls the 'isOpen' state. */}
       <SheetContent className="sm:max-w-lg flex flex-col"> {/* Increase max width and make flex column */}
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">

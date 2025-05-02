@@ -19,7 +19,7 @@ import { NotesSidebar } from './NotesSidebar';
 import { SettingsPanel } from './SettingsPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info } from 'lucide-react'; // Added Info icon
+import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Added Notebook icon
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area'; // For scrollable container
@@ -442,7 +442,7 @@ export function ReaderView() {
           scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth');
         }
      }
-   }, [quranMeta, currentSurahNumber, displayedVerses, loadVerses, scrollToVerse, toast, selectedTranslation, selectedReciter]); // Added dependencies
+   }, [quranMeta, currentSurahNumber, displayedVerses, scrollToVerse, toast, selectedTranslation, selectedReciter]); // Removed loadVerses, added selectedTranslation, selectedReciter
 
 
     const handleNextVerseFocus = useCallback(() => {
@@ -479,8 +479,11 @@ export function ReaderView() {
                .then(verses => {
                  if (verses) {
                    setDisplayedVerses(verses);
-                    // Resync focused verse audio URL
-                    setCurrentAbsoluteVerse(prev => prev); // Trigger re-render or find better way
+                    // Resync focused verse audio URL (find the verse data again)
+                    const currentVerseIndex = verses.findIndex(v => v.verseNumber === currentAbsoluteVerse);
+                    if (currentVerseIndex > -1) {
+                        // Trigger a state update implicitly if needed, or directly manage audioUrl if controls handle it internally
+                    }
                  } else {
                    setError(`Failed to update audio for Surah ${currentSurahNumber}.`);
                  }
@@ -600,10 +603,9 @@ export function ReaderView() {
 
   // --- Swipe Gestures ---
    const handleTouchStart = (e: React.TouchEvent) => {
-        // Prevent swipe if scrolling vertically
        if (e.touches.length === 1) {
            touchStartX.current = e.targetTouches[0].clientX;
-           touchEndX.current = e.targetTouches[0].clientX; // Initialize endX
+           touchEndX.current = e.targetTouches[0].clientX;
        }
     };
     const handleTouchMove = (e: React.TouchEvent) => {
@@ -614,16 +616,10 @@ export function ReaderView() {
     const handleTouchEnd = () => {
         if (!isMobile || touchStartX.current === null || touchEndX.current === null) return;
         const dx = touchEndX.current - touchStartX.current;
-
-        // Ignore minor horizontal movements
         if (Math.abs(dx) > SWIPE_THRESHOLD) {
-            if (dx > 0) { // Swipe right (previous)
-                handlePreviousVerseFocus();
-            } else { // Swipe left (next)
-                handleNextVerseFocus();
-            }
+            if (dx > 0) { handlePreviousVerseFocus(); }
+            else { handleNextVerseFocus(); }
         }
-        // Reset touch coordinates
         touchStartX.current = null;
         touchEndX.current = null;
     };
@@ -636,7 +632,6 @@ export function ReaderView() {
    const handleAudioPlay = () => {
       console.log("handleAudioPlay called, verse:", currentAbsoluteVerse);
       setPlayingVerseNumber(currentAbsoluteVerse);
-      // Scroll to the playing verse only if it's not currently centered
       const verseElement = verseRefs.current.get(currentAbsoluteVerse);
        if (verseElement) {
             const rect = verseElement.getBoundingClientRect();
@@ -666,8 +661,6 @@ export function ReaderView() {
    const handleAudioError = (errorMsg: string) => {
         console.error("Received audio error:", errorMsg);
         setPlayingVerseNumber(null);
-         // Display error in UI instead of just toast?
-         // Check if the error message is different from the current main error
          if (!error || !error.includes(errorMsg.substring(0, 30))) {
              toast({ title: "Audio Playback Error", description: errorMsg, variant: "destructive" });
          }
@@ -676,8 +669,6 @@ export function ReaderView() {
        setPlayingVerseNumber(verseNum);
        if (verseNum !== null && verseNum !== currentAbsoluteVerse) {
           setCurrentAbsoluteVerse(verseNum);
-          // Optionally scroll
-          // scrollToVerse(verseNum);
        }
     }, [currentAbsoluteVerse]);
 
@@ -722,15 +713,6 @@ export function ReaderView() {
                     {currentSurahMetaData.revelationType}
                   </p>
                </div>
-                {/* Optional: Info Icon/Tooltip */}
-                 {/* <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                       <Button variant="ghost" size="icon" className="w-6 h-6 ml-auto"> <Info className="h-4 w-4 text-muted-foreground"/> </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">More Surah Info (Placeholder)</TooltipContent>
-                  </Tooltip>
-                 </TooltipProvider> */}
              </div>
          ) : (
              // Placeholder while loading metadata
@@ -822,7 +804,6 @@ export function ReaderView() {
                         onClick={handleVerseClick} // Pass click handler
                         isHighlighted={verse.verseNumber === currentAbsoluteVerse}
                         isPlaying={verse.verseNumber === playingVerseNumber}
-                        // Header info is now in the fixed header, remove props if not needed by VerseDisplay itself
                     />
                 </div>
               ))}
@@ -894,17 +875,19 @@ export function ReaderView() {
         onEnded={handleAudioEnd}
         onError={handleAudioError}
         updatePlayingVerse={updatePlayingVerseCallback}
+        onOpenSettings={toggleSettingsPanel} // Pass the toggle function
       />
 
        {/* Floating Action Buttons (FAB) Area */}
        <div className="fixed bottom-24 right-4 md:right-6 z-20 flex flex-col gap-3">
+          {/* Settings Button */}
            <TooltipProvider>
                <Tooltip>
                    <TooltipTrigger asChild>
                        <Button
                            variant="default"
                            size="icon"
-                           className="h-14 w-14 rounded-full shadow-lg"
+                           className="h-12 w-12 rounded-full shadow-lg" // Slightly larger FAB
                            aria-label="Open Settings"
                            onClick={toggleSettingsPanel}
                            disabled={isAnythingLoading} // Disable if anything is loading
@@ -915,14 +898,34 @@ export function ReaderView() {
                    <TooltipContent side="left"><p>Display Settings</p></TooltipContent>
                </Tooltip>
            </TooltipProvider>
+            {/* Notes Button */}
+             <TooltipProvider>
+               <Tooltip>
+                   <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-12 w-12 rounded-full shadow-lg border bg-background" // Style as secondary FAB
+                        aria-label="Open Notes"
+                        onClick={toggleNotesSidebar}
+                      >
+                        <Notebook className="h-6 w-6" />
+                      </Button>
+                   </TooltipTrigger>
+                   <TooltipContent side="left"><p>Notes</p></TooltipContent>
+               </Tooltip>
+           </TooltipProvider>
+
+           {/* Placeholder: Keep NotesSidebar component, but trigger it from FAB */}
            <NotesSidebar
                currentVerseNumber={currentAbsoluteVerse}
                isOpen={isNotesSidebarOpen}
                onOpenChange={setIsNotesSidebarOpen}
                surahName={currentSurahMetaData?.englishName ?? ''}
                ayahNumber={currentVerseDataForSidebars?.ayahNumberInSurah?.toString() ?? ''}
+               // The trigger is now the FAB, so this component won't render its own trigger button
            />
-           {/* Add other FABs here if needed */}
+
        </div>
 
 
@@ -944,5 +947,3 @@ export function ReaderView() {
     </div>
   );
 }
-
-    
