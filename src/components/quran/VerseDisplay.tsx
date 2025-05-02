@@ -1,10 +1,11 @@
 
+
 import React, { useState, useEffect } from 'react'; // Added useEffect
 import type { Verse } from '@/services/alquran-cloud';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Bookmark, Tag, Share2, StickyNote, Volume2 } from 'lucide-react'; // Import icons
+import { Bookmark, Tag, Share2, StickyNote, Volume2, PlayCircle, PauseCircle } from 'lucide-react'; // Added Play/Pause icons
 import {
   ContextMenu,
   ContextMenuContent,
@@ -20,12 +21,21 @@ interface VerseDisplayProps {
   arabicFontSize: number; // Font size for Arabic text in pixels
   lineHeight: number; // Line height multiplier for both texts
   onContextMenu: (verseNumber: number) => void; // Handler for context menu actions
+  isHighlighted: boolean; // Is this verse currently focused/selected?
+  isPlaying: boolean; // Is audio currently playing for this verse?
 }
 
-export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onContextMenu }: VerseDisplayProps) {
+export function VerseDisplay({
+    verse,
+    fontSize,
+    arabicFontSize,
+    lineHeight,
+    onContextMenu,
+    isHighlighted,
+    isPlaying
+}: VerseDisplayProps) {
   // --- State ---
   const [isBookmarked, setIsBookmarked] = useState(false); // Example state for bookmark
-  const [isHighlighted, setIsHighlighted] = useState(false); // Example state for highlight
   const [synth, setSynth] = useState<SpeechSynthesis | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
@@ -37,14 +47,10 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
     } else {
         console.warn("Speech synthesis not supported in this browser.");
     }
-    // Cleanup function to stop speaking if component unmounts
     return () => {
-        if (synth && synth.speaking) {
-            synth.cancel();
-            setIsSpeaking(false);
-        }
+        if (synth && synth.speaking) { synth.cancel(); setIsSpeaking(false); }
     };
-}, [synth]); // Re-run only if synth changes (which it shouldn't often)
+   }, [synth]);
 
 
   // --- Styles ---
@@ -61,32 +67,32 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
   };
 
   // --- Bismillah Logic ---
-  const ayahNumberInSurah = verse.verseReference ? parseInt(verse.verseReference.split(':')[1], 10) : 0;
+  const ayahNumberInSurah = verse.ayahNumberInSurah;
   const showBismillah = ayahNumberInSurah === 1 && verse.surah?.number !== 1 && verse.surah?.number !== 9;
   const bismillahText = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
   // --- Verse Number ---
-  const ayahNumber = verse.verseReference ? verse.verseReference.split(':')[1] : '?';
+  const ayahNumberDisplay = verse.verseReference ? verse.verseReference.split(':')[1] : '?';
 
   // --- Event Handlers ---
   const handleVerseClick = () => {
-    // Toggle highlight on click/tap
-    setIsHighlighted(!isHighlighted);
-    console.log(`Verse ${verse.verseNumber} clicked/tapped. Highlight: ${!isHighlighted}`);
+    // Clicking a verse could set it as the 'current' verse for playback/notes
+    // This might be handled in the parent (ReaderView) now to update the main currentVerseNumber state
+    console.log(`Verse ${verse.verseNumber} clicked/tapped.`);
+    // Optionally trigger context menu or specific action on simple click
+    // For now, highlight is driven by isHighlighted prop from parent
   };
 
   // --- Context Menu Action Handlers ---
   const handleAddNote = () => {
     console.log(`Add Note clicked for verse ${verse.verseNumber}`);
     onContextMenu(verse.verseNumber); // Propagate event to open sidebar/modal
-    toast({ title: "Note", description: `Add note for Surah ${verse.surah?.englishName}, Ayah ${ayahNumber}.` });
+    toast({ title: "Note", description: `Add note for Surah ${verse.surah?.englishName}, Ayah ${ayahNumberDisplay}.` });
   };
 
   const handleTagVerse = () => {
     console.log(`Tag Verse clicked for verse ${verse.verseNumber}`);
-    // onContextMenu(verse.verseNumber); // Might not need propagation for this
     toast({ title: "Tag", description: `Tagging functionality for verse ${verse.verseNumber} (coming soon).` });
-    // Implement tagging logic here
   };
 
   const handleShareVerse = async () => {
@@ -94,14 +100,12 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
     const shareData = {
         title: `Quran Verse: ${verse.surah?.englishName} ${verse.verseReference}`,
         text: `"${verse.englishTranslation}"\n\n${verse.arabicText}\n\n(Quran ${verse.verseReference})`,
-        // url: window.location.href // Optional: share the current page URL
     };
     try {
         if (navigator.share) {
             await navigator.share(shareData);
             toast({ title: "Shared", description: `Verse ${verse.verseReference} shared.` });
         } else {
-            // Fallback for browsers that don't support navigator.share
             await navigator.clipboard.writeText(shareData.text);
             toast({ title: "Copied", description: `Verse ${verse.verseReference} copied to clipboard.` });
         }
@@ -109,16 +113,14 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
         console.error("Share failed:", err);
         toast({ title: "Share Error", description: "Could not share or copy the verse.", variant: "destructive" });
     }
-    // onContextMenu(verse.verseNumber); // Might not need propagation
   };
 
   const handleBookmarkToggle = () => {
     const newState = !isBookmarked;
     setIsBookmarked(newState);
-    // Save bookmark state persistence logic here (e.g., localStorage, database)
+    // Save bookmark state persistence logic here
     console.log(`Bookmark ${newState ? 'added' : 'removed'} for verse ${verse.verseNumber}`);
     toast({ title: newState ? "Bookmarked" : "Bookmark Removed", description: `Verse ${verse.verseReference} ${newState ? 'bookmarked' : 'bookmark removed'}.` });
-    // onContextMenu(verse.verseNumber); // Might not need propagation
   };
 
     // --- Text-to-Speech Handler ---
@@ -128,17 +130,14 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
             return;
         }
         if (synth.speaking) {
-            synth.cancel(); // Stop current speech if any
+            synth.cancel();
             setIsSpeaking(false);
-            if (isSpeaking) return; // If we just stopped it, don't immediately restart
+            if (isSpeaking) return;
         }
 
         if (verse.englishTranslation) {
             const utterance = new SpeechSynthesisUtterance(verse.englishTranslation);
-            // Optional: Configure voice, rate, pitch etc.
-            // const voices = synth.getVoices();
-            // utterance.voice = voices.find(v => v.lang === 'en-US') || voices[0];
-            utterance.rate = 0.9; // Slightly slower for clarity
+            utterance.rate = 0.9;
             utterance.pitch = 1.0;
             utterance.onstart = () => setIsSpeaking(true);
             utterance.onend = () => setIsSpeaking(false);
@@ -155,7 +154,6 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
 
 
   // --- Render Logic ---
-  // Handle cases where verse data might be partially missing
   const displayArabicText = verse.arabicText ?? "Arabic text not available.";
   const displayEnglishTranslation = verse.englishTranslation ?? "Translation not available.";
 
@@ -163,15 +161,17 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Card
+        {/* Use a standard div as trigger for better layout control within ScrollArea */}
+        <div
           className={cn(
-            "bg-card border border-border shadow-md flex flex-col transition-colors duration-200 cursor-pointer", // Added cursor-pointer
-            isHighlighted && "bg-accent/10 border-primary/50 ring-1 ring-primary/50" // Enhanced highlight style
+            "border border-border rounded-lg shadow-sm transition-colors duration-200 overflow-hidden",
+             isHighlighted && "ring-2 ring-primary/80", // Highlight focused verse
+             isPlaying && "bg-accent/5 dark:bg-accent/10" // Subtle background for playing verse
           )}
-          onClick={handleVerseClick} // Use onClick for tap/click highlight
+          onClick={handleVerseClick}
           aria-label={`Verse ${verse.verseReference}. Arabic: ${displayArabicText}. Translation: ${displayEnglishTranslation}`}
         >
-          <CardHeader className="pb-2 pt-4 px-4 md:px-6 relative">
+          <CardHeader className="pb-2 pt-4 px-4 md:px-6 relative bg-card"> {/* Header background */}
             {/* Bismillah */}
             {showBismillah && (
               <p className="font-bismillah text-center text-foreground mb-4" aria-hidden="true">
@@ -191,28 +191,35 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
               {/* Arabic Info */}
               <div className="text-right">
                 <CardTitle className="text-lg font-amiri font-normal text-foreground">
-                   {verse.surah?.name ? `${verse.surah.name}` : ''} {/* Display only Arabic name */}
+                   {verse.surah?.name ? `${verse.surah.name}` : ''}
                 </CardTitle>
                 <CardDescription className="text-right text-[0.6rem] italic text-foreground/60">
                    {verse.surah?.revelationType ?? ''}
                  </CardDescription>
               </div>
             </div>
+             {/* Play/Pause Indicator */}
+             {isPlaying && (
+                 <div className="absolute bottom-2 left-2 text-primary animate-pulse" title="Playing">
+                     <PlayCircle size={18} fill="currentColor" />
+                     <span className="sr-only">Playing</span>
+                 </div>
+             )}
              {/* Bookmark Indicator */}
              {isBookmarked && (
-                 <div className="absolute top-3 right-3 text-primary animate-pulse" title="Bookmarked">
+                 <div className="absolute top-3 right-3 text-primary" title="Bookmarked">
                      <Bookmark size={16} fill="currentColor" />
                      <span className="sr-only">Bookmarked</span>
                  </div>
              )}
           </CardHeader>
           <Separator className="mx-4 md:mx-6" />
-          <CardContent className="p-4 md:p-6 flex-grow">
+          <CardContent className="p-4 md:p-6 flex-grow bg-card"> {/* Content background */}
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
               {/* English Translation (Left) */}
               <div className="order-2 md:order-1">
                 <p className="text-foreground text-left tracking-wide" style={englishStyle}>
-                  <span className="text-xs font-semibold opacity-70 mr-1">{ayahNumber}.</span>
+                  <span className="text-xs font-semibold opacity-70 mr-1">{ayahNumberDisplay}.</span>
                   {displayEnglishTranslation}
                 </p>
               </div>
@@ -222,14 +229,14 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
               <div dir="rtl" className="order-1 md:order-3">
                 <p className="font-amiri text-foreground text-right tracking-normal" style={arabicStyle}>
                    {displayArabicText}
-                   <span className="text-sm font-normal opacity-70 mx-1 font-sans inline-block" aria-hidden="true">﴿{ayahNumber}﴾</span>
+                   <span className="text-sm font-normal opacity-70 mx-1 font-sans inline-block" aria-hidden="true">﴿{ayahNumberDisplay}﴾</span>
                 </p>
               </div>
             </div>
           </CardContent>
-        </Card>
+        </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-56"> {/* Increased width */}
+      <ContextMenuContent className="w-56">
         <ContextMenuItem onClick={handleAddNote}>
           <StickyNote className="mr-2 h-4 w-4" />
           <span>Add/View Note</span>
@@ -251,6 +258,11 @@ export function VerseDisplay({ verse, fontSize, arabicFontSize, lineHeight, onCo
            <Volume2 className="mr-2 h-4 w-4" />
            <span>{isSpeaking ? 'Stop Speaking' : 'Speak Translation'}</span>
          </ContextMenuItem>
+         {/* Add option to Play/Pause audio directly from context menu? */}
+         {/* <ContextMenuItem onClick={() => console.log('Play/Pause from context')}>
+             {isPlaying ? <PauseCircle className="mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+             <span>{isPlaying ? 'Pause Audio' : 'Play Audio'}</span>
+         </ContextMenuItem> */}
       </ContextMenuContent>
     </ContextMenu>
   );

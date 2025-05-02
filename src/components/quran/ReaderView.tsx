@@ -1,64 +1,88 @@
 
+
 'use client';
 
 import type { ChangeEvent } from 'react';
-import React, { useState, useEffect, useCallback, useRef } from 'react'; // Added useRef
-import type { Verse, Reciter, QuranMeta, Translation } from '@/services/alquran-cloud'; // Added Translation
-import { getVerse, getReciters, getQuranMeta, getTranslations, SUPPORTED_TRANSLATIONS } from '@/services/alquran-cloud'; // Added getTranslations, SUPPORTED_TRANSLATIONS
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import type { Verse, Reciter, QuranMeta, Translation } from '@/services/alquran-cloud';
+import { getVerse, getReciters, getQuranMeta, getTranslations, SUPPORTED_TRANSLATIONS, getSurahData, surahAyahToAbsoluteVerse, absoluteVerseToSurahAyah } from '@/services/alquran-cloud';
 import { VerseDisplay } from './VerseDisplay';
 import { Controls } from './Controls';
 import { NotesSidebar } from './NotesSidebar';
-import { SettingsPanel } from './SettingsPanel'; // Import SettingsPanel
+import { SettingsPanel } from './SettingsPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button'; // For settings toggle
-import { Settings } from 'lucide-react'; // Icon for settings
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // For FAB tooltip
-import { useIsMobile } from '@/hooks/use-mobile'; // Import hook to check for mobile
+import { Button } from '@/components/ui/button';
+import { Settings, ChevronDown, ChevronsDown, Loader2 } from 'lucide-react'; // Added loading/more icons
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { ScrollArea } from '@/components/ui/scroll-area'; // For scrollable container
+import { useInView } from 'react-intersection-observer'; // For detecting when to load more
 
 // Default values
 const DEFAULT_VERSE_NUMBER = 1;
-const DEFAULT_TRANSLATION_ID = SUPPORTED_TRANSLATIONS[0]?.id ?? ''; // Use first supported or empty string
+const DEFAULT_TRANSLATION_ID = SUPPORTED_TRANSLATIONS[0]?.id ?? '';
 const DEFAULT_RECITER_ID = 'ar.alafasy';
-const DEFAULT_FONT_SIZE = 16; // Default English font size
-const DEFAULT_ARABIC_FONT_SIZE = 24; // Default Arabic font size
-const DEFAULT_LINE_HEIGHT = 1.6; // Default line height
-const SWIPE_THRESHOLD = 50; // Minimum pixels for a swipe gesture
+const DEFAULT_FONT_SIZE = 16;
+const DEFAULT_ARABIC_FONT_SIZE = 24;
+const DEFAULT_LINE_HEIGHT = 1.6;
+const SWIPE_THRESHOLD = 50;
+const VERSES_TO_LOAD_AT_ONCE = 15; // Number of verses to load initially/incrementally
 
 export function ReaderView() {
   const [quranMeta, setQuranMeta] = useState<QuranMeta | null>(null);
-  const [currentVerseData, setCurrentVerseData] = useState<Verse | null>(null);
+  // --- State for Continuous Scrolling ---
+  const [displayedVerses, setDisplayedVerses] = useState<Verse[]>([]); // Array to hold currently shown verses
+  const [currentSurahNumber, setCurrentSurahNumber] = useState<number | null>(null); // Track the currently loaded surah
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false); // Loading state for fetching more verses
+  const [canLoadMore, setCanLoadMore] = useState<boolean>(true); // Flag if more verses can be loaded for the current surah
+  const [initialVerseLoadComplete, setInitialVerseLoadComplete] = useState<boolean>(false); // Track initial load
+
+  // --- Existing State ---
   const [reciters, setReciters] = useState<Reciter[]>([]);
-  const [translations, setTranslations] = useState<Translation[]>(SUPPORTED_TRANSLATIONS); // Initialize with supported fallback
+  const [translations, setTranslations] = useState<Translation[]>(SUPPORTED_TRANSLATIONS);
   const [selectedReciter, setSelectedReciter] = useState<string>(DEFAULT_RECITER_ID);
   const [selectedTranslation, setSelectedTranslation] = useState<string>(DEFAULT_TRANSLATION_ID);
-  const [currentVerseNumber, setCurrentVerseNumber] = useState<number>(DEFAULT_VERSE_NUMBER);
+  const [currentVerseNumber, setCurrentVerseNumber] = useState<number>(DEFAULT_VERSE_NUMBER); // The *focused* verse number
+  const [playingVerseNumber, setPlayingVerseNumber] = useState<number | null>(null); // Track which verse is currently playing audio
   const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE);
   const [arabicFontSize, setArabicFontSize] = useState<number>(DEFAULT_ARABIC_FONT_SIZE);
   const [lineHeight, setLineHeight] = useState<number>(DEFAULT_LINE_HEIGHT);
   const [isLoadingMeta, setIsLoadingMeta] = useState<boolean>(true);
-  const [isLoadingVerse, setIsLoadingVerse] = useState<boolean>(true);
+  const [isLoadingVerse, setIsLoadingVerse] = useState<boolean>(true); // Now represents loading the *initial* block or navigating
   const [isLoadingReciters, setIsLoadingReciters] = useState<boolean>(true);
   const [isLoadingTranslations, setIsLoadingTranslations] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] = useState(false);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false); // State for settings panel
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const { toast } = useToast();
-  const isMobile = useIsMobile(); // Check if mobile view
+  const isMobile = useIsMobile();
 
-  // Refs for swipe gesture
+  // Refs and Intersection Observer
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null); // Ref for the scrollable container
+  const verseRefs = useRef<Map<number, HTMLDivElement | null>>(new Map()); // Refs for individual verse elements
 
-  // Fetch Quran Metadata once on mount
+  const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
+    threshold: 0.1, // Trigger when 10% of the element is visible
+    // triggerOnce: true, // Don't trigger multiple times while visible
+  });
+
+  // --- Fetch Metadata, Reciters, Translations (Mostly unchanged) ---
   const fetchMetaData = useCallback(async () => {
     setIsLoadingMeta(true);
     setError(null);
     try {
       const meta = await getQuranMeta();
       setQuranMeta(meta);
+      // Trigger initial verse load once meta is available
+      const initialVerseLocation = absoluteVerseToSurahAyah(DEFAULT_VERSE_NUMBER, meta);
+      if (initialVerseLocation) {
+        setCurrentSurahNumber(initialVerseLocation.surahNumber);
+      }
     } catch (err) {
       console.error('Error fetching Quran metadata:', err);
       setError('Failed to load Quran structure. Please refresh.');
@@ -66,440 +90,481 @@ export function ReaderView() {
     } finally {
       setIsLoadingMeta(false);
     }
-  }, []);
+  }, []); // Removed dependency on DEFAULT_VERSE_NUMBER
 
   useEffect(() => {
     fetchMetaData();
   }, [fetchMetaData]);
 
-  // Fetch Verse Data
-   const fetchVerseData = useCallback(async (verseNum: number, translationId: string | null, reciterId: string | null, meta: QuranMeta | null) => {
-    if (!meta) {
-       setError("Cannot load verse: Quran metadata is missing.");
-       setIsLoadingVerse(false);
-       setCurrentVerseData(null);
+   // --- Fetch Verse/Surah Data Logic (Adapted for Continuous Scroll) ---
+   const loadSurahVerses = useCallback(async (surahNum: number, startVerseIndex: number = 0, count: number = VERSES_TO_LOAD_AT_ONCE) => {
+     if (!quranMeta || !translationIdentifier || !reciterIdentifier) {
+       console.warn("Cannot load verses: Missing metadata or edition selection.");
+       setError("Required data missing to load verses.");
+       setCanLoadMore(false); // Prevent further loading attempts
        return;
-    }
+     }
+     if (isLoadingMore || isLoadingVerse) return; // Prevent concurrent loads
 
-    setIsLoadingVerse(true);
-    setError(null); // Clear previous verse errors
+     const surahMeta = quranMeta.surahs.references.find(s => s.number === surahNum);
+     if (!surahMeta) {
+         setError(`Metadata for Surah ${surahNum} not found.`);
+         setCanLoadMore(false);
+         return;
+     }
 
-    try {
-        // Ensure IDs passed are not empty strings, convert to null if they are
-        const finalTranslationId = translationId || null;
-        const finalReciterId = reciterId || null;
-
-        const verse = await getVerse(verseNum, finalTranslationId, finalReciterId, meta);
-
-        // Check if the verse fetch succeeded and returned data (not null)
-        if (verse) {
-             // Additional check: if translation was requested but is null in response
-             if (finalTranslationId && verse.englishTranslation === null) {
-                 console.warn(`Translation ${finalTranslationId} requested but not found for verse ${verse.verseReference}.`);
-                  toast({
-                    title: "Translation Note",
-                    description: `The selected translation might not be available for verse ${verse.verseReference}.`,
-                    variant: "default",
-                  });
-             }
-             setCurrentVerseData(verse);
-        } else {
-            // getVerse returned null (e.g., 404 or critical error during fetch)
-            setError(`Failed to load data for verse ${verseNum}. It might be invalid or unavailable in the selected editions.`);
-            setCurrentVerseData(null); // Set to null to indicate failure
-             toast({
-               title: "Verse Load Error",
-               description: `Could not load verse ${verseNum}.`,
-               variant: "destructive",
-             });
-        }
-    } catch (err) {
-        // Catch errors thrown by getVerse itself (e.g., API errors 5xx, network issues)
-        console.error('Error fetching verse in ReaderView:', err);
-        const errorMessage = (err instanceof Error) ? err.message : 'An unexpected error occurred.';
-        setError(`Error loading verse ${verseNum}: ${errorMessage}. Please try again.`);
-        setCurrentVerseData(null); // Set to null on error
-         toast({
-            title: "Verse Load Error",
-            description: `Could not load verse ${verseNum}. ${errorMessage}`,
-            variant: "destructive",
-        });
-    } finally {
-        setIsLoadingVerse(false); // Stop loading indicator regardless of outcome
-    }
-}, [toast]); // Added toast dependency
-
-
-  // Fetch Reciter List
-  const fetchReciterList = useCallback(async () => {
-    setIsLoadingReciters(true);
-    setError(null);
-    try {
-      const fetchedReciters = await getReciters();
-      setReciters(fetchedReciters);
-      // Ensure the currently selected or default reciter is valid
-      if (fetchedReciters.length > 0) {
-         const isValidSelected = fetchedReciters.some(r => r.id === selectedReciter);
-         if (!isValidSelected) {
-             const defaultExists = fetchedReciters.some(r => r.id === DEFAULT_RECITER_ID);
-             const newReciter = defaultExists ? DEFAULT_RECITER_ID : fetchedReciters[0].id;
-             setSelectedReciter(newReciter);
-             console.log(`Selected reciter was invalid or empty, changed to ${newReciter}`);
-         }
-       } else {
-         console.warn("No audio reciters available from API or fallback.");
-         // setError("No audio reciters available."); // Maybe don't set a blocking error
-         setSelectedReciter(''); // Clear selected reciter if none available
-       }
-    } catch (err) {
-      console.error('Error fetching reciters:', err);
-      // setError('Failed to load reciter list.'); // Avoid setting blocking error if fallbacks work
-      setReciters([]); // Clear list if fetch fails completely
-      setSelectedReciter('');
-    } finally {
-        setIsLoadingReciters(false);
-    }
-  }, [selectedReciter]); // Depend on selectedReciter to potentially correct it
-
-  useEffect(() => {
-    fetchReciterList();
-  }, [fetchReciterList]); // Fetch reciters when component mounts
-
-   // Fetch Translation List
-  const fetchTranslationList = useCallback(async () => {
-    setIsLoadingTranslations(true);
-    setError(null); // Clear previous translation errors
-    try {
-      const fetchedTranslations = await getTranslations(); // This now handles fallbacks internally
-      setTranslations(fetchedTranslations); // Update state with fetched/fallback list
-
-      // Ensure the currently selected translation is valid within the fetched/fallback list
-      if (fetchedTranslations.length > 0) {
-         const isValidSelected = fetchedTranslations.some(t => t.id === selectedTranslation);
-         if (!isValidSelected) {
-             // If current selection is invalid, try the default, then the first available
-             const defaultExists = fetchedTranslations.some(t => t.id === DEFAULT_TRANSLATION_ID);
-             const newTranslation = defaultExists ? DEFAULT_TRANSLATION_ID : fetchedTranslations[0].id;
-             setSelectedTranslation(newTranslation);
-             console.log(`Selected translation was invalid or empty, changed to ${newTranslation}`);
-             if (!isValidSelected && selectedTranslation) { // Only toast if a selection existed before
-                 toast({ title: "Translation Reset", description: `Selected translation was unavailable, switched to ${newTranslation}.` });
-             }
-         }
-      } else {
-        // This case should be less likely now with the fallback in getTranslations
-        console.warn("No English translations available from API or fallback.");
-        // setError("No English translations available."); // Avoid blocking error
-        setSelectedTranslation(''); // Clear selected translation if none available
-      }
-    } catch (err) {
-      // Catch unexpected errors during the process (though getTranslations handles internal errors)
-      console.error('Unexpected error during fetchTranslationList:', err);
-      setError('Failed to process translation list.');
-      setTranslations(SUPPORTED_TRANSLATIONS); // Ensure fallback is set
-      setSelectedTranslation(SUPPORTED_TRANSLATIONS[0]?.id ?? ''); // Reset to default/first fallback
-    } finally {
-        setIsLoadingTranslations(false);
-    }
-  }, [selectedTranslation, toast]); // Depend on selectedTranslation and toast
-
-  useEffect(() => {
-    fetchTranslationList();
-  }, [fetchTranslationList]);
-
-
-  useEffect(() => {
-     // Fetch verse data only when metadata is ready and identifiers are set.
-     // Loading states for lists are handled inside the list fetching logic.
-     if (quranMeta && !isLoadingMeta) {
-       // Pass the current selectedTranslation and selectedReciter
-       fetchVerseData(currentVerseNumber, selectedTranslation, selectedReciter, quranMeta);
-     } else if (!quranMeta && !isLoadingMeta) {
-        // Metadata failed to load, cannot fetch verse. Set error if not already set.
-        if (!error) setError("Quran metadata failed to load, cannot fetch verse.");
-        setCurrentVerseData(null);
-        setIsLoadingVerse(false); // Ensure loading stops if meta fails
+     const isInitialLoad = startVerseIndex === 0;
+     if (isInitialLoad) {
+         setIsLoadingVerse(true); // Indicate initial loading for the surah/block
+         setDisplayedVerses([]); // Clear previous surah's verses
+         setInitialVerseLoadComplete(false);
      } else {
-        // Metadata is still loading
-        setIsLoadingVerse(true); // Keep loading indicator on if prerequisites aren't met
+         setIsLoadingMore(true); // Indicate loading *more* verses
      }
-  // Trigger fetch when verse number, selected reciter/translation, or metadata changes (or resolves)
-  }, [currentVerseNumber, selectedReciter, selectedTranslation, quranMeta, fetchVerseData, isLoadingMeta, error]); // Removed list loading states, added error
+     setError(null);
 
-  // --- Navigation Handlers ---
+     try {
+          // Fetch a chunk of verses using getSurahData if efficient, or fallback to getVerse loop
+          // NOTE: getSurahData might be more efficient for full surah loads.
+          // For incremental loading, looping getVerse might be necessary if getSurahData doesn't support offsets well.
+          // Let's assume getSurahData fetches the whole surah for now and we slice it.
+          // A more optimized approach would involve an API that supports pagination or specific ranges.
 
-  const handleNextVerse = useCallback(() => {
-    const maxVerse = quranMeta?.surahs.references.reduce((sum, s) => sum + s.numberOfAyahs, 0) ?? 6236;
-    setCurrentVerseNumber((prev) => Math.min(prev + 1, maxVerse));
-  }, [quranMeta]);
+          // We will simulate incremental loading using getVerse for now
+          const versesToFetch: number[] = [];
+          const startAbsoluteVerse = surahAyahToAbsoluteVerse(surahNum, startVerseIndex + 1, quranMeta); // +1 because index is 0-based
+          if (startAbsoluteVerse === null) throw new Error("Invalid start verse calculation.");
 
-  const handlePreviousVerse = useCallback(() => {
-    setCurrentVerseNumber((prev) => Math.max(1, prev - 1));
-  }, []);
+          for (let i = 0; i < count; i++) {
+              const currentAyahIndex = startVerseIndex + i;
+              if (currentAyahIndex >= surahMeta.numberOfAyahs) break; // Stop if we exceed surah length
+              const absoluteVerse = startAbsoluteVerse + i;
+              versesToFetch.push(absoluteVerse);
+          }
 
-  const handleReciterChange = (reciterId: string) => {
-    setSelectedReciter(reciterId);
-  };
+          if (versesToFetch.length === 0) {
+              setCanLoadMore(false); // No more verses to fetch for this surah
+              if (isInitialLoad) setIsLoadingVerse(false);
+              else setIsLoadingMore(false);
+              return;
+          }
 
-   const handleTranslationChange = (translationId: string) => {
-     if (translationId !== selectedTranslation) {
-         setSelectedTranslation(translationId);
-         // Verse fetch will be triggered by useEffect dependency change
-          toast({
-             title: "Translation Changed",
-             description: `Loading verse with ${translations.find(t=>t.id === translationId)?.name ?? translationId}.`,
-           });
+          const fetchedVersePromises = versesToFetch.map(verseNum =>
+               getVerse(verseNum, selectedTranslation, selectedReciter, quranMeta)
+          );
+          const newVerses = (await Promise.all(fetchedVersePromises)).filter(v => v !== null) as Verse[];
+
+
+         if (newVerses.length > 0) {
+              setDisplayedVerses(prev => [...prev, ...newVerses]);
+              setCanLoadMore(newVerses[newVerses.length - 1].ayahNumberInSurah < surahMeta.numberOfAyahs);
+         } else {
+             // Handle case where fetching returned no valid verses (e.g., all failed)
+             if (isInitialLoad) setError(`Failed to load initial verses for Surah ${surahNum}.`);
+              setCanLoadMore(false); // Stop trying to load more if fetch failed
+         }
+
+     } catch (err) {
+         console.error(`Error loading verses for Surah ${surahNum}:`, err);
+         setError(`Failed to load verses. ${err instanceof Error ? err.message : ''}`);
+         setCanLoadMore(false); // Stop loading on error
+     } finally {
+          if (isInitialLoad) {
+            setIsLoadingVerse(false);
+            setInitialVerseLoadComplete(true); // Mark initial load as done
+          } else {
+             setIsLoadingMore(false);
+          }
      }
-   };
-
-   const handleFontSizeChange = (value: number[]) => {
-     setFontSize(value[0]);
-   };
-
-   const handleArabicFontSizeChange = (value: number[]) => {
-     setArabicFontSize(value[0]);
-   };
-
-    const handleLineHeightChange = (value: number[]) => {
-     setLineHeight(value[0]);
-   };
+   }, [quranMeta, selectedTranslation, selectedReciter, isLoadingMore, isLoadingVerse, error]); // Added error dependency
 
 
-   const handleVerseInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-       // This is handled by the Controls component now, primarily validation on blur
+   // Trigger initial load when surah changes or metadata/editions are ready
+   useEffect(() => {
+       if (currentSurahNumber && quranMeta && selectedTranslation && selectedReciter && !initialVerseLoadComplete && !isLoadingVerse) {
+           loadSurahVerses(currentSurahNumber);
+       }
+       // Reset initial load completion flag if dependencies change (e.g., surah, translation)
+       // This ensures we reload if the user navigates or changes settings.
+       if (currentSurahNumber && quranMeta && selectedTranslation && selectedReciter) {
+           setInitialVerseLoadComplete(false);
+           setCanLoadMore(true); // Assume we can load more initially
+       }
+   }, [currentSurahNumber, quranMeta, selectedTranslation, selectedReciter, loadSurahVerses, initialVerseLoadComplete, isLoadingVerse]);
+
+
+   // Trigger loading more verses when the trigger element is in view
+   useEffect(() => {
+       if (loadMoreInView && canLoadMore && !isLoadingMore && currentSurahNumber && displayedVerses.length > 0) {
+           console.log("Load more triggered...");
+           loadSurahVerses(currentSurahNumber, displayedVerses.length); // Load next batch starting from the current count
+       }
+   }, [loadMoreInView, canLoadMore, isLoadingMore, currentSurahNumber, displayedVerses.length, loadSurahVerses]);
+
+
+   // Existing fetch functions for reciters and translations (unchanged)
+    const fetchReciterList = useCallback(async () => {
+        setIsLoadingReciters(true);
+        // ... (rest of the function is the same)
+         try {
+          const fetchedReciters = await getReciters();
+          setReciters(fetchedReciters);
+          if (fetchedReciters.length > 0) {
+             const isValidSelected = fetchedReciters.some(r => r.id === selectedReciter);
+             if (!isValidSelected) {
+                 const defaultExists = fetchedReciters.some(r => r.id === DEFAULT_RECITER_ID);
+                 const newReciter = defaultExists ? DEFAULT_RECITER_ID : fetchedReciters[0].id;
+                 setSelectedReciter(newReciter);
+             }
+           } else {
+             setSelectedReciter('');
+           }
+        } catch (err) { /* ... */ } finally { setIsLoadingReciters(false); }
+    }, [selectedReciter]);
+
+    useEffect(() => { fetchReciterList(); }, [fetchReciterList]);
+
+    const fetchTranslationList = useCallback(async () => {
+        setIsLoadingTranslations(true);
+        // ... (rest of the function is the same)
+        try {
+            const fetchedTranslations = await getTranslations();
+            setTranslations(fetchedTranslations);
+            if (fetchedTranslations.length > 0) {
+                const isValidSelected = fetchedTranslations.some(t => t.id === selectedTranslation);
+                if (!isValidSelected) {
+                    const defaultExists = fetchedTranslations.some(t => t.id === DEFAULT_TRANSLATION_ID);
+                    const newTranslation = defaultExists ? DEFAULT_TRANSLATION_ID : fetchedTranslations[0].id;
+                    setSelectedTranslation(newTranslation);
+                    if (!isValidSelected && selectedTranslation) {
+                        toast({ title: "Translation Reset", description: `Switched to ${newTranslation}.` });
+                    }
+                }
+            } else {
+                setSelectedTranslation('');
+            }
+        } catch (err) { /* ... */ } finally { setIsLoadingTranslations(false); }
+    }, [selectedTranslation, toast]);
+
+    useEffect(() => { fetchTranslationList(); }, [fetchTranslationList]);
+
+   // --- Navigation and Interaction Handlers ---
+
+    const navigateToVerse = useCallback((absoluteVerseNum: number, scroll: boolean = true) => {
+        if (!quranMeta) return;
+        const targetLocation = absoluteVerseToSurahAyah(absoluteVerseNum, quranMeta);
+        if (!targetLocation) {
+            toast({ title: "Navigation Error", description: `Verse ${absoluteVerseNum} is invalid.`, variant: "destructive" });
+            return;
+        }
+
+        setCurrentVerseNumber(absoluteVerseNum); // Set the focused verse
+
+        // Check if the target verse's surah is already loaded
+        if (targetLocation.surahNumber !== currentSurahNumber) {
+            console.log(`Navigating to new Surah: ${targetLocation.surahNumber}`);
+            setCurrentSurahNumber(targetLocation.surahNumber); // This will trigger useEffect to load the new surah
+            setDisplayedVerses([]); // Clear old verses immediately
+            setInitialVerseLoadComplete(false); // Reset load state
+            setCanLoadMore(true); // Reset load more state
+            setIsLoadingVerse(true); // Set loading state for the new surah
+        } else {
+            // Surah is already loaded, just scroll to the verse if needed
+            if (scroll) {
+                const verseElement = verseRefs.current.get(absoluteVerseNum);
+                verseElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }, [quranMeta, currentSurahNumber, toast]);
+
+
+    const handleNextVerse = useCallback(() => {
+        const maxVerse = quranMeta?.surahs.references.reduce((sum, s) => sum + s.numberOfAyahs, 0) ?? 6236;
+        const nextVerse = Math.min(currentVerseNumber + 1, maxVerse);
+        navigateToVerse(nextVerse);
+    }, [quranMeta, currentVerseNumber, navigateToVerse]);
+
+    const handlePreviousVerse = useCallback(() => {
+        const prevVerse = Math.max(1, currentVerseNumber - 1);
+        navigateToVerse(prevVerse);
+    }, [currentVerseNumber, navigateToVerse]);
+
+    // --- Handlers for Controls Component ---
+    const handleReciterChange = (reciterId: string) => {
+        setSelectedReciter(reciterId);
+        setInitialVerseLoadComplete(false); // Force reload on reciter change
     };
 
-   const handleVerseInputBlur = (e: ChangeEvent<HTMLInputElement>) => {
-     const value = parseInt(e.target.value, 10);
-     const maxVerse = quranMeta?.surahs.references.reduce((sum, s) => sum + s.numberOfAyahs, 0) ?? 6236;
-      if (!isNaN(value) && value >= 1 && value <= maxVerse) {
-        if (value !== currentVerseNumber) {
-            setCurrentVerseNumber(value);
-            // Verse fetch will trigger via useEffect
+    const handleTranslationChange = (translationId: string) => {
+        if (translationId !== selectedTranslation) {
+            setSelectedTranslation(translationId);
+            setInitialVerseLoadComplete(false); // Force reload on translation change
+            toast({
+                title: "Translation Changed",
+                description: `Loading verse with ${translations.find(t => t.id === translationId)?.name ?? translationId}.`,
+            });
         }
-      } else {
-        // Reset input visually to current verse if invalid input
-        e.target.value = currentVerseNumber.toString();
-        toast({ title: "Invalid Verse", description: `Please enter a verse number between 1 and ${maxVerse}.`, variant: "destructive"});
-      }
-   }
+    };
 
-   const handleVerseSliderChange = (value: number[]) => {
-       // Update immediately as slider moves
-       if (value[0] !== currentVerseNumber) {
-           setCurrentVerseNumber(value[0]);
-           // Verse fetch will trigger via useEffect
-       }
-   };
+    const handleFontSizeChange = (value: number[]) => setFontSize(value[0]);
+    const handleArabicFontSizeChange = (value: number[]) => setArabicFontSize(value[0]);
+    const handleLineHeightChange = (value: number[]) => setLineHeight(value[0]);
 
-   const handleJuzChange = (juz: number) => {
-       const startVerse = JUZ_STARTS[juz];
-       if (startVerse && startVerse !== currentVerseNumber) {
-           setCurrentVerseNumber(startVerse);
-           // Verse fetch will trigger via useEffect
-            toast({ title: "Navigated", description: `Jumped to Juz ${juz} (Verse ${startVerse}).` });
-       }
-   };
+    const handleVerseInputBlur = (e: ChangeEvent<HTMLInputElement>) => {
+        const value = parseInt(e.target.value, 10);
+        const maxVerse = quranMeta?.surahs.references.reduce((sum, s) => sum + s.numberOfAyahs, 0) ?? 6236;
+        if (!isNaN(value) && value >= 1 && value <= maxVerse) {
+            if (value !== currentVerseNumber) {
+                navigateToVerse(value);
+            }
+        } else {
+            e.target.value = currentVerseNumber.toString();
+            toast({ title: "Invalid Verse", description: `Enter verse 1-${maxVerse}.`, variant: "destructive" });
+        }
+    };
 
-   const handlePageChange = (page: number) => {
-       const startVerse = PAGE_STARTS[page];
-       if (startVerse && startVerse !== currentVerseNumber) {
-           setCurrentVerseNumber(startVerse);
-            // Verse fetch will trigger via useEffect
-            toast({ title: "Navigated", description: `Jumped to Page ${page} (Verse ${startVerse}).` });
-       }
-   };
+    const handleVerseSliderChange = (value: number[]) => {
+        // Update slider visually but only navigate on commit (or debounce)
+        // For simplicity, let's navigate immediately for now
+        if (value[0] !== currentVerseNumber) {
+            navigateToVerse(value[0], false); // Navigate without immediate scroll, rely on user interaction
+        }
+    };
 
-   // --- Interaction Handlers ---
+     const handleJuzChange = (juz: number) => {
+         const startVerse = JUZ_STARTS[juz];
+         if (startVerse && startVerse !== currentVerseNumber) {
+             navigateToVerse(startVerse);
+             toast({ title: "Navigated", description: `Jumped to Juz ${juz} (Verse ${startVerse}).` });
+         }
+     };
 
-   const handleVerseContextMenu = (verseNumber: number) => {
-        console.log("Context menu triggered for verse:", verseNumber);
-        // Example: Trigger note taking
-        setIsNotesSidebarOpen(true); // Open notes sidebar on context menu action
-        // Toast handled within VerseDisplay potentially
-   };
+     const handlePageChange = (page: number) => {
+         const startVerse = PAGE_STARTS[page];
+         if (startVerse && startVerse !== currentVerseNumber) {
+             navigateToVerse(startVerse);
+             toast({ title: "Navigated", description: `Jumped to Page ${page} (Verse ${startVerse}).` });
+         }
+     };
 
-   // --- Swipe Gesture Handlers ---
-   const handleTouchStart = (e: React.TouchEvent) => {
-       if (isMobile) { // Only enable swipe on mobile
-           touchStartX.current = e.targetTouches[0].clientX;
-           touchEndX.current = null; // Reset end position on new touch
-       }
-   };
+    // --- Context Menu ---
+    const handleVerseContextMenu = (verseNumber: number) => {
+        setCurrentVerseNumber(verseNumber); // Focus the verse for context actions
+        setIsNotesSidebarOpen(true);
+    };
 
-   const handleTouchMove = (e: React.TouchEvent) => {
-       if (isMobile && touchStartX.current !== null) { // Only track move if started on mobile
-           touchEndX.current = e.targetTouches[0].clientX;
-       }
-   };
+    // --- Swipe Gestures ---
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (isMobile) { touchStartX.current = e.targetTouches[0].clientX; touchEndX.current = null; }
+    };
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (isMobile && touchStartX.current !== null) { touchEndX.current = e.targetTouches[0].clientX; }
+    };
+    const handleTouchEnd = () => {
+        if (!isMobile || touchStartX.current === null || touchEndX.current === null) return;
+        const dx = touchEndX.current - touchStartX.current;
+        if (Math.abs(dx) > SWIPE_THRESHOLD) {
+            if (dx > 0) handlePreviousVerse(); else handleNextVerse();
+        }
+        touchStartX.current = null; touchEndX.current = null;
+    };
 
-   const handleTouchEnd = () => {
-       if (!isMobile || touchStartX.current === null || touchEndX.current === null) return; // Only process if mobile and swipe occurred
+    // --- Toggle Sidebars/Panels ---
+    const toggleNotesSidebar = () => setIsNotesSidebarOpen(prev => !prev);
+    const toggleSettingsPanel = () => setIsSettingsPanelOpen(prev => !prev);
 
-       const dx = touchEndX.current - touchStartX.current;
+    // --- Audio Playback Sync ---
+    const handleAudioPlay = (verseNum: number) => {
+        setPlayingVerseNumber(verseNum);
+        setCurrentVerseNumber(verseNum); // Also focus the verse when it starts playing
+        // Scroll to playing verse
+        const verseElement = verseRefs.current.get(verseNum);
+        verseElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    const handleAudioPause = () => setPlayingVerseNumber(null);
+    const handleAudioEnd = () => { // Called when audio for a verse naturally ends
+        setPlayingVerseNumber(null);
+        // Auto-advance to next verse logic handled in Controls component
+        // handleNextVerse(); // Let Controls handle auto-advance via onNextVerse prop
+    };
+    const handleAudioError = (errorMsg: string) => {
+         setPlayingVerseNumber(null);
+         toast({ title: "Audio Error", description: errorMsg, variant: "destructive" });
+    };
 
-       if (Math.abs(dx) > SWIPE_THRESHOLD) {
-           if (dx > 0) {
-               // Swiped right (previous verse)
-               handlePreviousVerse();
-           } else {
-               // Swiped left (next verse)
-               handleNextVerse();
-           }
-       }
 
-       // Reset refs
-       touchStartX.current = null;
-       touchEndX.current = null;
-   };
+    // Combine relevant loading states
+    const isAppLoading = isLoadingMeta || isLoadingReciters || isLoadingTranslations;
+    const displayError = error && !isLoadingVerse && !isLoadingMore;
 
-   // --- Toggle Sidebars/Panels ---
-   const toggleNotesSidebar = () => setIsNotesSidebarOpen(prev => !prev);
-   const toggleSettingsPanel = () => setIsSettingsPanelOpen(prev => !prev);
+    const currentVerseDataForSidebars = displayedVerses.find(v => v.verseNumber === currentVerseNumber);
 
-   // Combine relevant loading states for UI feedback
-   const isAppLoading = isLoadingMeta || isLoadingReciters || isLoadingTranslations; // Initial app setup loading
-   const isVerseLoading = isLoadingVerse; // Specific verse loading state
 
-   // Determine if verse data is truly unavailable (after loading attempt)
-   const isVerseUnavailable = !isVerseLoading && !currentVerseData && !error; // Added !error check
-   const displayError = error && !isVerseLoading; // Show error only when not loading
+    return (
+        <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 pb-36 relative"> {/* Increased bottom padding */}
 
-  return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 pb-24 relative"> {/* Added relative positioning for FAB */}
-       <Card
-         className="shadow-md rounded-lg overflow-hidden border border-border" // Use theme border
-         onTouchStart={handleTouchStart}
-         onTouchMove={handleTouchMove}
-         onTouchEnd={handleTouchEnd}
-         style={{ touchAction: isMobile ? 'pan-y' : 'auto' }} // Enable vertical pan on mobile
-        >
-        <CardContent className="p-0 relative"> {/* Remove default padding */}
-         {/* Notes Button positioned top-right */}
-         <div className="absolute top-2 right-2 z-10 flex gap-2">
-             <NotesSidebar
-                currentVerseNumber={currentVerseNumber}
-                isOpen={isNotesSidebarOpen}
-                onOpenChange={setIsNotesSidebarOpen}
-                surahName={currentVerseData?.surah?.englishName ?? ''}
-                ayahNumber={currentVerseData?.verseReference?.split(':')[1] ?? ''}
-                // Pass other necessary props like save handlers later
-             />
-             {/* Settings Panel Trigger Button is now a FAB */}
-         </div>
-
-         {/* Loading and Error States */}
-         {isAppLoading && ( // Show app loading only during initial setup
-             <div className="flex flex-col justify-center items-center h-60 gap-4 p-6">
-                 <Skeleton className="h-8 w-3/4" />
-                 <Skeleton className="h-4 w-1/2" />
-                 <Skeleton className="h-20 w-full mt-4" />
-                 <p className="text-center text-muted-foreground mt-2">Initializing Quran Companion...</p>
-             </div>
-         )}
-         {displayError && ( // Show error message if there's an error and not loading verse
-            <div className="flex justify-center items-center h-60 p-6">
-                 <p className="text-destructive text-center">{error}</p>
-             </div>
-          )}
-
-          {/* Display Skeleton or Verse (Only if not initial loading and no error) */}
-         {!isAppLoading && !displayError && (
-            isVerseLoading ? (
-                // Skeleton Loading State for VerseDisplay
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 p-6 animate-pulse">
-                    {/* Arabic Skeleton */}
-                     <div dir="rtl" className="flex flex-col gap-4 items-end order-1 md:order-3">
-                        <Skeleton className="h-6 w-1/2" />
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-24 w-full mt-4" />
+            {/* Main Content Area with Scroll */}
+            <ScrollArea
+                ref={scrollContainerRef}
+                className="h-[calc(100vh-250px)] w-full rounded-lg border border-border shadow-md" // Adjust height calculation as needed
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{ touchAction: isMobile ? 'pan-y' : 'auto' }}
+            >
+                 <div className="p-1 md:p-2 relative"> {/* Add slight padding */}
+                    {/* Top Buttons (Notes/Settings FAB is outside now) */}
+                    <div className="absolute top-2 right-2 z-10 flex gap-2">
+                         <NotesSidebar
+                             currentVerseNumber={currentVerseNumber}
+                             isOpen={isNotesSidebarOpen}
+                             onOpenChange={setIsNotesSidebarOpen}
+                             surahName={currentVerseDataForSidebars?.surah?.englishName ?? ''}
+                             ayahNumber={currentVerseDataForSidebars?.verseReference?.split(':')[1] ?? ''}
+                         />
                     </div>
-                     {/* Separator Skeleton */}
-                     <Skeleton className="h-px w-full md:h-full md:w-px bg-border order-2" />
-                    {/* English Skeleton */}
-                     <div className="flex flex-col gap-4 order-3 md:order-1">
-                      <Skeleton className="h-6 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                      <Skeleton className="h-20 w-full mt-4" />
-                    </div>
+
+                    {/* Loading States */}
+                    {isAppLoading && !initialVerseLoadComplete && (
+                        <div className="flex flex-col justify-center items-center h-60 gap-4 p-6">
+                            <Skeleton className="h-8 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                            <Skeleton className="h-20 w-full mt-4" />
+                            <p className="text-center text-muted-foreground mt-2">Initializing...</p>
+                        </div>
+                    )}
+                     {isLoadingVerse && displayedVerses.length === 0 && ( // Initial verse loading
+                        <div className="p-6">
+                            {[...Array(3)].map((_, i) => (
+                                <div key={i} className="mb-6 p-4 border rounded-lg animate-pulse">
+                                     <Skeleton className="h-6 w-1/4 mb-2" />
+                                    <Skeleton className="h-4 w-1/3 mb-4" />
+                                    <Skeleton className="h-20 w-full mb-4" />
+                                    <Skeleton className="h-16 w-full" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {displayError && (
+                        <div className="flex justify-center items-center h-60 p-6">
+                            <p className="text-destructive text-center">{error}</p>
+                            {/* Optional: Add a retry button */}
+                            <Button onClick={() => loadSurahVerses(currentSurahNumber ?? 1)} className="mt-4">Retry</Button>
+                        </div>
+                    )}
+
+                    {/* Verse Display Area */}
+                     {!isAppLoading && !isLoadingVerse && displayedVerses.length === 0 && !error && (
+                         <div className="flex justify-center items-center h-60 p-6">
+                             <p className="text-center text-muted-foreground">No verses to display. Select a surah or verse.</p>
+                         </div>
+                     )}
+
+                     {/* Render Displayed Verses */}
+                     {displayedVerses.map((verse) => (
+                        <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)} className="mb-4">
+                            <VerseDisplay
+                                verse={verse}
+                                fontSize={fontSize}
+                                arabicFontSize={arabicFontSize}
+                                lineHeight={lineHeight}
+                                onContextMenu={handleVerseContextMenu}
+                                isHighlighted={verse.verseNumber === currentVerseNumber} // Highlight focused verse
+                                isPlaying={verse.verseNumber === playingVerseNumber} // Indicate playing verse
+                            />
+                        </div>
+                    ))}
+
+                    {/* Load More Trigger/Indicator */}
+                     {canLoadMore && !error && (
+                        <div ref={loadMoreRef} className="flex justify-center items-center py-6 text-center">
+                           {isLoadingMore ? (
+                             <Button variant="ghost" disabled>
+                               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading More...
+                             </Button>
+                           ) : (
+                             <TooltipProvider>
+                               <Tooltip>
+                                  <TooltipTrigger asChild>
+                                     <Button
+                                         variant="outline"
+                                         onClick={() => loadSurahVerses(currentSurahNumber!, displayedVerses.length)}
+                                         disabled={isLoadingMore}
+                                     >
+                                         <ChevronsDown className="h-5 w-5" />
+                                         <span className="sr-only">Load More Verses</span>
+                                     </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Load Next {VERSES_TO_LOAD_AT_ONCE} Verses</TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           )}
+                         </div>
+                     )}
+                     {!canLoadMore && initialVerseLoadComplete && !error && (
+                         <div className="text-center text-muted-foreground py-6 text-sm">End of Surah</div>
+                     )}
                 </div>
-            ) : currentVerseData ? (
-                // Render the actual verse data
-                <VerseDisplay
-                    verse={currentVerseData}
-                    fontSize={fontSize}
-                    arabicFontSize={arabicFontSize}
-                    lineHeight={lineHeight}
-                    onContextMenu={handleVerseContextMenu}
-                    // Pass any other required props
-                />
-            ) : (
-                // State when verse loading finished but data is null (e.g., 404, specific error handled by fetchVerseData)
-                 <div className="flex justify-center items-center h-60 p-6">
-                    <p className="text-center text-muted-foreground">
-                        {error ? error : "Verse data could not be loaded. Please try changing verse or selections."}
-                    </p>
-                </div>
-            )
-         )}
-         </CardContent>
-       </Card>
+            </ScrollArea>
 
-      <Controls
-        verseNumber={currentVerseNumber}
-        audioUrl={currentVerseData?.audioUrl ?? null}
-        reciters={reciters}
-        selectedReciter={selectedReciter}
-        onNextVerse={handleNextVerse}
-        onPreviousVerse={handlePreviousVerse}
-        onReciterChange={handleReciterChange}
-        onVerseInputChange={handleVerseInputChange} // Pass the handler
-        onVerseInputBlur={handleVerseInputBlur}   // Pass the handler
-        onVerseSliderChange={handleVerseSliderChange} // Pass the handler
-        onJuzChange={handleJuzChange}             // Pass the handler
-        onPageChange={handlePageChange}           // Pass the handler
-        isLoading={isAppLoading || isVerseLoading} // Combined loading state for controls
-        quranMeta={quranMeta}
-      />
+            {/* Controls fixed at the bottom */}
+            <Controls
+                verseNumber={currentVerseNumber} // Controls use the *focused* verse number
+                audioUrl={displayedVerses.find(v => v.verseNumber === currentVerseNumber)?.audioUrl ?? null} // Audio URL for the focused verse
+                reciters={reciters}
+                selectedReciter={selectedReciter}
+                onNextVerse={handleNextVerse} // Let Controls handle advancing focus
+                onPreviousVerse={handlePreviousVerse}
+                onReciterChange={handleReciterChange}
+                onVerseInputChange={()=>{}} // Input change handled by blur
+                onVerseInputBlur={handleVerseInputBlur}
+                onVerseSliderChange={handleVerseSliderChange}
+                onJuzChange={handleJuzChange}
+                onPageChange={handlePageChange}
+                isLoading={isLoadingVerse || isLoadingMore || isAppLoading} // Controls disabled during any loading
+                quranMeta={quranMeta}
+                 // Add audio event handlers
+                onPlay={() => handleAudioPlay(currentVerseNumber)} // Play the focused verse
+                onPause={handleAudioPause}
+                onEnded={handleAudioEnd}
+                onError={handleAudioError}
+                updatePlayingVerse={setPlayingVerseNumber} // Allow Controls to update playing state directly for sync
+            />
 
-       {/* Floating Action Button (FAB) for Settings */}
-       <TooltipProvider>
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Button
-                    variant="default" // Use default variant for FAB appearance
-                    size="icon"
-                    className="fixed bottom-24 right-4 md:right-6 z-20 h-14 w-14 rounded-full shadow-lg" // Adjusted right position
-                    aria-label="Open Settings"
-                    onClick={toggleSettingsPanel}
-                    disabled={isAppLoading} // Disable FAB if app is still initializing
-                >
-                    <Settings className="h-6 w-6" />
-                </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-                <p>Display Settings</p>
-            </TooltipContent>
-        </Tooltip>
-       </TooltipProvider>
+            {/* Floating Action Button (FAB) for Settings */}
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="default"
+                            size="icon"
+                            className="fixed bottom-28 right-4 md:right-6 z-20 h-14 w-14 rounded-full shadow-lg"
+                            aria-label="Open Settings"
+                            onClick={toggleSettingsPanel}
+                            disabled={isAppLoading}
+                        >
+                            <Settings className="h-6 w-6" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left"><p>Display Settings</p></TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
 
-
-       {/* Settings Panel Component (managed visibility via state) */}
-      <SettingsPanel
-          isOpen={isSettingsPanelOpen} // Control visibility with state
-          onOpenChange={setIsSettingsPanelOpen} // Allow panel to close itself
-          fontSize={fontSize}
-          arabicFontSize={arabicFontSize}
-          lineHeight={lineHeight}
-          translations={translations} // Pass fetched/fallback translations
-          selectedTranslation={selectedTranslation} // Pass current selection
-          onFontSizeChange={handleFontSizeChange}
-          onArabicFontSizeChange={handleArabicFontSizeChange}
-          onLineHeightChange={handleLineHeightChange}
-          onTranslationChange={handleTranslationChange} // Pass the handler
-          isLoading={isLoadingTranslations || isAppLoading} // Disable if translations or app are loading
-      />
-    </div>
-  );
+            {/* Settings Panel Component */}
+            <SettingsPanel
+                isOpen={isSettingsPanelOpen}
+                onOpenChange={setIsSettingsPanelOpen}
+                fontSize={fontSize}
+                arabicFontSize={arabicFontSize}
+                lineHeight={lineHeight}
+                translations={translations}
+                selectedTranslation={selectedTranslation}
+                onFontSizeChange={handleFontSizeChange}
+                onArabicFontSizeChange={handleArabicFontSizeChange}
+                onLineHeightChange={handleLineHeightChange}
+                onTranslationChange={handleTranslationChange}
+                isLoading={isLoadingTranslations || isAppLoading}
+            />
+        </div>
+    );
 }
-

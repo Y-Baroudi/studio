@@ -1,7 +1,8 @@
 
+
 /**
  * @fileoverview Service functions for interacting with the alquran.cloud API v1.
- * Provides functions to fetch Quran metadata, reciters, translations, and individual verse data.
+ * Provides functions to fetch Quran metadata, reciters, translations, and verse/surah data.
  */
 
 /**
@@ -39,6 +40,10 @@ export interface Verse {
    * The reference in Surah:Ayah format (e.g., "1:1").
    */
   verseReference: string;
+   /**
+   * The number of the ayah within the surah (e.g., 1 for 1:1).
+   */
+  ayahNumberInSurah: number;
   /**
    * The Arabic text of the verse. Null if not available.
    */
@@ -102,6 +107,9 @@ export interface Translation {
  */
 const API_BASE_URL = 'https://api.alquran.cloud/v1';
 
+// Default Arabic edition identifier
+const ARABIC_EDITION_ID = 'quran-uthmani';
+
 // List of commonly used English translations as a fallback
 export const SUPPORTED_TRANSLATIONS: Translation[] = [
     { id: 'en.clearquran', name: 'The Clear Quran', language: 'en', translator: 'Dr. Mustafa Khattab' },
@@ -147,7 +155,7 @@ export async function getQuranMeta(): Promise<QuranMeta> {
 export function absoluteVerseToSurahAyah(
     absoluteVerseNumber: number,
     metaData: QuranMeta | null
-): { surah: number; ayah: number; reference: string; surahMeta: SurahMeta | null } | null {
+): { surahNumber: number; ayahNumber: number; reference: string; surahMeta: SurahMeta | null } | null {
   if (!metaData || absoluteVerseNumber < 1 || absoluteVerseNumber > 6236) {
     return null; // Invalid input
   }
@@ -157,8 +165,8 @@ export function absoluteVerseToSurahAyah(
     if (absoluteVerseNumber <= verseCount + surah.numberOfAyahs) {
       const ayahNumber = absoluteVerseNumber - verseCount;
       return {
-        surah: surah.number,
-        ayah: ayahNumber,
+        surahNumber: surah.number,
+        ayahNumber: ayahNumber,
         reference: `${surah.number}:${ayahNumber}`,
         surahMeta: surah,
       };
@@ -167,6 +175,38 @@ export function absoluteVerseToSurahAyah(
   }
 
   return null; // Should not happen if absoluteVerseNumber <= 6236
+}
+
+/**
+ * Converts a Surah:Ayah reference to its absolute verse number (1-6236).
+ *
+ * @param surahNumber The surah number.
+ * @param ayahNumber The ayah number within the surah.
+ * @param metaData The Quran metadata object.
+ * @returns The absolute verse number or null if invalid.
+ */
+export function surahAyahToAbsoluteVerse(
+  surahNumber: number,
+  ayahNumber: number,
+  metaData: QuranMeta | null
+): number | null {
+  if (!metaData || surahNumber < 1 || surahNumber > 114) {
+    return null;
+  }
+
+  let absoluteVerse = 0;
+  for (let i = 0; i < surahNumber - 1; i++) {
+    if (i >= metaData.surahs.references.length) return null; // Should not happen
+    absoluteVerse += metaData.surahs.references[i].numberOfAyahs;
+  }
+
+  const targetSurah = metaData.surahs.references[surahNumber - 1];
+  if (!targetSurah || ayahNumber < 1 || ayahNumber > targetSurah.numberOfAyahs) {
+    return null; // Invalid ayah number for the surah
+  }
+
+  absoluteVerse += ayahNumber;
+  return absoluteVerse;
 }
 
 
@@ -234,11 +274,11 @@ export async function getVerse(
     return null;
   }
 
-  const { reference: verseReference, surahMeta } = verseLocation;
+  const { reference: verseReference, surahMeta, ayahNumber } = verseLocation;
 
   // Construct editions string for API call
-  // Always include quran-uthmani for Arabic text
-  const editions = ['quran-uthmani', translationIdentifier, reciterIdentifier]
+  // Always include ARABIC_EDITION_ID for Arabic text
+  const editions = [ARABIC_EDITION_ID, translationIdentifier, reciterIdentifier]
     .filter(Boolean) // Remove null/undefined values
     .join(',');
 
@@ -247,6 +287,7 @@ export async function getVerse(
        return { // Return minimal verse object if somehow no editions are requested
         verseNumber: absoluteVerseNumber,
         verseReference: verseReference,
+        ayahNumberInSurah: ayahNumber,
         arabicText: null,
         englishTranslation: null,
         audioUrl: null,
@@ -266,6 +307,7 @@ export async function getVerse(
         return {
             verseNumber: absoluteVerseNumber,
             verseReference: verseReference,
+            ayahNumberInSurah: ayahNumber,
             arabicText: null, // Indicate failure to get text
             englishTranslation: null,
             audioUrl: null,
@@ -293,6 +335,7 @@ export async function getVerse(
         return {
             verseNumber: absoluteVerseNumber,
             verseReference: verseReference,
+            ayahNumberInSurah: ayahNumber,
             arabicText: null,
             englishTranslation: null,
             audioUrl: null,
@@ -305,21 +348,22 @@ export async function getVerse(
     let audioUrl: string | null = null;
 
     // Find data for each requested edition type
-    const arabicEditionData = result.data.find((ed: any) => ed?.edition?.identifier === 'quran-uthmani');
+    const arabicEditionData = result.data.find((ed: any) => ed?.edition?.identifier === ARABIC_EDITION_ID);
     const translationEditionData = translationIdentifier ? result.data.find((ed: any) => ed?.edition?.identifier === translationIdentifier) : null;
     const audioEditionData = reciterIdentifier ? result.data.find((ed: any) => ed?.edition?.identifier === reciterIdentifier) : null;
 
     // Extract data safely
     if (arabicEditionData) {
       arabicText = arabicEditionData.text ?? null;
-      if (!arabicText) console.warn(`Arabic text missing for quran-uthmani in verse ${verseReference}.`);
+      if (!arabicText) console.warn(`Arabic text missing for ${ARABIC_EDITION_ID} in verse ${verseReference}.`);
     } else {
         // This is critical - if quran-uthmani wasn't returned, log an error.
-        console.error(`Required Arabic edition 'quran-uthmani' not found in response for verse ${verseReference}. Available:`, result.data.map((ed:any) => ed?.edition?.identifier));
+        console.error(`Required Arabic edition '${ARABIC_EDITION_ID}' not found in response for verse ${verseReference}. Available:`, result.data.map((ed:any) => ed?.edition?.identifier));
         // Return a partial response indicating the missing Arabic text
          return {
             verseNumber: absoluteVerseNumber,
             verseReference: verseReference,
+            ayahNumberInSurah: ayahNumber,
             arabicText: null, // Indicate failure
             englishTranslation: translationEditionData?.text ?? null,
             audioUrl: audioEditionData?.audio ?? null,
@@ -349,6 +393,7 @@ export async function getVerse(
     return {
       verseNumber: absoluteVerseNumber,
       verseReference: verseReference,
+      ayahNumberInSurah: ayahNumber,
       arabicText: arabicText,
       englishTranslation: englishTranslation,
       audioUrl: audioUrl,
@@ -406,4 +451,136 @@ export async function getTranslations(): Promise<Translation[]> {
     console.warn('getTranslations() returning hardcoded list due to fetch error.');
     return SUPPORTED_TRANSLATIONS; // Fallback on fetch/processing error
   }
+}
+
+
+/**
+ * Fetches all verses for a given Surah number and specified editions.
+ * Primarily used for continuous scrolling where fetching individual verses would be inefficient.
+ *
+ * @param surahNumber The number of the Surah (1-114).
+ * @param translationIdentifier The identifier for the desired translation edition.
+ * @param reciterIdentifier The identifier for the desired audio reciter edition.
+ * @param metaData Quran metadata for surah information.
+ * @returns A promise resolving to an array of Verse objects for the Surah, or null on error.
+ */
+export async function getSurahData(
+  surahNumber: number,
+  translationIdentifier: string | null,
+  reciterIdentifier: string | null,
+  metaData: QuranMeta | null
+): Promise<Verse[] | null> {
+    if (!metaData) {
+        console.error("Cannot fetch surah data without Quran metadata.");
+        return null;
+    }
+
+    const targetSurahMeta = metaData.surahs.references.find(s => s.number === surahNumber);
+    if (!targetSurahMeta) {
+        console.error(`Surah metadata not found for surah number ${surahNumber}.`);
+        return null;
+    }
+
+    // Construct editions string, always including Arabic
+    const editions = [ARABIC_EDITION_ID, translationIdentifier, reciterIdentifier]
+        .filter(Boolean) // Remove nulls
+        .join(',');
+
+     if (!editions) {
+        console.error("No valid editions specified for fetching surah data.");
+        return null; // Or potentially return only Arabic if that's a valid fallback
+    }
+
+    try {
+        const apiUrl = `${API_BASE_URL}/surah/${surahNumber}/editions/${editions}`;
+        console.log(`Fetching Surah ${surahNumber} data from: ${apiUrl}`); // Debugging URL
+        const response = await fetch(apiUrl, { next: { revalidate: 86400 } }); // Cache daily
+
+        if (!response.ok) {
+            throw new Error(`API error fetching surah ${surahNumber} (${editions}): ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (result.code !== 200 || !result.data || !Array.isArray(result.data)) {
+            throw new Error(`Invalid data format received for Surah ${surahNumber} (${editions}).`);
+        }
+
+        // Process the response to structure it into Verse objects
+        const numberOfEditions = editions.split(',').length;
+        const apiAyahs = result.data[0]?.ayahs; // Assuming Arabic is always first and contains all ayahs
+
+        if (!apiAyahs || !Array.isArray(apiAyahs)) {
+            console.error(`Ayahs array not found or invalid in response for Surah ${surahNumber}, edition ${result.data[0]?.edition?.identifier}.`);
+             return null;
+        }
+
+         // Prepare data maps for efficient lookup
+         const textMap: { [ayahNum: number]: { [editionId: string]: string | null } } = {};
+         const audioMap: { [ayahNum: number]: { [editionId: string]: string | null } } = {};
+
+         result.data.forEach((editionData: any) => {
+            const editionId = editionData?.edition?.identifier;
+            if (!editionId || !Array.isArray(editionData.ayahs)) return;
+
+            editionData.ayahs.forEach((ayah: any) => {
+                const ayahNum = ayah?.numberInSurah;
+                if (typeof ayahNum !== 'number') return;
+
+                if (!textMap[ayahNum]) textMap[ayahNum] = {};
+                if (!audioMap[ayahNum]) audioMap[ayahNum] = {};
+
+                if (ayah.text) {
+                    textMap[ayahNum][editionId] = ayah.text;
+                }
+                if (ayah.audio) {
+                    audioMap[ayahNum][editionId] = ayah.audio;
+                }
+            });
+         });
+
+        // Construct Verse objects
+        const verses: Verse[] = [];
+        for (let i = 0; i < targetSurahMeta.numberOfAyahs; i++) {
+             const ayahNumberInSurah = i + 1; // Ayah numbers are 1-based
+             const absoluteVerse = surahAyahToAbsoluteVerse(surahNumber, ayahNumberInSurah, metaData);
+
+             if (absoluteVerse === null) {
+                 console.warn(`Could not calculate absolute verse number for Surah ${surahNumber}, Ayah ${ayahNumberInSurah}. Skipping.`);
+                 continue;
+             }
+
+             const verseReference = `${surahNumber}:${ayahNumberInSurah}`;
+
+             const arabicText = textMap[ayahNumberInSurah]?.[ARABIC_EDITION_ID] ?? null;
+             const englishTranslation = translationIdentifier ? (textMap[ayahNumberInSurah]?.[translationIdentifier] ?? null) : null;
+             const audioUrl = reciterIdentifier ? (audioMap[ayahNumberInSurah]?.[reciterIdentifier] ?? null) : null;
+
+            // Ensure we at least have Arabic text for a valid verse
+            if (arabicText === null) {
+                 console.warn(`Missing Arabic text for ${verseReference}. Skipping.`);
+                 continue;
+            }
+
+             verses.push({
+                 verseNumber: absoluteVerse,
+                 verseReference: verseReference,
+                 ayahNumberInSurah: ayahNumberInSurah,
+                 arabicText: arabicText,
+                 englishTranslation: englishTranslation,
+                 audioUrl: audioUrl,
+                 surah: targetSurahMeta,
+             });
+        }
+
+         // Sanity check
+        if (verses.length !== targetSurahMeta.numberOfAyahs) {
+             console.warn(`Mismatch in expected (${targetSurahMeta.numberOfAyahs}) and parsed (${verses.length}) verses for Surah ${surahNumber}.`);
+        }
+
+        return verses;
+
+    } catch (error) {
+        console.error(`Failed to fetch or process data for Surah ${surahNumber} (${editions}):`, error);
+        return null;
+    }
 }
