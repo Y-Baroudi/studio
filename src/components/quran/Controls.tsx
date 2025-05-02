@@ -5,7 +5,7 @@ import type { ChangeEvent, SyntheticEvent } from 'react';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import type { Reciter, QuranMeta } from '@/services/alquran-cloud';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
+// import { Slider } from '@/components/ui/slider'; // Removed Slider import
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,15 +90,12 @@ export function Controls({
 }: ControlsProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  // const [isRepeating, setIsRepeating] = useState(false); // Replaced by repeatMode/repeatCount
   const [isMuted, setIsMuted] = useState(false); // Keep mute state
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [isAudioLoading, setIsAudioLoading] = useState(false); // Specific to audio element loading state
-  // const [playbackSpeed, setPlaybackSpeed] = useState(1.0); // Moved to main settings panel
-  // const [volume, setVolume] = useState(1.0); // Moved to main settings panel
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isSeeking, setIsSeeking] = useState(false);
+  // const [isSeeking, setIsSeeking] = useState(false); // Removed, no slider
   const [localVerseNumber, setLocalVerseNumber] = useState<number>(verseNumber); // Local state for input/slider value
 
   // --- New State for Repeat Logic ---
@@ -189,9 +186,10 @@ export function Controls({
   };
 
 
-  // --- Progress & Seeking Logic ---
+  // --- Progress & Time Update Logic ---
    const handleTimeUpdate = (event: SyntheticEvent<HTMLAudioElement>) => {
-     if (!isSeeking && !isLoading && !isAudioLoading && isFinite(event.currentTarget.currentTime)) {
+     // Update time display only, no seeking involved here
+     if (!isLoading && !isAudioLoading && isFinite(event.currentTarget.currentTime)) {
         setCurrentTime(event.currentTarget.currentTime);
      }
    };
@@ -206,30 +204,11 @@ export function Controls({
        }
        setCurrentTime(0); // Reset time on new metadata
        setIsAudioLoading(false); // Metadata loaded, no longer loading
-        setPlaybackError(null); // Clear errors on successful load
+       setPlaybackError(null); // Clear errors on successful load
    };
 
-   // Handler for progress bar click/drag (using Slider's commit)
-   const handleSeekCommit = (value: number[]) => {
-       const seekTime = value[0];
-       if (audioRef.current && isFinite(seekTime) && duration > 0) {
-           audioRef.current.currentTime = Math.min(seekTime, duration); // Ensure seek is within bounds
-       }
-       setIsSeeking(false);
-   };
-    // Handler for when user starts dragging the slider thumb
-    const handlePointerDown = () => {
-       if (!audioActionDisabled && duration > 0) {
-           setIsSeeking(true);
-       }
-   };
-    // Handler for updating visual time while dragging (using Slider's change)
-    const handleProgressSliderChange = (value: number[]) => {
-      const seekTime = value[0];
-      // Update visual time immediately while dragging
-       setCurrentTime(seekTime);
-   };
-
+   // --- Removed Seeking Logic ---
+   // handleSeekCommit, handlePointerDown, handleProgressSliderChange are removed
 
   // --- Audio Event Listeners ---
   useEffect(() => {
@@ -307,7 +286,7 @@ export function Controls({
         onError(errorMsg); // Notify parent
         updatePlayingVerse(null); // Tell parent nothing is playing
     };
-     const handleWaiting = () => { if (!isSeeking) { /* console.log("Audio 'waiting'..."); */ setIsAudioLoading(true); } }
+     const handleWaiting = () => { /* console.log("Audio 'waiting'..."); */ setIsAudioLoading(true); } // Removed isSeeking check
     const handleCanPlay = () => { /* console.log("Audio 'canplay'..."); */ setIsAudioLoading(false); if (playbackError?.includes("Network error")) { setPlaybackError(null); } }
      const handleCanPlayThrough = () => { /* console.log("Audio 'canplaythrough'..."); */ setIsAudioLoading(false); }
       const handleSuspend = () => { /* console.log("Audio 'suspend'..."); */ }
@@ -328,8 +307,6 @@ export function Controls({
     audioElement.addEventListener('loadedmetadata', handleLoadedMetadata);
 
     // Set initial properties
-    // audioElement.playbackRate = playbackSpeed; // Speed controlled elsewhere
-    // audioElement.volume = volume; // Volume controlled elsewhere
     audioElement.muted = isMuted;
     audioElement.loop = repeatMode === 'verse' && repeatCount === Infinity; // Only native loop for infinite verse repeat
 
@@ -350,7 +327,7 @@ export function Controls({
     };
   // Ensure all relevant state and props are included
   }, [
-      verseNumber, repeatMode, repeatCount, isMuted, duration, isSeeking,
+      verseNumber, repeatMode, repeatCount, isMuted, duration, // Removed isSeeking
       onPlay, onPause, onEnded, onError, updatePlayingVerse, onNextVerse,
       isAudioLoading, playbackError
     ]);
@@ -388,7 +365,8 @@ export function Controls({
            updatePlayingVerse(null);
        } else {
             // Source is same or was already null/undefined
-            if (!audioElement.seeking && audioElement.readyState < 3 && audioUrl) setIsAudioLoading(true);
+            // Removed seeking check
+            if (audioElement.readyState < 3 && audioUrl) setIsAudioLoading(true);
             else if (audioElement.readyState >= 3) setIsAudioLoading(false);
             if (audioUrl && playbackError) setPlaybackError(null);
        }
@@ -488,21 +466,10 @@ export function Controls({
         {/* Row 2: Audio Player Controls */}
         <div className="flex flex-col gap-2 w-full bg-card/50 dark:bg-card/30 p-2 rounded-md border">
 
-            {/* Top Part: Progress Bar */}
-            <div className="flex items-center gap-2 w-full px-1">
+            {/* Top Part: Simplified Time Display */}
+            <div className="flex items-center justify-between gap-2 w-full px-1">
                  <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(currentTime)}</span>
-                 <Slider
-                     value={duration > 0 && isFinite(currentTime) ? [currentTime] : [0]}
-                     onValueChange={handleProgressSliderChange}
-                     onPointerDown={handlePointerDown}
-                     onValueCommit={handleSeekCommit}
-                     min={0}
-                     max={duration > 0 && isFinite(duration) ? duration : 1}
-                     step={0.1}
-                     className={cn("flex-1 cursor-pointer h-2", (audioActionDisabled || duration <= 0) && "opacity-50 cursor-not-allowed")}
-                     aria-label="Audio Progress"
-                     disabled={audioActionDisabled || duration <= 0}
-                 />
+                 {/* Removed Slider */}
                  <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(duration)}</span>
             </div>
 
@@ -676,3 +643,5 @@ export function Controls({
   );
 }
 
+
+    

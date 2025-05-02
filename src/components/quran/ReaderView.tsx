@@ -902,8 +902,9 @@ export function ReaderView() {
            onReciterChange={handleReciterChange}
            onVerseInputChange={handleVerseInputChange} // Sync local state in Controls
            onVerseInputBlur={handleVerseInputBlur} // Trigger navigation
-           onVerseSliderChange={handleVerseSliderChange} // Visual update only (updates currentAbsoluteVerse)
-           onVerseSliderCommit={handleVerseSliderCommit} // Navigation on release
+           // Remove props related to verse slider
+           onVerseSliderChange={() => {}} // Provide dummy function or remove if Controls no longer expects it
+           onVerseSliderCommit={() => {}} // Provide dummy function or remove if Controls no longer expects it
            onJuzChange={handleJuzChange}
            onPageChange={handlePageChange}
            isLoading={isAnythingLoading} // Disable controls if anything is loading
@@ -990,3 +991,5 @@ export function ReaderView() {
     </div>
   );
 }
+
+    
