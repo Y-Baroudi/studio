@@ -53,8 +53,8 @@ export function VerseDisplay({
    }, [synth]); // Dependency on synth
 
   // --- Verse Number Formatting ---
-  // Format as XX:XX (Surah:Ayah)
-  const verseReferenceDisplay = `(${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'})`; // Wrapped in parentheses
+  // Format as (Surah:Ayah)
+  const verseReferenceDisplay = `(${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'})`;
 
 
   // --- Context Menu Action Handlers ---
@@ -160,9 +160,9 @@ export function VerseDisplay({
         {/* Main Verse Container */}
         <div
           className={cn(
-            "verse-container", // Base class with styling from globals.css (includes base px-4)
+            "verse-container", // Base class with styling from globals.css
             isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50", // Highlight focused verse
-            isPlaying && "playing" // Apply 'playing' class for audio highlight (CSS handles border and padding adjustment)
+            isPlaying && "playing" // Apply 'playing' class for audio highlight
           )}
           onClick={() => onClick(verse.verseNumber)}
           aria-current={isHighlighted ? "true" : "false"}
@@ -177,14 +177,18 @@ export function VerseDisplay({
         >
 
            {/* Grid layout for Arabic and Translation */}
-            <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
+            <div className={cn(
+              "flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4",
+              "min-h-fit" // Ensure the container adjusts its height to fit content
+              )}>
 
                {/* Arabic Text Column (Right for LTR context, but RTL content) */}
-                <div className="order-1 md:order-2 flex flex-col items-end">
+                <div className="order-1 md:order-2 flex flex-col items-end py-2 md:py-0"> {/* Add vertical padding */}
                   {/* Arabic Text Paragraph */}
                   <p
                     className={cn(
                         "font-amiri text-foreground text-arabic-display arabic-text", // Use class, force alignment via CSS
+                         "mb-0" // Remove bottom margin if verse number is inline
                     )}
                     lang="ar"
                     dir="rtl"
@@ -199,11 +203,12 @@ export function VerseDisplay({
               <Separator orientation="vertical" className="h-auto hidden md:block order-2 md:order-1 border-border/50" />
 
               {/* English Translation Column (Left for LTR context) */}
-                <div className="order-2 md:order-1 flex flex-col items-start">
+                <div className="order-2 md:order-1 flex flex-col items-start py-2 md:py-0"> {/* Add vertical padding */}
                    {/* English Translation Paragraph */}
                   <p
                     className={cn(
                         "text-foreground text-translation-display translation-text", // Use class, force alignment via CSS
+                        "mb-0" // Remove bottom margin if verse number is inline
                     )}
                     lang="en"
                     dir="ltr"

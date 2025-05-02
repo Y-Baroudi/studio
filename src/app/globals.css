@@ -155,14 +155,14 @@ body {
 @layer components {
   /* Apply dynamic font sizes and line heights */
   .text-arabic-display {
-    font-size: var(--arabic-font-size);
-    line-height: var(--verse-line-height);
-    text-align: right !important; /* Use !important for stronger override */
+    font-size: var(--arabic-font-size) !important; /* Use !important for stronger override */
+    line-height: var(--verse-line-height) !important; /* Use !important */
+    text-align: right !important; /* Use !important */
     direction: rtl !important; /* Use !important */
   }
   .text-translation-display {
-    font-size: var(--translation-font-size);
-    line-height: var(--translation-line-height);
+    font-size: var(--translation-font-size) !important; /* Use !important */
+    line-height: var(--translation-line-height) !important; /* Use !important */
     text-align: left !important; /* Ensure this is left-aligned! */
     direction: ltr !important; /* Use !important */
   }
@@ -181,15 +181,10 @@ body {
 
   /* Inline Verse Number Indicators */
    .verse-number-inline {
-      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-0.5; /* Adjust spacing as needed */
-      font-size: calc(var(--translation-font-size) * 0.6) !important; /* Adjusted relative size */
-      line-height: 1 !important; /* Prevent interference */
+      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-0.5 text-[0.5em] align-super relative top-[-0.2em] select-none;
       direction: ltr !important; /* Force LTR for numbers */
+      line-height: 1 !important; /* Prevent interference */
       vertical-align: super; /* Align slightly above baseline */
-      user-select: none; /* Prevent selection */
-      /* Use relative positioning within the text flow */
-      position: relative;
-      top: -0.2em; /* Fine-tune vertical position */
    }
 
 
@@ -203,6 +198,11 @@ body {
     padding-bottom: 1rem; /* Spacing before border */
     border-bottom-width: 1px;
     border-bottom-color: hsl(var(--border) / 0.3); /* Use theme border */
+    min-height: 80px; /* Ensure a minimum height to prevent extreme squashing */
+
+    /* Responsive margin adjustment */
+     @apply md:mb-4; /* Keep 1rem (mb-4) margin on medium screens and up */
+     @apply mb-2; /* Use smaller margin-bottom (0.5rem = mb-2) on smaller screens */
   }
 
   /* Highlight style for the currently playing verse */
