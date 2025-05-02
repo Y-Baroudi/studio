@@ -178,15 +178,14 @@ body {
     direction: ltr !important;
   }
 
-  /* Verse Number Indicators */
-  .verse-number-arabic {
-    font-size: calc(var(--arabic-font-size) * 0.5); /* Half the Arabic font size */
-    @apply absolute bottom-0 right-2 font-sans text-foreground/60 opacity-80;
-    direction: ltr !important; /* Force LTR for numbers */
-  }
-  .verse-number-translation {
-     font-size: calc(var(--translation-font-size) * 0.75); /* Slightly smaller than translation */
-     @apply absolute bottom-0 left-2 font-sans text-foreground/60 opacity-80;
+  /* Inline Verse Number Indicators */
+  .verse-number-inline-arabic,
+  .verse-number-inline-translation {
+    @apply inline-block mx-1 font-sans; /* Remove opacity */
+    font-size: 0.5em; /* Set to 50% of parent font size */
+    color: hsl(var(--muted-foreground)); /* Use muted foreground color */
+    direction: ltr !important; /* Force LTR for numbers within any text direction */
+    vertical-align: baseline; /* Adjust vertical alignment if needed */
   }
 }
 
@@ -194,3 +193,4 @@ body {
 .sticky-header {
   @apply bg-background; /* Use the CSS variable */
 }
+    

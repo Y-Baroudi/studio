@@ -165,7 +165,7 @@ export function VerseDisplay({
         {/* Main Verse Container */}
         <div
           className={cn(
-            "relative border-b border-border/30 py-4 px-2 md:px-4 mb-6", // Adjusted padding/margin, removed pb-10
+            "border-b border-border/30 py-4 px-2 md:px-4 mb-6", // Add margin-bottom for spacing
             "transition-colors duration-200 cursor-pointer",
             "hover:bg-accent/5 dark:hover:bg-accent/10",
             isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 border-l-2 border-primary pl-3",
@@ -173,63 +173,47 @@ export function VerseDisplay({
           )}
           onClick={() => onClick(verse.verseNumber)}
           aria-current={isHighlighted ? "true" : "false"}
-          aria-label={`Verse ${verseReferenceDisplay}.`} // Simplified label
+          aria-label={`Verse ${verseReferenceDisplay}`} // Simplified label
           role="article"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(verse.verseNumber); }}
         >
-           {/* Indicators (optional placement within verse) */}
-           <div className="absolute top-1 right-1 flex items-center gap-1 pointer-events-none">
-                 {isPlaying && (
-                     <div className="text-primary animate-pulse" title="Playing">
-                         <PlayCircle size={12} fill="currentColor" />
-                         <span className="sr-only">Playing</span>
-                     </div>
-                 )}
-                 {isBookmarked && (
-                     <div className="text-primary" title="Bookmarked">
-                         <Bookmark size={10} fill="currentColor" />
-                         <span className="sr-only">Bookmarked</span>
-                     </div>
-                 )}
-           </div>
-
 
            {/* Grid layout for Arabic and Translation */}
             <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
 
                {/* Arabic Text Column (Right for LTR context, but RTL content) */}
-                <div className="order-1 flex flex-col items-end">
+                <div className="order-1 md:order-2 flex flex-col items-end">
                   {/* Arabic Text Paragraph */}
                   <p
                     className={cn(
-                        "font-amiri text-foreground mb-1 text-arabic-display", // Use class, force alignment via CSS
+                        "font-amiri text-foreground text-arabic-display arabic-text", // Use class, force alignment via CSS
                     )}
                     lang="ar"
                     dir="rtl"
                   >
                     {displayArabicText}
                     {/* Inline Verse Number */}
-                    <span className="verse-number-inline-arabic" dir="ltr"> {verseReferenceDisplay}</span>
+                     <span className="verse-number-inline-arabic" dir="ltr">({verseReferenceDisplay})</span>
                   </p>
                </div>
 
               {/* Vertical Separator (Hidden on mobile) */}
-              <Separator orientation="vertical" className="h-auto hidden md:block order-2 border-border/50" />
+              <Separator orientation="vertical" className="h-auto hidden md:block order-2 md:order-1 border-border/50" />
 
               {/* English Translation Column (Left for LTR context) */}
                 <div className="order-2 md:order-1 flex flex-col items-start">
                    {/* English Translation Paragraph */}
                   <p
                     className={cn(
-                        "text-foreground mb-1 text-translation-display", // Use class, force alignment via CSS
+                        "text-foreground text-translation-display translation-text", // Use class, force alignment via CSS
                     )}
                     lang="en"
                     dir="ltr"
                   >
                      {displayEnglishTranslation}
                      {/* Inline Verse Number */}
-                     <span className="verse-number-inline-translation"> {verseReferenceDisplay}</span>
+                     <span className="verse-number-inline-translation">({verseReferenceDisplay})</span>
                   </p>
                 </div>
             </div>
@@ -263,4 +247,3 @@ export function VerseDisplay({
     </ContextMenu>
   );
 }
-    
