@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Import Popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // For reciter select alternative
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Import RadioGroup for Popover
 import { Separator } from '@/components/ui/separator'; // Import Separator
 
 import { Play, Pause, SkipBack, SkipForward, Repeat, Volume2, VolumeX, Gauge, BookCopy, BookOpenCheck, Loader2, ChevronDown, Settings, MicVocal, ListMusic, CheckIcon } from 'lucide-react'; // Added icons
@@ -159,13 +160,14 @@ export function Controls({
     if (audioRef.current) {
         audioRef.current.loop = newMode === 'verse' && repeatCount === Infinity; // Only native loop for infinite verse repeat
     }
-    // Close the popover after selection
-    setShowRepeatPopover(false);
+    // Close the popover after selection (optional)
+    // setShowRepeatPopover(false);
     // Add logic here to handle 'selection' and 'surah' repeat modes if needed
     console.log("Repeat mode set to:", newMode);
   };
 
-  const handleRepeatCountChange = (newCount: RepeatCount) => {
+  const handleRepeatCountChange = (newCountString: string) => {
+    const newCount = newCountString === 'Infinity' ? Infinity : parseInt(newCountString, 10) as RepeatCount;
     setRepeatCount(newCount);
      if (audioRef.current) {
         audioRef.current.loop = repeatMode === 'verse' && newCount === Infinity; // Update native loop status
@@ -589,32 +591,57 @@ export function Controls({
                        <PopoverContent className="w-auto p-0" align="end">
                           <div className="p-2 space-y-2">
                              <Label className="text-xs px-2 font-semibold">Repeat Mode</Label>
-                              <DropdownMenuRadioGroup value={repeatMode} onValueChange={(val) => handleRepeatModeChange(val as RepeatMode)} className="flex flex-col gap-1">
-                                <DropdownMenuRadioItem value="none" className="text-sm px-2 py-1">No Repeat</DropdownMenuRadioItem>
-                                <DropdownMenuRadioItem value="verse" className="text-sm px-2 py-1">Repeat Verse</DropdownMenuRadioItem>
-                                {/* Add other repeat modes when implemented */}
-                                {/* <DropdownMenuRadioItem value="selection" disabled className="text-sm px-2 py-1">Repeat Selection (Soon)</DropdownMenuRadioItem> */}
-                                {/* <DropdownMenuRadioItem value="surah" disabled className="text-sm px-2 py-1">Repeat Surah (Soon)</DropdownMenuRadioItem> */}
-                              </DropdownMenuRadioGroup>
+                             <RadioGroup value={repeatMode} onValueChange={(val) => handleRepeatModeChange(val as RepeatMode)} className="flex flex-col gap-1">
+                                <div className="flex items-center space-x-2 px-2 py-1">
+                                  <RadioGroupItem value="none" id="r-none" />
+                                  <Label htmlFor="r-none" className="text-sm font-normal">No Repeat</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 px-2 py-1">
+                                  <RadioGroupItem value="verse" id="r-verse" />
+                                  <Label htmlFor="r-verse" className="text-sm font-normal">Repeat Verse</Label>
+                                </div>
+                                {/* Placeholder for future modes
+                                <div className="flex items-center space-x-2 px-2 py-1 opacity-50">
+                                  <RadioGroupItem value="selection" id="r-selection" disabled />
+                                  <Label htmlFor="r-selection" className="text-sm font-normal">Repeat Selection (Soon)</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 px-2 py-1 opacity-50">
+                                  <RadioGroupItem value="surah" id="r-surah" disabled />
+                                  <Label htmlFor="r-surah" className="text-sm font-normal">Repeat Surah (Soon)</Label>
+                                </div>
+                                */}
+                              </RadioGroup>
 
                              {repeatMode === 'verse' && (
                                 <>
                                  <Separator className="my-1"/>
                                  <Label className="text-xs px-2 font-semibold">Repeat Count</Label>
-                                 <DropdownMenuRadioGroup value={repeatCount === Infinity ? 'Infinity' : repeatCount.toString()} onValueChange={(val) => handleRepeatCountChange(val === 'Infinity' ? Infinity : parseInt(val, 10) as RepeatCount)} className="flex flex-row gap-1 justify-around p-1">
+                                 {/* Use RadioGroup for counts as well for consistency, styled like buttons */}
+                                 <RadioGroup
+                                     value={repeatCount === Infinity ? 'Infinity' : repeatCount.toString()}
+                                     onValueChange={handleRepeatCountChange}
+                                     className="flex flex-row gap-1 justify-around p-1"
+                                 >
                                      {([1, 3, 5, 10, Infinity] as RepeatCount[]).map((count) => (
-                                        <DropdownMenuRadioItem
-                                            key={count}
-                                            value={count === Infinity ? 'Infinity' : count.toString()}
-                                            className={cn(
-                                                "text-xs px-2 py-1 flex-1 justify-center border rounded-md cursor-pointer", // Ensure cursor pointer
-                                                "data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary data-[state=checked]:border-primary/30" // Use data-state for styling
-                                            )}
-                                        >
-                                            {count === Infinity ? '∞' : `${count}x`}
-                                        </DropdownMenuRadioItem>
+                                         <div key={count} className="flex-1">
+                                             <RadioGroupItem
+                                                 value={count === Infinity ? 'Infinity' : count.toString()}
+                                                 id={`rc-${count}`}
+                                                 className="sr-only peer" // Hide default radio button
+                                             />
+                                             <Label
+                                                 htmlFor={`rc-${count}`}
+                                                 className={cn(
+                                                     "text-xs px-2 py-1 block text-center border rounded-md cursor-pointer",
+                                                     "peer-data-[state=unchecked]:hover:bg-accent/50",
+                                                     "peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary peer-data-[state=checked]:border-primary/30"
+                                                 )}
+                                             >
+                                                 {count === Infinity ? '∞' : `${count}x`}
+                                             </Label>
+                                         </div>
                                      ))}
-                                 </DropdownMenuRadioGroup>
+                                 </RadioGroup>
                                 </>
                              )}
                            </div>
