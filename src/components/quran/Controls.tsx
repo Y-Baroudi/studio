@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent, SyntheticEvent } from 'react';
@@ -12,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Import Popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // For reciter select alternative
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 import { Play, Pause, SkipBack, SkipForward, Repeat, Volume2, VolumeX, Gauge, BookCopy, BookOpenCheck, Loader2, ChevronDown, Settings, MicVocal, ListMusic, CheckIcon } from 'lucide-react'; // Added icons
 import { formatTime } from '@/lib/utils';
@@ -21,7 +23,7 @@ import { cn } from '@/lib/utils'; // Import cn
 const MAX_VERSE_NUMBER_DEFAULT = 6236;
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5];
 type RepeatMode = 'none' | 'verse' | 'selection' | 'surah'; // Define repeat modes
-type RepeatCount = 1 | 3 | 5 | 10 | Infinity;
+type RepeatCount = 1 | 3 | 5 | 10 | typeof Infinity; // Use typeof Infinity
 
 // List of identifiers for popular reciters to show first
 const POPULAR_RECITERS = [
@@ -587,13 +589,13 @@ export function Controls({
                        <PopoverContent className="w-auto p-0" align="end">
                           <div className="p-2 space-y-2">
                              <Label className="text-xs px-2 font-semibold">Repeat Mode</Label>
-                             <DropdownMenuRadioGroup value={repeatMode} onValueChange={(val) => handleRepeatModeChange(val as RepeatMode)} className="flex flex-col gap-1">
+                              <DropdownMenuRadioGroup value={repeatMode} onValueChange={(val) => handleRepeatModeChange(val as RepeatMode)} className="flex flex-col gap-1">
                                 <DropdownMenuRadioItem value="none" className="text-sm px-2 py-1">No Repeat</DropdownMenuRadioItem>
                                 <DropdownMenuRadioItem value="verse" className="text-sm px-2 py-1">Repeat Verse</DropdownMenuRadioItem>
                                 {/* Add other repeat modes when implemented */}
                                 {/* <DropdownMenuRadioItem value="selection" disabled className="text-sm px-2 py-1">Repeat Selection (Soon)</DropdownMenuRadioItem> */}
                                 {/* <DropdownMenuRadioItem value="surah" disabled className="text-sm px-2 py-1">Repeat Surah (Soon)</DropdownMenuRadioItem> */}
-                             </DropdownMenuRadioGroup>
+                              </DropdownMenuRadioGroup>
 
                              {repeatMode === 'verse' && (
                                 <>
@@ -605,8 +607,8 @@ export function Controls({
                                             key={count}
                                             value={count === Infinity ? 'Infinity' : count.toString()}
                                             className={cn(
-                                                "text-xs px-2 py-1 flex-1 justify-center border rounded-md",
-                                                (repeatCount === count || (repeatCount === Infinity && count === Infinity)) && "bg-primary/10 text-primary border-primary/30"
+                                                "text-xs px-2 py-1 flex-1 justify-center border rounded-md cursor-pointer", // Ensure cursor pointer
+                                                "data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary data-[state=checked]:border-primary/30" // Use data-state for styling
                                             )}
                                         >
                                             {count === Infinity ? '∞' : `${count}x`}
@@ -646,3 +648,4 @@ export function Controls({
     </Card>
   );
 }
+
