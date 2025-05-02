@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'; // Added useEffect
 import type { Verse } from '@/services/alquran-cloud';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card'; // Removed Header/Title/Desc imports
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Bookmark, Tag, Share2, StickyNote, Volume2, PlayCircle, PauseCircle } from 'lucide-react'; // Added Play/Pause icons
@@ -22,6 +22,7 @@ interface VerseDisplayProps {
   onClick: (verseNumber: number) => void; // Handler for click/tap actions
   isHighlighted: boolean; // Is this verse currently focused/selected?
   isPlaying: boolean; // Is audio currently playing for this verse?
+  // Removed header-related props: surahName, surahNameArabic, etc.
 }
 
 export function VerseDisplay({
@@ -42,6 +43,7 @@ export function VerseDisplay({
 
    // --- Speech Synthesis Setup ---
    useEffect(() => {
+    // Ensure this runs only on the client
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         setSynth(window.speechSynthesis);
     } else {
@@ -55,7 +57,7 @@ export function VerseDisplay({
              setIsSpeaking(false);
          }
     };
-   }, [synth]); // Run only when synth object changes
+   }, []); // Only run once on mount
 
 
   // --- Styles ---
@@ -71,10 +73,6 @@ export function VerseDisplay({
     letterSpacing: '0.005em',
   };
 
-  // --- Bismillah Logic ---
-  const ayahNumberInSurah = verse.ayahNumberInSurah;
-  const showBismillah = ayahNumberInSurah === 1 && verse.surah?.number !== 1 && verse.surah?.number !== 9;
-  const bismillahText = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
   // --- Verse Number ---
   // Ensure verseReference exists and split safely
@@ -85,8 +83,6 @@ export function VerseDisplay({
   const handleAddNote = () => {
     console.log(`Add Note clicked for verse ${verse.verseNumber}`);
     onContextMenu(verse.verseNumber); // Propagate event to open sidebar/modal
-    // Toast is now handled in the sidebar potentially
-    // toast({ title: "Note", description: `Add note for Surah ${verse.surah?.englishName}, Ayah ${ayahNumberDisplay}.` });
   };
 
   const handleTagVerse = () => {
@@ -147,8 +143,6 @@ export function VerseDisplay({
              console.log("Starting speech for:", verse.englishTranslation);
             const utterance = new SpeechSynthesisUtterance(verse.englishTranslation);
             // Optional: Configure voice, rate, pitch
-            // const voices = synth.getVoices();
-            // utterance.voice = voices.find(v => v.lang === 'en-US'); // Example voice selection
             utterance.rate = 0.9;
             utterance.pitch = 1.0;
 
@@ -166,10 +160,6 @@ export function VerseDisplay({
                  toast({ title: "Speech Error", description: `Could not speak text: ${event.error}`, variant: "destructive" });
                  setIsSpeaking(false);
             };
-             utterance.onboundary = (event) => {
-                 // You could potentially highlight words as they are spoken
-                 // console.log(`Speech boundary: ${event.name} at char ${event.charIndex}`);
-             };
 
              // Clear queue before speaking new utterance
              synth.cancel();
@@ -182,11 +172,6 @@ export function VerseDisplay({
 
   // --- Render Logic ---
   // Provide default values if parts of the verse object are missing
-  const surahName = verse.surah?.englishName ?? 'Surah';
-  const surahNameArabic = verse.surah?.name ?? '';
-  const surahTranslation = verse.surah?.englishNameTranslation ?? 'Translation';
-  const surahAyahCount = verse.surah?.numberOfAyahs ?? '?';
-  const revelationType = verse.surah?.revelationType ?? '';
   const displayArabicText = verse.arabicText ?? "Arabic text not available.";
   const displayEnglishTranslation = verse.englishTranslation ?? "Translation not available.";
 
@@ -197,10 +182,10 @@ export function VerseDisplay({
         {/* Use a standard div as trigger, add onClick handler */}
         <div
           className={cn(
-            "border border-border rounded-lg shadow-sm transition-colors duration-200 overflow-hidden cursor-pointer hover:border-primary/50", // Add hover effect
-             isHighlighted && "ring-2 ring-primary/80 border-primary/80", // Highlight focused verse
-             isPlaying && "bg-accent/5 dark:bg-accent/10", // Subtle background for playing verse
-             "bg-card" // Ensure background color is applied
+            "border-b border-border/30 py-4 px-2 md:px-4 transition-colors duration-200 cursor-pointer hover:bg-accent/5 dark:hover:bg-accent/10", // Simplified styling, removed redundant border/shadow
+             isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50", // Adjusted highlight
+             isPlaying && "bg-accent/10 dark:bg-accent/15", // Subtle background for playing verse
+             "bg-transparent" // Remove card background, let parent handle it
           )}
           onClick={() => onClick(verse.verseNumber)} // Call passed onClick handler
           aria-current={isHighlighted ? "true" : "false"}
@@ -209,66 +194,30 @@ export function VerseDisplay({
           tabIndex={0} // Make it focusable
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(verse.verseNumber); }} // Allow activation with keyboard
         >
-          {/* Header Section */}
-          <CardHeader className="pb-2 pt-4 px-4 md:px-6 relative bg-card/50 dark:bg-card/70"> {/* Slightly different header background */}
-            {/* Bismillah (conditionally rendered) */}
-            {showBismillah && (
-              <p className="font-bismillah text-center text-foreground mb-4 text-2xl md:text-3xl" aria-hidden="true">
-                {bismillahText}
-              </p>
-            )}
-            {/* Surah Info */}
-            <div className="flex justify-between items-start gap-4">
-              {/* English Info */}
-              <div className="text-left">
-                <CardTitle className="text-base md:text-lg font-semibold text-foreground">
-                   {verse.surah?.number}. {surahName}
-                </CardTitle>
-                <CardDescription className="text-left text-foreground/70 text-xs md:text-sm">
-                  {surahTranslation} ({surahAyahCount} Ayahs)
-                </CardDescription>
-              </div>
-              {/* Arabic Info */}
-              <div className="text-right">
-                 {/* Use CardTitle for semantic heading, but style appropriately */}
-                <CardTitle className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
-                   {surahNameArabic}
-                </CardTitle>
-                <CardDescription className="text-right text-[0.6rem] md:text-xs italic text-foreground/60">
-                   {revelationType}
-                 </CardDescription>
-              </div>
-            </div>
-             {/* Indicators */}
-             <div className="absolute bottom-1 left-1 flex items-center gap-2">
+           {/* Indicators (optional placement within verse) */}
+           <div className="absolute top-1 right-1 flex items-center gap-1 pointer-events-none">
                  {isPlaying && (
                      <div className="text-primary animate-pulse" title="Playing">
-                         <PlayCircle size={16} fill="currentColor" />
+                         <PlayCircle size={12} fill="currentColor" />
                          <span className="sr-only">Playing</span>
                      </div>
                  )}
-             </div>
-             <div className="absolute top-2 right-2 flex items-center gap-2">
-                  {isBookmarked && (
+                 {isBookmarked && (
                      <div className="text-primary" title="Bookmarked">
-                         <Bookmark size={14} fill="currentColor" />
+                         <Bookmark size={10} fill="currentColor" />
                          <span className="sr-only">Bookmarked</span>
                      </div>
                  )}
-                 {/* Add other indicators like notes icon here */}
-             </div>
-          </CardHeader>
+           </div>
 
-           <Separator className="mx-4 md:mx-6 my-0" /> {/* Reduce separator margin */}
 
-           {/* Content Section (Arabic and Translation) */}
-           <CardContent className="p-4 md:p-6 flex-grow">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
+           {/* Content Section (Arabic and Translation) - Simplified Structure */}
+           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
                {/* Arabic Text (Right for LTR context, but RTL content) */}
                <div dir="rtl" className="order-1 md:order-3 flex flex-col items-end">
                   <p className="font-amiri text-foreground text-right tracking-normal" style={arabicStyle} lang="ar">
                     {displayArabicText}
-                    {/* Ayah number marker - stylize as needed */}
+                    {/* Ayah number marker */}
                     <span className="text-sm font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none" aria-hidden="true">
                         ﴿{ayahNumberDisplay}﴾
                     </span>
@@ -286,9 +235,7 @@ export function VerseDisplay({
                     {displayEnglishTranslation}
                   </p>
                </div>
-
             </div>
-          </CardContent>
         </div>
       </ContextMenuTrigger>
 
@@ -315,12 +262,9 @@ export function VerseDisplay({
            <Volume2 className="mr-2 h-4 w-4" />
            <span>{isSpeaking ? 'Stop Speaking' : 'Speak Translation'}</span>
          </ContextMenuItem>
-         {/* Future: Add direct play/pause from context menu? */}
-         {/* <ContextMenuItem onClick={() => console.log('Play/Pause from context')} disabled={!verse.audioUrl}>
-             {isPlaying ? <PauseCircle className="mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-             <span>{isPlaying ? 'Pause Audio' : 'Play Audio'}</span>
-         </ContextMenuItem> */}
       </ContextMenuContent>
     </ContextMenu>
   );
 }
+
+    

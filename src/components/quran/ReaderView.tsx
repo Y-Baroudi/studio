@@ -19,7 +19,7 @@ import { NotesSidebar } from './NotesSidebar';
 import { SettingsPanel } from './SettingsPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle } from 'lucide-react'; // Added AlertCircle icon
+import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info } from 'lucide-react'; // Added Info icon
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area'; // For scrollable container
@@ -34,9 +34,10 @@ const DEFAULT_TRANSLATION_ID = SUPPORTED_TRANSLATIONS[0]?.id ?? 'en.clearquran';
 const DEFAULT_RECITER_ID = 'ar.alafasy';
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_ARABIC_FONT_SIZE = 24;
-const DEFAULT_LINE_HEIGHT = 1.8; // Adjusted based on previous request
+const DEFAULT_LINE_HEIGHT = 1.8;
 const SWIPE_THRESHOLD = 50;
 const VERSES_TO_LOAD_AT_ONCE = 10; // Adjust number of verses per batch
+const BISMILLAH_TEXT = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
 export function ReaderView() {
   const [quranMeta, setQuranMeta] = useState<QuranMeta | null>(null);
@@ -690,10 +691,56 @@ export function ReaderView() {
   const displayError = error && !isEssentialLoading; // Show error only if not critically loading
 
   const currentSurahMetaData = quranMeta?.surahs.references.find(s => s?.number === currentSurahNumber) ?? null;
+  const showBismillah = currentSurahMetaData && currentSurahMetaData.number !== 1 && currentSurahMetaData.number !== 9;
 
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-4 pb-32 relative"> {/* Reduced gap, adjusted bottom padding */}
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-4 pb-32 relative">
+
+      {/* Fixed Surah Header */}
+      <div className="sticky top-0 z-20 bg-background border-b border-border shadow-sm p-3 md:p-4">
+         {currentSurahMetaData ? (
+             <div className="flex justify-between items-start gap-4">
+               {/* Left: English Info */}
+               <div className="text-left">
+                 <h2 className="text-lg md:text-xl font-semibold text-foreground flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center bg-primary text-primary-foreground w-7 h-7 rounded-full text-sm">
+                       {currentSurahMetaData.number}
+                    </span>
+                    {currentSurahMetaData.englishName}
+                 </h2>
+                 <p className="text-xs md:text-sm text-muted-foreground">
+                    {currentSurahMetaData.englishNameTranslation} ({currentSurahMetaData.numberOfAyahs} Ayahs)
+                 </p>
+               </div>
+               {/* Right: Arabic Info */}
+               <div className="text-right">
+                 <h2 className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
+                    {currentSurahMetaData.name}
+                 </h2>
+                  <p className="text-[0.6rem] md:text-xs italic text-muted-foreground">
+                    {currentSurahMetaData.revelationType}
+                  </p>
+               </div>
+                {/* Optional: Info Icon/Tooltip */}
+                 {/* <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button variant="ghost" size="icon" className="w-6 h-6 ml-auto"> <Info className="h-4 w-4 text-muted-foreground"/> </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">More Surah Info (Placeholder)</TooltipContent>
+                  </Tooltip>
+                 </TooltipProvider> */}
+             </div>
+         ) : (
+             // Placeholder while loading metadata
+             <div className="flex justify-between items-center gap-4">
+                 <Skeleton className="h-6 w-1/3" />
+                 <Skeleton className="h-6 w-1/4" />
+             </div>
+         )}
+      </div>
+
 
       {/* Main Scrollable Content Area */}
       <div
@@ -705,23 +752,24 @@ export function ReaderView() {
       >
           {/* Wrap content in ScrollArea */}
           <ScrollArea
-            className="h-[calc(100vh-230px)]" // Adjust height dynamically
+            className="h-[calc(100vh-300px)]" // Adjust height considering header and controls
             viewportRef={scrollContainerRef} // Pass the ref here
           >
             <div className="p-1 md:p-2"> {/* Minimal padding inside scroll area */}
+              {/* Bismillah (conditionally rendered inside scroll area) */}
+              {showBismillah && (
+                <p className="font-bismillah text-center text-foreground my-4 text-2xl md:text-3xl" aria-label="Bismillah">
+                   {BISMILLAH_TEXT}
+                </p>
+              )}
+
               {/* Loading Skeletons */}
                {isEssentialLoading && (
                  <div className="p-4 md:p-6 space-y-6">
                    {[...Array(3)].map((_, i) => (
-                     <div key={i} className="flex flex-col md:flex-row gap-4 border-b pb-4">
-                        <div className="flex-1 space-y-2">
-                            <Skeleton className="h-5 w-1/4" />
-                            <Skeleton className="h-16 w-full" />
-                        </div>
-                        <div className="flex-1 space-y-2">
-                           <Skeleton className="h-5 w-1/4 ml-auto" />
-                           <Skeleton className="h-20 w-full" />
-                        </div>
+                     <div key={i} className="flex flex-col gap-4 border-b border-border/30 pb-4">
+                        <Skeleton className="h-20 w-full mb-2" /> {/* Arabic Placeholder */}
+                        <Skeleton className="h-12 w-full" /> {/* Translation Placeholder */}
                      </div>
                    ))}
                    <p className="text-center text-muted-foreground mt-4 text-sm">
@@ -774,6 +822,7 @@ export function ReaderView() {
                         onClick={handleVerseClick} // Pass click handler
                         isHighlighted={verse.verseNumber === currentAbsoluteVerse}
                         isPlaying={verse.verseNumber === playingVerseNumber}
+                        // Header info is now in the fixed header, remove props if not needed by VerseDisplay itself
                     />
                 </div>
               ))}
