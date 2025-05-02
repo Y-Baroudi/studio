@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'; // Added useEffect
 import type { Verse } from '@/services/alquran-cloud';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Bookmark, Tag, Share2, StickyNote, Volume2, PlayCircle, PauseCircle } from 'lucide-react'; // Added Play/Pause icons
+import { Bookmark, Tag, Share2, StickyNote, Volume2, PlayCircle } from 'lucide-react'; // Removed PauseCircle as playing indicator is different now
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,9 +14,9 @@ import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 interface VerseDisplayProps {
   verse: Verse;
-  fontSize: number; // Base font size for English text in pixels
-  arabicFontSize: number; // Font size for Arabic text in pixels
-  lineHeight: number; // Line height multiplier for both texts
+  fontSize: number; // Prop is currently unused, CSS variables define size
+  arabicFontSize: number; // Prop is currently unused, CSS variables define size
+  lineHeight: number; // Prop is currently unused, CSS variables define size
   onContextMenu: (verseNumber: number) => void; // Handler for context menu actions
   onClick: (verseNumber: number) => void; // Handler for click/tap actions
   isHighlighted: boolean; // Is this verse currently focused/selected?
@@ -25,11 +25,11 @@ interface VerseDisplayProps {
 
 export function VerseDisplay({
     verse,
-    fontSize, // Prop is currently unused, Tailwind classes define size
-    arabicFontSize, // Prop is currently unused, Tailwind classes define size
-    lineHeight, // Prop is currently unused, Tailwind classes define size
+    fontSize,
+    arabicFontSize,
+    lineHeight,
     onContextMenu,
-    onClick, // Receive onClick handler
+    onClick,
     isHighlighted,
     isPlaying
 }: VerseDisplayProps) {
@@ -57,11 +57,9 @@ export function VerseDisplay({
     };
    }, [synth]); // Dependency on synth
 
-  // --- Verse Number ---
-  // Ensure verseReference exists and split safely
-  const ayahNumberDisplay = verse.ayahNumberInSurah?.toString() ?? '?'; // Use ayahNumberInSurah directly
-  const surahNumberDisplay = verse.surah?.number?.toString() ?? '?';
-  const verseReferenceDisplay = `${surahNumberDisplay}:${ayahNumberDisplay}`;
+  // --- Verse Number Formatting ---
+  // Format as XX:XX (Surah:Ayah)
+  const verseReferenceDisplay = `${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'}`;
 
 
   // --- Context Menu Action Handlers ---
@@ -78,18 +76,18 @@ export function VerseDisplay({
   const handleShareVerse = async () => {
     console.log(`Share clicked for verse ${verse.verseNumber}`);
     const shareData = {
-        title: `Quran Verse: ${verse.surah?.englishName ?? 'Surah'} ${verse.verseReference ?? ''}`,
-        text: `"${verse.englishTranslation ?? 'Translation not available.'}"\n\n${verse.arabicText ?? ''}\n\n(Quran ${verse.verseReference ?? ''})`,
+        title: `Quran Verse: ${verse.surah?.englishName ?? 'Surah'} ${verseReferenceDisplay}`,
+        text: `"${verse.englishTranslation ?? 'Translation not available.'}"\n\n${verse.arabicText ?? ''}\n\n(Quran ${verseReferenceDisplay})`,
         url: window.location.href // Optional: share the current URL
     };
     try {
         if (navigator.share && navigator.canShare(shareData)) {
             await navigator.share(shareData);
-            toast({ title: "Shared", description: `Verse ${verse.verseReference} shared.` });
+            toast({ title: "Shared", description: `Verse ${verseReferenceDisplay} shared.` });
         } else if (navigator.clipboard) {
             // Fallback to copy for desktop or if navigator.share is not supported
             await navigator.clipboard.writeText(shareData.text);
-            toast({ title: "Copied", description: `Verse ${verse.verseReference} copied to clipboard.` });
+            toast({ title: "Copied", description: `Verse ${verseReferenceDisplay} copied to clipboard.` });
         } else {
              toast({ title: "Share Error", description: "Sharing/Copying not supported on this browser.", variant: "destructive" });
         }
@@ -109,7 +107,7 @@ export function VerseDisplay({
     setIsBookmarked(newState);
     // TODO: Implement actual bookmark persistence logic (e.g., using localStorage or backend)
     console.log(`Bookmark ${newState ? 'added' : 'removed'} for verse ${verse.verseNumber}`);
-    toast({ title: newState ? "Bookmarked" : "Bookmark Removed", description: `Verse ${verse.verseReference} ${newState ? 'bookmarked' : 'bookmark removed'}.` });
+    toast({ title: newState ? "Bookmarked" : "Bookmark Removed", description: `Verse ${verseReferenceDisplay} ${newState ? 'bookmarked' : 'bookmark removed'}.` });
   };
 
     // --- Text-to-Speech Handler ---
@@ -167,7 +165,7 @@ export function VerseDisplay({
         {/* Main Verse Container */}
         <div
           className={cn(
-            "relative border-b border-border/30 py-4 px-2 md:px-4 mb-6 pb-10", // Increased bottom padding for verse numbers
+            "relative border-b border-border/30 py-4 px-2 md:px-4 mb-6", // Adjusted padding/margin, removed pb-10
             "transition-colors duration-200 cursor-pointer",
             "hover:bg-accent/5 dark:hover:bg-accent/10",
             isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 border-l-2 border-primary pl-3",
@@ -175,7 +173,7 @@ export function VerseDisplay({
           )}
           onClick={() => onClick(verse.verseNumber)}
           aria-current={isHighlighted ? "true" : "false"}
-          aria-label={`Verse ${verse.verseReference}. Arabic: ${displayArabicText}. Translation: ${displayEnglishTranslation}`}
+          aria-label={`Verse ${verseReferenceDisplay}.`} // Simplified label
           role="article"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(verse.verseNumber); }}
@@ -201,55 +199,38 @@ export function VerseDisplay({
             <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
 
                {/* Arabic Text Column (Right for LTR context, but RTL content) */}
-                <div dir="rtl" className="order-1 flex flex-col items-end relative"> {/* Add relative positioning */}
+                <div className="order-1 flex flex-col items-end">
                   {/* Arabic Text Paragraph */}
                   <p
                     className={cn(
-                        "font-amiri text-foreground text-right! mb-2 text-arabic-display", // Use new class, force alignment
-                        // Using CSS variables now for font size / line height: text-2xl leading-loose tracking-normal
+                        "font-amiri text-foreground mb-1 text-arabic-display", // Use class, force alignment via CSS
                     )}
                     lang="ar"
+                    dir="rtl"
                   >
                     {displayArabicText}
+                    {/* Inline Verse Number */}
+                    <span className="verse-number-inline-arabic" dir="ltr"> {verseReferenceDisplay}</span>
                   </p>
-                  {/* Arabic Verse Number Indicator (absolute positioned) */}
-                  <span
-                    className={cn(
-                      "verse-number-arabic text-foreground/60 font-sans", // Use new class
-                      "absolute bottom-0 right-2" // Position bottom-right
-                    )}
-                    dir="ltr" // Ensure number renders LTR
-                    aria-hidden="true"
-                  >
-                    ﴿{verseReferenceDisplay}﴾
-                  </span>
                </div>
 
               {/* Vertical Separator (Hidden on mobile) */}
               <Separator orientation="vertical" className="h-auto hidden md:block order-2 border-border/50" />
 
               {/* English Translation Column (Left for LTR context) */}
-                <div dir="ltr" className="order-2 md:order-1 flex flex-col items-start relative"> {/* Add relative positioning */}
+                <div className="order-2 md:order-1 flex flex-col items-start">
                    {/* English Translation Paragraph */}
                   <p
                     className={cn(
-                        "text-foreground text-left! text-translation-display", // Use new class, force alignment
-                        // Using CSS variables now for font size / line height: text-base leading-relaxed tracking-wide
+                        "text-foreground mb-1 text-translation-display", // Use class, force alignment via CSS
                     )}
                     lang="en"
+                    dir="ltr"
                   >
                      {displayEnglishTranslation}
+                     {/* Inline Verse Number */}
+                     <span className="verse-number-inline-translation"> {verseReferenceDisplay}</span>
                   </p>
-                  {/* English Verse Number Indicator (absolute positioned) */}
-                  <span
-                    className={cn(
-                      "verse-number-translation text-foreground/60 font-sans", // Use new class
-                       "absolute bottom-0 left-2" // Position bottom-left
-                    )}
-                    aria-hidden="true"
-                  >
-                    ({verseReferenceDisplay})
-                  </span>
                 </div>
             </div>
         </div>
@@ -282,3 +263,4 @@ export function VerseDisplay({
     </ContextMenu>
   );
 }
+    
