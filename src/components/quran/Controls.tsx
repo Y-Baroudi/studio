@@ -493,183 +493,155 @@ export function Controls({
 
 
   return (
-     // Stick to the bottom, above the FAB
     <Card className="shadow-lg rounded-lg overflow-hidden sticky bottom-4 left-0 right-0 w-full max-w-5xl mx-auto z-10 backdrop-blur-sm bg-background/80 dark:bg-background/70 border">
       <CardContent className="p-3 flex flex-col gap-2"> {/* Reduced padding and gap */}
         <audio ref={audioRef} preload="metadata" />
 
-        {/* Top Row: Verse Navigation (Slider & Input) & Jump To */}
-        <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4 w-full">
-            <div className="flex items-center gap-2 flex-grow min-w-[200px]">
-                 <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                     <Button variant="ghost" size="icon" onClick={onPreviousVerse} disabled={navDisabled || verseNumber <= 1} aria-label="Previous Verse">
-                        <SkipBack className="h-5 w-5" />
-                     </Button>
-                 </TooltipTrigger> <TooltipContent><p>Previous Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
+        {/* Top Row: Verse Navigation (Slider & Input) */}
+        <div className="flex items-center gap-2 w-full">
+          <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onPreviousVerse} disabled={navDisabled || verseNumber <= 1} aria-label="Previous Verse">
+              <SkipBack className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger> <TooltipContent><p>Previous Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
 
-                 {/* Verse Slider - Controlled by localVerseNumber, notifies parent on commit */}
-                 <Slider
-                    value={[localVerseNumber]}
-                    onValueChange={handleLocalVerseSliderChange} // Update local state/visuals
-                    onValueCommit={onVerseSliderCommit} // Trigger navigation on release
-                    min={1}
-                    max={MAX_VERSE_NUMBER}
-                    step={1}
-                    className="flex-1"
-                    aria-label="Navigate Verses"
-                    disabled={navDisabled}
-                />
+          {/* Verse Slider */}
+          <Slider
+            value={[localVerseNumber]}
+            onValueChange={handleLocalVerseSliderChange}
+            onValueCommit={onVerseSliderCommit}
+            min={1}
+            max={MAX_VERSE_NUMBER}
+            step={1}
+            className="flex-1"
+            aria-label="Navigate Verses"
+            disabled={navDisabled}
+          />
 
-                 {/* Verse Input - Controlled by localVerseNumber, notifies parent on blur */}
-                 <Input
-                    type="number"
-                    min="1"
-                    max={MAX_VERSE_NUMBER}
-                    value={localVerseNumber > 0 ? localVerseNumber : ''} // Use local state, handle 0 or initial case
-                    onChange={handleLocalVerseInputChange} // Update local state
-                    onBlur={onVerseInputBlur} // Trigger navigation/validation on blur
-                    className="w-20 h-9 text-center border-input rounded-md text-sm shrink-0"
-                    aria-label="Current Verse Number"
-                    disabled={navDisabled}
-                    // Ensure valid number range on input if needed, or rely on blur validation
-                />
+          {/* Verse Input */}
+          <Input
+            type="number"
+            min="1"
+            max={MAX_VERSE_NUMBER}
+            value={localVerseNumber > 0 ? localVerseNumber : ''}
+            onChange={handleLocalVerseInputChange}
+            onBlur={onVerseInputBlur}
+            className="w-20 h-9 text-center border-input rounded-md text-sm shrink-0"
+            aria-label="Current Verse Number"
+            disabled={navDisabled}
+          />
 
-                 <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={onNextVerse} disabled={navDisabled || verseNumber >= MAX_VERSE_NUMBER} aria-label="Next Verse">
-                        <SkipForward className="h-5 w-5" />
-                    </Button>
-                 </TooltipTrigger> <TooltipContent><p>Next Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
-            </div>
+          <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onNextVerse} disabled={navDisabled || verseNumber >= MAX_VERSE_NUMBER} aria-label="Next Verse">
+              <SkipForward className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger> <TooltipContent><p>Next Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
+        </div>
 
-             <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+        {/* Middle Row: Audio Progress & Main Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 w-full">
+           {/* Audio Progress Bar */}
+           <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
+             <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(currentTime)}</span>
+             <Slider
+                 value={duration > 0 && isFinite(currentTime) ? [currentTime] : [0]}
+                 onValueChange={handleProgressSliderChange}
+                 onPointerDown={handlePointerDown}
+                 onValueCommit={handleSeekCommit}
+                 min={0}
+                 max={duration > 0 && isFinite(duration) ? duration : 1}
+                 step={0.1}
+                 className={cn("flex-1 cursor-pointer", (audioActionDisabled || duration <= 0) && "opacity-50 cursor-not-allowed")}
+                 aria-label="Audio Progress"
+                 disabled={audioActionDisabled || duration <= 0}
+             />
+             <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(duration)}</span>
+           </div>
+
+           {/* Main Audio Control Buttons */}
+           <div className="flex items-center gap-1 md:gap-2 order-1 sm:order-2">
+             <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleRepeat}
+                    className={cn(isRepeating && 'text-primary')}
+                    aria-pressed={isRepeating}
+                    aria-label="Repeat Verse"
+                    disabled={audioActionDisabled}
+                 >
+                     <Repeat className="h-5 w-5" />
+                 </Button>
+             </TooltipTrigger> <TooltipContent><p>{isRepeating ? 'Disable Repeat' : 'Repeat Verse'}</p></TooltipContent> </Tooltip> </TooltipProvider>
+
+             <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                <Button
+                    variant="default"
+                    size="icon"
+                    onClick={togglePlayPause}
+                    disabled={audioActionDisabled}
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                    className="w-10 h-10 rounded-full shadow-lg bg-primary hover:bg-primary/90 relative"
+                >
+                    {isAudioLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-full">
+                           <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" />
+                        </div>
+                    )}
+                    {!isAudioLoading && (isPlaying ? <Pause className="h-5 w-5 text-primary-foreground" /> : <Play className="h-5 w-5 text-primary-foreground" />)}
+                </Button>
+             </TooltipTrigger> <TooltipContent><p>{isPlaying ? 'Pause' : 'Play'}</p></TooltipContent> </Tooltip> </TooltipProvider>
+
+             <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleMute}
+                    aria-pressed={isMuted}
+                    aria-label={isMuted ? 'Unmute' : 'Mute'}
+                    disabled={audioActionDisabled}
+                >
+                    {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                </Button>
+             </TooltipTrigger> <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent> </Tooltip> </TooltipProvider>
+           </div>
+        </div>
+
+        {/* Bottom Row: Jump To, Reciter, Speed, Volume */}
+        <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+            {/* Jump To */}
+            <div className="flex items-center gap-2 flex-wrap justify-start">
                  <Select onValueChange={handleJuzSelect} disabled={navDisabled}>
                     <SelectTrigger className="w-[130px] h-9 text-sm shrink-0" aria-label="Jump to Juz"> <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Juz" /> </SelectTrigger>
                     <SelectContent> <SelectGroup> <SelectLabel>Juz</SelectLabel> {Object.entries(JUZ_STARTS).map(([juz, startVerse]) => ( <SelectItem key={juz} value={juz}> Juz {juz} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
                  </Select>
-                  <Select onValueChange={handlePageSelect} disabled={navDisabled}>
+                 <Select onValueChange={handlePageSelect} disabled={navDisabled}>
                     <SelectTrigger className="w-[130px] h-9 text-sm shrink-0" aria-label="Jump to Page"> <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Page" /> </SelectTrigger>
                     <SelectContent> <SelectGroup> <SelectLabel>Page (Mushaf)</SelectLabel> {Object.entries(PAGE_STARTS).map(([page, startVerse]) => ( <SelectItem key={page} value={page}> Page {page} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
-                  </Select>
-             </div>
-        </div>
-
-
-         {/* Bottom Row: Audio Progress, Main Controls, Reciter/Speed/Volume */}
-         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 md:gap-4 w-full">
-            {/* Audio Progress Bar */}
-            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 order-2 sm:order-1">
-                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(currentTime)}</span>
-                <Slider
-                    value={duration > 0 && isFinite(currentTime) ? [currentTime] : [0]} // Ensure value is valid
-                    onValueChange={handleProgressSliderChange} // Update visual time
-                    onPointerDown={handlePointerDown}
-                    onValueCommit={handleSeekCommit} // Seek audio on release
-                    min={0}
-                    max={duration > 0 && isFinite(duration) ? duration : 1} // Ensure max is valid
-                    step={0.1}
-                    className={cn("flex-1 cursor-pointer", (audioActionDisabled || duration <= 0) && "opacity-50 cursor-not-allowed")} // Disable styling
-                    aria-label="Audio Progress"
-                    disabled={audioActionDisabled || duration <= 0} // Functional disable
-                />
-                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(duration)}</span>
+                 </Select>
             </div>
 
-             {/* Main Audio Control Buttons */}
-             <div className="flex items-center gap-1 md:gap-2 order-1 sm:order-2">
-                 <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                     <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleRepeat}
-                        className={cn(isRepeating && 'text-primary')} // Highlight if active
-                        aria-pressed={isRepeating}
-                        aria-label="Repeat Verse"
-                        disabled={audioActionDisabled} // Disable based on audio state
-                     >
-                         <Repeat className="h-5 w-5" />
-                     </Button>
-                 </TooltipTrigger> <TooltipContent><p>{isRepeating ? 'Disable Repeat' : 'Repeat Verse'}</p></TooltipContent> </Tooltip> </TooltipProvider>
-
-                 <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                    <Button
-                        variant="default" // Prominent play button
-                        size="icon"
-                        onClick={togglePlayPause}
-                        disabled={audioActionDisabled} // Disable if no audio/loading/error
-                        aria-label={isPlaying ? 'Pause' : 'Play'}
-                        className="w-10 h-10 rounded-full shadow-lg bg-primary hover:bg-primary/90 relative"
-                    >
-                        {isAudioLoading && ( // Show loading spinner inside button
-                            <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-full">
-                               <Loader2 className="h-5 w-5 animate-spin text-primary-foreground" />
-                            </div>
-                        )}
-                        {!isAudioLoading && (isPlaying ? <Pause className="h-5 w-5 text-primary-foreground" /> : <Play className="h-5 w-5 text-primary-foreground" />)}
-                    </Button>
-                 </TooltipTrigger> <TooltipContent><p>{isPlaying ? 'Pause' : 'Play'}</p></TooltipContent> </Tooltip> </TooltipProvider>
-
-                 <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={toggleMute}
-                        aria-pressed={isMuted}
-                        aria-label={isMuted ? 'Unmute' : 'Mute'}
-                        disabled={audioActionDisabled} // Disable based on audio state
-                    >
-                        {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                    </Button>
-                 </TooltipTrigger> <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent> </Tooltip> </TooltipProvider>
-             </div>
-
-
-            {/* Reciter, Speed, Volume Controls */}
-            <div className="flex items-center gap-2 order-3 sm:order-3 justify-end flex-wrap">
+            {/* Reciter, Speed, Volume */}
+            <div className="flex items-center gap-2 flex-wrap justify-end">
                  {/* Reciter Select */}
                  <Select
                     value={selectedReciter}
                     onValueChange={onReciterChange}
-                    disabled={isLoadingReciters || reciters.length === 0 || navDisabled} // Disable if loading reciters
+                    disabled={isLoadingReciters || reciters.length === 0 || navDisabled}
                   >
                       <SelectTrigger
-                         className="w-[180px] h-9 text-sm shrink-0" // Increased width slightly
+                         className="w-[180px] h-9 text-sm shrink-0"
                          aria-label="Select Reciter"
                        >
-                          {/* Show loading indicator inside trigger if loading */}
                           {isLoadingReciters ? (
-                              <span className="flex items-center gap-1 text-muted-foreground">
-                                  <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                              </span>
-                          ) : (
-                              <SelectValue placeholder="Select Reciter" />
-                          )}
+                              <span className="flex items-center gap-1 text-muted-foreground"> <Loader2 className="h-4 w-4 animate-spin" /> Loading... </span>
+                          ) : ( <SelectValue placeholder="Select Reciter" /> )}
                       </SelectTrigger>
                       <SelectContent>
-                        {/* Show loading item if loading */}
-                         {isLoadingReciters && (
-                             <SelectItem value="loading" disabled>
-                                 <span className="flex items-center gap-1">
-                                     <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                                 </span>
-                             </SelectItem>
-                         )}
-                         {/* Show reciter options when not loading */}
-                         {!isLoadingReciters && popularReciterOptions.length > 0 && (
-                            <SelectGroup>
-                                <SelectLabel>Popular Reciters</SelectLabel>
-                                {popularReciterOptions}
-                            </SelectGroup>
-                         )}
-                         {!isLoadingReciters && otherReciterOptions.length > 0 && (
-                             <SelectGroup>
-                                <SelectLabel>All Reciters</SelectLabel>
-                                {otherReciterOptions}
-                             </SelectGroup>
-                         )}
-                         {/* Show message if no reciters loaded */}
-                         {!isLoadingReciters && reciters.length === 0 && (
-                              <SelectItem value="none" disabled>No reciters available</SelectItem>
-                         )}
+                         {isLoadingReciters && (<SelectItem value="loading" disabled> <span className="flex items-center gap-1"> <Loader2 className="h-4 w-4 animate-spin" /> Loading... </span> </SelectItem> )}
+                         {!isLoadingReciters && popularReciterOptions.length > 0 && ( <SelectGroup> <SelectLabel>Popular</SelectLabel> {popularReciterOptions} </SelectGroup> )}
+                         {!isLoadingReciters && otherReciterOptions.length > 0 && ( <SelectGroup> <SelectLabel>All</SelectLabel> {otherReciterOptions} </SelectGroup> )}
+                         {!isLoadingReciters && reciters.length === 0 && ( <SelectItem value="none" disabled>No reciters</SelectItem> )}
                        </SelectContent>
                   </Select>
 
@@ -680,25 +652,20 @@ export function Controls({
                             <SelectValue placeholder="Speed" />
                        </SelectTrigger>
                        <SelectContent>
-                           <SelectGroup>
-                               <SelectLabel>Speed</SelectLabel>
-                               {PLAYBACK_SPEEDS.map((speed) => (
-                                  <SelectItem key={speed} value={speed.toString()}> {speed}x </SelectItem>
-                               ))}
-                           </SelectGroup>
+                           <SelectGroup> <SelectLabel>Speed</SelectLabel> {PLAYBACK_SPEEDS.map((speed) => ( <SelectItem key={speed} value={speed.toString()}> {speed}x </SelectItem> ))} </SelectGroup>
                        </SelectContent>
                   </Select>
 
-                  {/* Volume Slider (Hidden on smaller screens potentially) */}
+                  {/* Volume Slider */}
                   <Slider
                     value={[volume]}
                     onValueChange={handleVolumeChange}
                     min={0}
                     max={1}
                     step={0.05}
-                    className={cn("w-20 hidden md:flex h-9 items-center", audioActionDisabled && "opacity-50 cursor-not-allowed")} // Disable styling
+                    className={cn("w-20 hidden md:flex h-9 items-center", audioActionDisabled && "opacity-50 cursor-not-allowed")}
                     aria-label="Volume"
-                    disabled={audioActionDisabled} // Functional disable
+                    disabled={audioActionDisabled}
                  />
              </div>
         </div>
@@ -713,5 +680,3 @@ export function Controls({
     </Card>
   );
 }
-
-    
