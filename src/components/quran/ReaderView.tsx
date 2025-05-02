@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -22,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Added Notebook icon
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { ScrollArea } from '@/components/ui/scroll-area'; // For scrollable container
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'; // Import ScrollBar as well for explicit scroll handling
 import { useInView } from 'react-intersection-observer'; // For detecting when to load more
 import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { useToast } from '@/hooks/use-toast';
@@ -767,13 +768,14 @@ export function ReaderView() {
       {/* Main Scrollable Content Area */}
        {/* Apply Tailwind classes for overflow and height */}
       <div
-        className="flex-grow overflow-hidden rounded-lg relative bg-card" // Removed fixed height, rely on dynamic calculation
+        className="flex-grow rounded-lg relative bg-card" // Removed fixed height & overflow-hidden
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{
             touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto',
-            height: scrollContainerHeight // Apply calculated height
+             minHeight: scrollContainerHeight // Use minHeight instead of height
+            // Removed explicit height style
         }}
       >
           {/* Wrap content in ScrollArea, ensure it fills parent height */}
@@ -892,6 +894,7 @@ export function ReaderView() {
                    )}
               </div>
             </div>
+          {/* <ScrollBar orientation="vertical" /> Enable if needed */}
           </ScrollArea>
       </div>
 
@@ -996,3 +999,6 @@ export function ReaderView() {
     </div>
   );
 }
+
+
+    

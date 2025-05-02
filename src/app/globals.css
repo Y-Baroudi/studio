@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -181,16 +182,45 @@ body {
   /* Inline Verse Number Indicators */
   .verse-number-inline-arabic,
   .verse-number-inline-translation {
-    @apply inline-block mx-1 font-sans; /* Remove opacity */
-    font-size: 0.5em; /* Set to 50% of parent font size */
-    color: hsl(var(--muted-foreground)); /* Use muted foreground color */
-    direction: ltr !important; /* Force LTR for numbers within any text direction */
-    vertical-align: baseline; /* Adjust vertical alignment if needed */
+    @apply inline-block mx-1 font-sans text-muted-foreground; /* Use muted foreground, remove specific opacity */
+    font-size: 0.5em !important; /* Make half the parent size */
+    line-height: 1; /* Prevent interference with main line height */
+    direction: ltr !important; /* Force LTR */
+    vertical-align: baseline; /* Align with baseline */
   }
 }
 
 /* Ensure sticky header has correct background in both themes */
 .sticky-header {
-  @apply bg-background; /* Use the CSS variable */
+  @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60; /* Use background with transparency/blur */
 }
+
+/* Styling for the fixed header container */
+.fixed-surah-header {
+    position: sticky !important; /* Ensure stickiness */
+    top: 0 !important;
+    z-index: 20 !important; /* Ensure it's above most content but potentially below modals */
+    background-color: hsl(var(--background) / 0.95) !important; /* Use background color variable with opacity */
+    backdrop-filter: blur(8px) !important; /* Add blur effect */
+    -webkit-backdrop-filter: blur(8px) !important; /* Safari */
+    border-bottom: 1px solid hsl(var(--border)) !important; /* Use border variable */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important; /* Softer shadow */
+    padding: 0.75rem 1rem !important; /* Adjust padding as needed */
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.dark .fixed-surah-header {
+    border-bottom-color: hsl(var(--border) / 0.5) !important; /* Adjust border opacity for dark */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important; /* Darker shadow for dark */
+}
+
+
+/* Ensure scroll container allows parent scroll */
+.verses-scroll-container {
+  /* Removed explicit height and overflow-y */
+   padding: 1rem !important;
+   -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
+}
+
     
