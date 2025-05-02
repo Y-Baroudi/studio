@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'; // Added useEffect
 import type { Verse } from '@/services/alquran-cloud';
-import { Card, CardContent } from '@/components/ui/card'; // Removed Header/Title/Desc imports
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Bookmark, Tag, Share2, StickyNote, Volume2, PlayCircle, PauseCircle } from 'lucide-react'; // Added Play/Pause icons
@@ -27,9 +26,9 @@ interface VerseDisplayProps {
 
 export function VerseDisplay({
     verse,
-    fontSize,
-    arabicFontSize,
-    lineHeight,
+    fontSize, // This prop is currently unused as we use Tailwind classes
+    arabicFontSize, // This prop is currently unused as we use Tailwind classes
+    lineHeight, // This prop is currently unused as we use Tailwind classes
     onContextMenu,
     onClick, // Receive onClick handler
     isHighlighted,
@@ -60,23 +59,10 @@ export function VerseDisplay({
    }, []); // Only run once on mount
 
 
-  // --- Styles ---
-  const englishStyle = {
-    fontSize: `${fontSize}px`,
-    lineHeight: `${lineHeight}`, // Apply line height
-    letterSpacing: '0.01em',
-  };
-
-  const arabicStyle = {
-    fontSize: `${arabicFontSize}px`, // Use arabicFontSize prop
-    lineHeight: `${lineHeight}`, // Apply line height
-    letterSpacing: '0.005em',
-  };
-
-
   // --- Verse Number ---
   // Ensure verseReference exists and split safely
   const ayahNumberDisplay = verse.verseReference?.split(':')[1] ?? '?';
+  const surahNumberDisplay = verse.verseReference?.split(':')[0] ?? '?';
 
 
   // --- Context Menu Action Handlers ---
@@ -182,10 +168,10 @@ export function VerseDisplay({
         {/* Use a standard div as trigger, add onClick handler */}
         <div
           className={cn(
-            "border-b border-border/30 py-4 px-2 md:px-4 transition-colors duration-200 cursor-pointer hover:bg-accent/5 dark:hover:bg-accent/10", // Simplified styling, removed redundant border/shadow
-             isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50", // Adjusted highlight
-             isPlaying && "bg-accent/10 dark:bg-accent/15", // Subtle background for playing verse
-             "bg-transparent" // Remove card background, let parent handle it
+            "relative border-b border-border/30 py-4 px-2 md:px-4 transition-colors duration-200 cursor-pointer hover:bg-accent/5 dark:hover:bg-accent/10 mb-6 pb-6", // Added mb-6 pb-6
+            isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 border-l-2 border-primary pl-3", // Added selected state styling
+            isPlaying && "bg-accent/10 dark:bg-accent/15 rounded-md", // Added playing state styling
+            "bg-transparent" // Remove card background, let parent handle it
           )}
           onClick={() => onClick(verse.verseNumber)} // Call passed onClick handler
           aria-current={isHighlighted ? "true" : "false"}
@@ -212,15 +198,20 @@ export function VerseDisplay({
 
 
            {/* Content Section (Arabic and Translation) - Simplified Structure */}
-           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
+           {/* Use flex-col for stacking, md:grid for two columns on larger screens */}
+            <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-4">
                {/* Arabic Text (Right for LTR context, but RTL content) */}
-               <div dir="rtl" className="order-1 md:order-3 flex flex-col items-end">
-                  <p className="font-amiri text-foreground text-right tracking-normal" style={arabicStyle} lang="ar">
+                <div dir="rtl" className="order-1 flex flex-col items-end">
+                   {/* Ayah number marker - moved before text */}
+                   {/* Removed Ayah number span from here to avoid duplication with indicator below */}
+                  <p
+                    className="font-amiri text-foreground text-right text-2xl leading-loose tracking-normal mb-2" // Use text-2xl (24px), leading-loose (line-height 2)
+                    lang="ar"
+                  >
                     {displayArabicText}
-                    {/* Ayah number marker */}
-                    <span className="text-sm font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none" aria-hidden="true">
-                        ﴿{ayahNumberDisplay}﴾
-                    </span>
+                     <span className="text-sm font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none" aria-hidden="true">
+                         ﴿{ayahNumberDisplay}﴾
+                     </span>
                   </p>
                </div>
 
@@ -228,14 +219,25 @@ export function VerseDisplay({
               <Separator orientation="vertical" className="h-auto hidden md:block order-2 border-border/50" />
 
               {/* English Translation (Left for LTR context) */}
-               <div className="order-2 md:order-1 flex flex-col items-start">
-                  <p className="text-foreground text-left tracking-wide" style={englishStyle} lang="en">
-                    {/* Verse number marker */}
-                    <span className="text-xs font-semibold text-primary opacity-80 mr-1 select-none">{ayahNumberDisplay}.</span>
-                    {displayEnglishTranslation}
+                <div className="order-2 md:order-1 flex flex-col items-start">
+                   {/* Ayah number marker - moved before text */}
+                   {/* Removed Ayah number span from here to avoid duplication with indicator below */}
+                  <p
+                     className="text-foreground text-left text-base leading-relaxed tracking-wide" // Use text-base (16px), leading-relaxed (line-height 1.625)
+                     lang="en"
+                  >
+                     {displayEnglishTranslation}
                   </p>
                </div>
             </div>
+
+             {/* Verse Number Indicator - Positioned absolutely at the bottom */}
+             <span
+               className="absolute bottom-1 right-2 text-xs text-muted-foreground opacity-80 select-none" // Tailwind classes for styling
+               aria-hidden="true"
+              >
+               {surahNumberDisplay}:{ayahNumberDisplay}
+             </span>
         </div>
       </ContextMenuTrigger>
 
@@ -266,5 +268,3 @@ export function VerseDisplay({
     </ContextMenu>
   );
 }
-
-    

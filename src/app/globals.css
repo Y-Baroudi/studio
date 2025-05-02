@@ -9,76 +9,76 @@ body {
 @layer base {
   :root {
     /* Light Theme - Quran Companion Palette */
-    --background: 40 33% 93%; /* #F5F5DC - Light Beige */
-    --foreground: 180 100% 15%; /* Dark Teal/Near Black for contrast */
-    --card: 40 33% 95%; /* Slightly lighter beige for cards */
-    --card-foreground: 180 100% 15%; /* Dark Teal text on card */
-    --popover: 40 33% 95%; /* Lighter beige popover */
-    --popover-foreground: 180 100% 15%; /* Dark Teal text on popover */
-    --primary: 40 33% 93%; /* #F5F5DC - Light Beige (Using background as primary) */
-    --primary-foreground: 180 100% 15%; /* Dark Teal text on primary */
-    --secondary: 125 30% 92%; /* #E8F5E9 - Soft Green */
-    --secondary-foreground: 180 100% 15%; /* Dark Teal text on secondary */
-    --muted: 125 30% 90%; /* Slightly darker Soft Green for muted */
-    --muted-foreground: 180 100% 25%; /* Medium Teal/Gray */
-    --accent: 180 100% 25%; /* #008080 - Teal */
-    --accent-foreground: 0 0% 98%; /* Soft White text on accent */
+    --background: 0 0% 98%; /* #FAFAFA - Soft White */
+    --foreground: 240 10% 3.9%; /* Default dark gray */
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 128 60% 22%; /* #1B5E20 - Forest Green */
+    --primary-foreground: 0 0% 98%; /* Soft White text on primary */
+    --secondary: 0 0% 96.1%; /* Lighter gray for secondary elements */
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 240 3.8% 46.1%; /* Medium Gray */
+    --accent: 0 0% 96.1%; /* Use secondary for accent */
+    --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%; /* Standard destructive red */
     --destructive-foreground: 0 0% 98%;
-    --border: 125 20% 85%; /* Soft green based border */
-    --input: 125 25% 90%; /* Soft green based input */
-    --ring: 180 100% 30%; /* Teal for ring */
-    --chart-1: 180 100% 30%;
-    --chart-2: 180 90% 40%;
-    --chart-3: 180 80% 50%;
-    --chart-4: 180 70% 60%;
-    --chart-5: 180 60% 70%;
+    --border: 0 0% 87.8%; /* #E0E0E0 - Light gray border */
+    --input: 0 0% 89.8%;
+    --ring: 128 60% 22%; /* Forest Green for ring */
+    --chart-1: 128 60% 22%;
+    --chart-2: 128 50% 32%;
+    --chart-3: 128 40% 42%;
+    --chart-4: 128 30% 52%;
+    --chart-5: 128 20% 62%;
     --radius: 0.5rem;
-    --sidebar-background: 125 30% 92%; /* Soft Green for sidebar */
-    --sidebar-foreground: 180 100% 15%; /* Dark Teal for sidebar text */
-    --sidebar-primary: 180 100% 25%; /* Teal for primary elements in sidebar */
-    --sidebar-primary-foreground: 0 0% 98%; /* Soft white */
-    --sidebar-accent: 40 33% 93%; /* Light Beige for accent in sidebar */
-    --sidebar-accent-foreground: 180 100% 15%; /* Dark teal */
-    --sidebar-border: 125 20% 80%; /* Darker soft green border */
-    --sidebar-ring: 180 100% 35%; /* Brighter teal ring */
+    --sidebar-background: 0 0% 95%; /* Slightly off-white sidebar */
+    --sidebar-foreground: 240 10% 3.9%;
+    --sidebar-primary: 128 60% 22%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 92%; /* Slightly darker accent for sidebar */
+    --sidebar-accent-foreground: 240 10% 3.9%;
+    --sidebar-border: 0 0% 85%;
+    --sidebar-ring: 128 60% 30%;
   }
 
   .dark {
     /* Dark Theme - Quran Companion Palette */
-    --background: 210 5% 13%; /* #212121 - Dark Gray */
+    --background: 240 6% 10%; /* #1a1a1a - Very Dark Gray */
     --foreground: 0 0% 95%; /* Lighter Gray for text */
-    --card: 210 5% 16%; /* Slightly lighter dark gray card */
-    --card-foreground: 0 0% 95%; /* Lighter Gray text on card */
-    --popover: 210 5% 10%; /* Darker popover */
-    --popover-foreground: 0 0% 95%; /* Lighter Gray text on popover */
-    --primary: 180 60% 50%; /* Brighter Teal for primary */
-    --primary-foreground: 0 0% 98%; /* Soft White text on primary */
-    --secondary: 210 5% 20%; /* Darker Gray */
-    --secondary-foreground: 180 50% 70%; /* Lighter teal text on secondary */
-    --muted: 210 5% 20%; /* Darker Gray */
-    --muted-foreground: 0 0% 65%; /* Lighter Gray */
-    --accent: 180 70% 60%; /* Brighter Teal accent */
-    --accent-foreground: 0 0% 98%; /* Soft White text on accent */
+    --card: 240 6% 12%; /* Slightly lighter dark gray card */
+    --card-foreground: 0 0% 95%;
+    --popover: 240 6% 8%; /* Darker popover */
+    --popover-foreground: 0 0% 95%;
+    --primary: 128 50% 50%; /* Brighter Forest Green */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 6% 15%; /* Darker Gray */
+    --secondary-foreground: 0 0% 80%; /* Lighter gray */
+    --muted: 240 6% 15%;
+    --muted-foreground: 0 0% 65%; /* Medium-light Gray */
+    --accent: 240 6% 20%; /* Dark accent */
+    --accent-foreground: 0 0% 95%;
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 5% 25%; /* Medium Dark Gray */
-    --input: 210 5% 22%; /* Slightly lighter dark gray for input */
-    --ring: 180 70% 70%; /* Even Brighter Teal for ring */
-    --chart-1: 180 70% 60%;
-    --chart-2: 180 60% 50%;
-    --chart-3: 180 50% 40%;
-    --chart-4: 180 40% 30%;
-    --chart-5: 180 30% 20%;
+    --border: 240 6% 25%; /* #404040 - Medium Dark Gray border */
+    --input: 240 6% 22%;
+    --ring: 128 50% 60%; /* Brighter green ring */
+    --chart-1: 128 50% 60%;
+    --chart-2: 128 40% 50%;
+    --chart-3: 128 30% 40%;
+    --chart-4: 128 20% 30%;
+    --chart-5: 128 10% 20%;
     --radius: 0.5rem;
-    --sidebar-background: 210 5% 16%; /* Dark Gray sidebar */
-    --sidebar-foreground: 0 0% 95%; /* Lighter gray text */
-    --sidebar-primary: 180 70% 60%; /* Brighter Teal primary */
-    --sidebar-primary-foreground: 0 0% 98%; /* Soft white */
-    --sidebar-accent: 210 5% 20%; /* Darker gray accent */
-    --sidebar-accent-foreground: 180 50% 70%; /* Lighter teal text */
-    --sidebar-border: 210 5% 25%; /* Medium dark gray border */
-    --sidebar-ring: 180 70% 70%; /* Brighter teal ring */
+    --sidebar-background: 240 6% 12%; /* Dark gray sidebar */
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 128 50% 60%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 6% 18%; /* Slightly darker accent */
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 240 6% 30%;
+    --sidebar-ring: 128 50% 70%;
   }
 }
 
@@ -137,3 +137,52 @@ body {
    margin-bottom: 0.5em;
 }
 
+/* Remove the previously added custom CSS for verse display as it's now handled by Tailwind */
+/*
+.verse-container {
+  margin-bottom: 24px;
+  position: relative;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.arabic-text {
+  font-family: 'Amiri', 'Traditional Arabic', serif;
+  font-size: 24px;
+  line-height: 1.8;
+  text-align: right;
+  margin-bottom: 8px;
+  direction: rtl;
+}
+
+.translation-text {
+  font-size: 16px;
+  line-height: 1.6;
+  text-align: left;
+  color: #333;
+}
+
+.verse-number-indicator {
+  font-size: 12px;
+  color: #666;
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  opacity: 0.8;
+  direction: ltr;
+}
+
+.translation-text[dir="ltr"] {
+  text-align: left;
+}
+
+.verse-container.playing {
+  background-color: rgba(27, 94, 32, 0.05);
+  border-radius: 4px;
+}
+
+.verse-container.selected {
+  border-left: 3px solid #1B5E20;
+  padding-left: 12px;
+}
+*/
