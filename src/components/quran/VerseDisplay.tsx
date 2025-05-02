@@ -209,8 +209,11 @@ export function VerseDisplay({
                     lang="ar"
                   >
                     {displayArabicText}
-                     <span className="text-sm font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none" aria-hidden="true">
-                         ﴿{ayahNumberDisplay}﴾
+                     <span
+                       className="text-xs font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none"
+                       aria-hidden="true"
+                     >
+                       ﴿{ayahNumberDisplay}﴾
                      </span>
                   </p>
                </div>
@@ -227,17 +230,15 @@ export function VerseDisplay({
                      lang="en"
                   >
                      {displayEnglishTranslation}
+                     <span
+                       className="text-xs font-normal text-primary opacity-90 mx-1 font-sans inline-block select-none"
+                       aria-hidden="true"
+                     >
+                       ({surahNumberDisplay}:{ayahNumberDisplay})
+                     </span>
                   </p>
                </div>
             </div>
-
-             {/* Verse Number Indicator - Positioned absolutely at the bottom */}
-             <span
-               className="absolute bottom-1 right-2 text-xs text-muted-foreground opacity-80 select-none" // Tailwind classes for styling
-               aria-hidden="true"
-              >
-               {surahNumberDisplay}:{ayahNumberDisplay}
-             </span>
         </div>
       </ContextMenuTrigger>
 
@@ -268,3 +269,4 @@ export function VerseDisplay({
     </ContextMenu>
   );
 }
+
