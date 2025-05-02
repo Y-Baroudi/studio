@@ -723,13 +723,7 @@ export function ReaderView() {
       {/* Fixed Surah Header */}
       <div
         ref={fixedHeaderRef} // Add ref
-        className="sticky top-0 z-20 bg-background border-b border-border shadow-sm p-3 md:p-4 sticky-header" // Apply sticky class
-        style={{
-            position: '-webkit-sticky', /* Safari */
-            position: 'sticky',
-            top: 0,
-            zIndex: 1000, /* Ensure it's on top */
-        }}
+        className="sticky-header" // Use class from globals.css for consistent styling
         >
          {currentSurahMetaData ? (
              <div className="flex justify-between items-start gap-4">
@@ -783,7 +777,7 @@ export function ReaderView() {
             className="h-full" // Make ScrollArea fill the parent container's height
             viewportRef={scrollContainerRef} // Pass the ref here
           >
-            <div className="p-4 md:p-6"> {/* Padding inside scroll area */}
+            <div className="verses-scroll-container"> {/* Padding inside scroll area */}
               {/* Bismillah (conditionally rendered inside scroll area) */}
               {showBismillah && (
                 <p className="font-bismillah text-center text-foreground my-4 text-2xl md:text-3xl" aria-label="Bismillah">
@@ -843,13 +837,10 @@ export function ReaderView() {
                 <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)}>
                     <VerseDisplay
                         verse={verse}
-                        fontSize={fontSize} // Passed but CSS variables are used now
-                        arabicFontSize={arabicFontSize} // Passed but CSS variables are used now
-                        lineHeight={lineHeight} // Passed but CSS variables are used now
-                        onContextMenu={handleVerseContextMenu}
-                        onClick={handleVerseClick} // Pass click handler
                         isHighlighted={verse.verseNumber === currentAbsoluteVerse}
                         isPlaying={verse.verseNumber === playingVerseNumber}
+                        onContextMenu={handleVerseContextMenu}
+                        onClick={handleVerseClick} // Pass click handler
                     />
                 </div>
               ))}
@@ -999,6 +990,3 @@ export function ReaderView() {
     </div>
   );
 }
-
-
-    

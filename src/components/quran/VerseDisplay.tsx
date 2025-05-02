@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react'; // Added useEffect
 import type { Verse } from '@/services/alquran-cloud';
 import { Separator } from '@/components/ui/separator';
@@ -14,9 +15,6 @@ import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 interface VerseDisplayProps {
   verse: Verse;
-  fontSize: number; // Prop is currently unused, CSS variables define size
-  arabicFontSize: number; // Prop is currently unused, CSS variables define size
-  lineHeight: number; // Prop is currently unused, CSS variables define size
   onContextMenu: (verseNumber: number) => void; // Handler for context menu actions
   onClick: (verseNumber: number) => void; // Handler for click/tap actions
   isHighlighted: boolean; // Is this verse currently focused/selected?
@@ -25,9 +23,6 @@ interface VerseDisplayProps {
 
 export function VerseDisplay({
     verse,
-    fontSize,
-    arabicFontSize,
-    lineHeight,
     onContextMenu,
     onClick,
     isHighlighted,
