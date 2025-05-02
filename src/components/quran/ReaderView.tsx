@@ -725,19 +725,20 @@ export function ReaderView() {
 
 
       {/* Main Scrollable Content Area */}
+       {/* Apply Tailwind classes for overflow and height */}
       <div
-        className="flex-grow overflow-hidden rounded-lg border border-border shadow-md relative bg-card" // Use card bg for consistency
+        className="flex-grow overflow-hidden rounded-lg border border-border shadow-md relative bg-card h-[calc(100vh-280px)]" // Adjusted height, use vh and subtract header/controls height
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto' }} // Allow vertical pan
       >
-          {/* Wrap content in ScrollArea */}
+          {/* Wrap content in ScrollArea, ensure it fills parent height */}
           <ScrollArea
-            className="h-[calc(100vh-300px)]" // Adjust height considering header and controls
+            className="h-full" // Make ScrollArea fill the parent container's height
             viewportRef={scrollContainerRef} // Pass the ref here
           >
-            <div className="p-1 md:p-2"> {/* Minimal padding inside scroll area */}
+            <div className="p-4 md:p-6"> {/* Padding inside scroll area */}
               {/* Bismillah (conditionally rendered inside scroll area) */}
               {showBismillah && (
                 <p className="font-bismillah text-center text-foreground my-4 text-2xl md:text-3xl" aria-label="Bismillah">
@@ -747,7 +748,7 @@ export function ReaderView() {
 
               {/* Loading Skeletons */}
                {isEssentialLoading && (
-                 <div className="p-4 md:p-6 space-y-6">
+                 <div className="space-y-6">
                    {[...Array(3)].map((_, i) => (
                      <div key={i} className="flex flex-col gap-4 border-b border-border/30 pb-4">
                         <Skeleton className="h-20 w-full mb-2" /> {/* Arabic Placeholder */}
@@ -794,7 +795,7 @@ export function ReaderView() {
 
               {/* Render Displayed Verses */}
               {!isEssentialLoading && !displayError && displayedVerses.map((verse) => (
-                <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)} className="mb-1 md:mb-2">
+                <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)}>
                     <VerseDisplay
                         verse={verse}
                         fontSize={fontSize}
@@ -947,4 +948,3 @@ export function ReaderView() {
     </div>
   );
 }
-
