@@ -10,13 +10,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Play, Pause, SkipBack, SkipForward, Repeat, Volume2, VolumeX, Gauge, BookCopy, BookOpenCheck, Loader2 } from 'lucide-react'; // Added Loader2
+import { Play, Pause, SkipBack, SkipForward, Repeat, Volume2, VolumeX, Gauge, BookCopy, BookOpenCheck, Loader2, ChevronDown } from 'lucide-react'; // Added Loader2, ChevronDown
 import { formatTime } from '@/lib/utils';
 import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { cn } from '@/lib/utils'; // Import cn
 
 const MAX_VERSE_NUMBER_DEFAULT = 6236;
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5];
+
+// List of identifiers for popular reciters to show first
+const POPULAR_RECITERS = [
+  'ar.alafasy',             // Mishary Rashid Alafasy
+  'ar.abdulsamad',          // Abdul Samad (Murattal)
+  'ar.hudhaify',            // Ali Al-Hudhaify
+  'ar.saoodshuraym',        // Saud Ash-Shuraim
+  'ar.abdurrahmaansudais',  // Abdul Rahman Al-Sudais
+  'ar.mahermuaiqly',        // Maher Al Muaqli
+];
+
 
 interface ControlsProps {
   verseNumber: number; // Currently focused verse number
@@ -33,6 +44,7 @@ interface ControlsProps {
   onJuzChange: (juz: number) => void;
   onPageChange: (page: number) => void;
   isLoading: boolean; // General loading state from parent (metadata, verses)
+  isLoadingReciters: boolean; // Specific loading state for reciters
   quranMeta: QuranMeta | null;
   // Audio Event Handlers for parent synchronization
   onPlay: () => void; // Notify parent when playback starts
@@ -57,6 +69,7 @@ export function Controls({
   onJuzChange,
   onPageChange,
   isLoading, // Parent loading state
+  isLoadingReciters, // Reciter loading state
   quranMeta,
   onPlay,
   onPause,
@@ -93,7 +106,7 @@ export function Controls({
     if (isLoading || isAudioLoading || !audioUrl) {
         console.log("Play/Pause blocked: isLoading", isLoading, "isAudioLoading", isAudioLoading, "audioUrl", !!audioUrl);
         // Optionally provide feedback to the user why it's blocked
-        if (!audioUrl && !isLoading) {
+        if (!audioUrl && !isLoading && !isAudioLoading) { // Added !isAudioLoading check
             setPlaybackError("Audio not available for this verse or reciter.");
             onError("Audio not available for this verse or reciter.");
         }
@@ -239,11 +252,12 @@ export function Controls({
         onEnded(); // Notify parent
 
          // More robust check for end of audio
-         const timeNearEnd = duration > 0 && audioElement.currentTime >= duration - 0.1; // Small buffer
+         // Use a small buffer to account for potential timing inaccuracies
+         const timeNearEnd = duration > 0 && audioElement.currentTime >= duration - 0.2;
 
          if (!isRepeating && !audioElement.loop && timeNearEnd) {
              console.log("Audio ended naturally, moving to next verse focus.");
-            setCurrentTime(0);
+            setCurrentTime(0); // Reset time visually
             onNextVerse(); // Trigger parent's next verse *focus* logic
              // Playback for the next verse will be initiated by the user or potentially auto-play logic in parent
          } else if (isRepeating && timeNearEnd) {
@@ -458,6 +472,25 @@ export function Controls({
        if (!isNaN(pageNumber)) { onPageChange(pageNumber); }
    };
 
+   // --- Prepare Reciter Options ---
+    const popularReciterOptions = reciters
+      .filter(r => POPULAR_RECITERS.includes(r.id))
+      .sort((a, b) => POPULAR_RECITERS.indexOf(a.id) - POPULAR_RECITERS.indexOf(b.id)) // Maintain popular order
+      .map(reciter => (
+        <SelectItem key={reciter.id} value={reciter.id}>
+          {reciter.name}
+        </SelectItem>
+      ));
+
+    const otherReciterOptions = reciters
+      .filter(r => !POPULAR_RECITERS.includes(r.id))
+      .sort((a, b) => a.name.localeCompare(b.name)) // Sort others alphabetically
+      .map(reciter => (
+        <SelectItem key={reciter.id} value={reciter.id}>
+          {reciter.name}
+        </SelectItem>
+      ));
+
 
   return (
      // Stick to the bottom, above the FAB
@@ -492,12 +525,13 @@ export function Controls({
                     type="number"
                     min="1"
                     max={MAX_VERSE_NUMBER}
-                    value={localVerseNumber} // Use local state for input value
+                    value={localVerseNumber > 0 ? localVerseNumber : ''} // Use local state, handle 0 or initial case
                     onChange={handleLocalVerseInputChange} // Update local state
                     onBlur={onVerseInputBlur} // Trigger navigation/validation on blur
                     className="w-20 h-9 text-center border-input rounded-md text-sm shrink-0"
                     aria-label="Current Verse Number"
                     disabled={navDisabled}
+                    // Ensure valid number range on input if needed, or rely on blur validation
                 />
 
                  <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
@@ -592,16 +626,50 @@ export function Controls({
             {/* Reciter, Speed, Volume Controls */}
             <div className="flex items-center gap-2 order-3 sm:order-3 justify-end flex-wrap">
                  {/* Reciter Select */}
-                 <Select value={selectedReciter} onValueChange={onReciterChange} disabled={reciters.length === 0 || navDisabled}>
-                      <SelectTrigger className="w-[150px] h-9 text-sm shrink-0" aria-label="Select Reciter">
-                          <SelectValue placeholder="Select Reciter" />
+                 <Select
+                    value={selectedReciter}
+                    onValueChange={onReciterChange}
+                    disabled={isLoadingReciters || reciters.length === 0 || navDisabled} // Disable if loading reciters
+                  >
+                      <SelectTrigger
+                         className="w-[180px] h-9 text-sm shrink-0" // Increased width slightly
+                         aria-label="Select Reciter"
+                       >
+                          {/* Show loading indicator inside trigger if loading */}
+                          {isLoadingReciters ? (
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+                              </span>
+                          ) : (
+                              <SelectValue placeholder="Select Reciter" />
+                          )}
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectGroup>
-                            <SelectLabel>Reciter</SelectLabel>
-                            {reciters.map((reciter) => ( <SelectItem key={reciter.id} value={reciter.id}> {reciter.name} </SelectItem> ))}
-                             {reciters.length === 0 && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                        </SelectGroup>
+                        {/* Show loading item if loading */}
+                         {isLoadingReciters && (
+                             <SelectItem value="loading" disabled>
+                                 <span className="flex items-center gap-1">
+                                     <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+                                 </span>
+                             </SelectItem>
+                         )}
+                         {/* Show reciter options when not loading */}
+                         {!isLoadingReciters && popularReciterOptions.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel>Popular Reciters</SelectLabel>
+                                {popularReciterOptions}
+                            </SelectGroup>
+                         )}
+                         {!isLoadingReciters && otherReciterOptions.length > 0 && (
+                             <SelectGroup>
+                                <SelectLabel>All Reciters</SelectLabel>
+                                {otherReciterOptions}
+                             </SelectGroup>
+                         )}
+                         {/* Show message if no reciters loaded */}
+                         {!isLoadingReciters && reciters.length === 0 && (
+                              <SelectItem value="none" disabled>No reciters available</SelectItem>
+                         )}
                        </SelectContent>
                   </Select>
 
@@ -645,3 +713,5 @@ export function Controls({
     </Card>
   );
 }
+
+    

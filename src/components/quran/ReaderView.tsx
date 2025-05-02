@@ -101,7 +101,9 @@ export function ReaderView() {
 
       setQuranMeta(meta);
       setReciters(fetchedReciters);
+      setIsLoadingReciters(false); // Set reciters loading false after fetch
       setTranslations(fetchedTranslations); // Set fetched translations
+      setIsLoadingTranslations(false); // Set translations loading false after fetch
 
       // Validate selected reciter/translation against fetched lists
       const isValidReciter = fetchedReciters.some(r => r.id === selectedReciter);
@@ -146,10 +148,11 @@ export function ReaderView() {
       setTranslations(SUPPORTED_TRANSLATIONS); // Fallback to hardcoded on error
     } finally {
       setIsLoadingMeta(false);
-      setIsLoadingReciters(false);
-      setIsLoadingTranslations(false);
+      // Ensure loading states are false even if errors occurred during fetch
+      if (isLoadingReciters) setIsLoadingReciters(false);
+      if (isLoadingTranslations) setIsLoadingTranslations(false);
     }
-  }, [selectedReciter, selectedTranslation, toast]); // Add dependencies
+  }, [selectedReciter, selectedTranslation, toast, isLoadingReciters, isLoadingTranslations]); // Added loading states to dependencies
 
   useEffect(() => {
     fetchInitialData();
@@ -190,32 +193,43 @@ export function ReaderView() {
       console.log(`Fetching ${numberOfVersesToFetch} verses (Ayah ${startAyahNum} to ${endVerseIndex + 1}) for Surah ${surahNum}`);
 
      try {
-       // Revised approach: Fetch only the *required* block using getVerse
-       const versesToFetchPromises: Promise<Verse | null>[] = [];
-       const firstAbsoluteVerse = surahAyahToAbsoluteVerse(surahNum, startAyahNum, quranMeta);
-
-       if (firstAbsoluteVerse === null) {
-          throw new Error(`Could not calculate absolute verse for ${surahNum}:${startAyahNum}`);
-       }
-
-       for (let i = 0; i < numberOfVersesToFetch; i++) {
-           const absoluteVerseNum = firstAbsoluteVerse + i;
-           versesToFetchPromises.push(getVerse(absoluteVerseNum, selectedTranslation, selectedReciter, quranMeta));
-       }
-
-       const fetchedVersesNullable = await Promise.all(versesToFetchPromises);
-       const newVerses = fetchedVersesNullable.filter(v => v !== null) as Verse[]; // Filter out nulls
-
-       if (newVerses.length === 0 && numberOfVersesToFetch > 0) {
-           console.warn(`Failed to fetch any verses in range ${startAyahNum}-${endVerseIndex + 1} for Surah ${surahNum}.`);
-           if(replace) setError(`Failed to load verses for Surah ${surahNum}. Please try again.`);
-           setCanLoadMore(false); // Stop trying if fetching fails
+       // Use getSurahData for initial load or full surah refresh for efficiency
+       if (replace && startAyahNum === 1) {
+           const surahVerses = await getSurahData(surahNum, selectedTranslation, selectedReciter, quranMeta);
+           if (surahVerses) {
+               setDisplayedVerses(surahVerses);
+               setCanLoadMore(false); // Loaded the whole surah
+           } else {
+                throw new Error(`Failed to fetch complete data for Surah ${surahNum}.`);
+           }
        } else {
-           // Update displayed verses
-           setDisplayedVerses(prev => replace ? newVerses : [...prev, ...newVerses]);
-           // Determine if more verses can be loaded
-           const lastLoadedAyah = newVerses[newVerses.length - 1]?.ayahNumberInSurah;
-           setCanLoadMore(lastLoadedAyah < surahMeta.numberOfAyahs);
+           // Fetch individual verses for subsequent loads (or if not starting from 1)
+           const versesToFetchPromises: Promise<Verse | null>[] = [];
+           const firstAbsoluteVerse = surahAyahToAbsoluteVerse(surahNum, startAyahNum, quranMeta);
+
+           if (firstAbsoluteVerse === null) {
+              throw new Error(`Could not calculate absolute verse for ${surahNum}:${startAyahNum}`);
+           }
+
+           for (let i = 0; i < numberOfVersesToFetch; i++) {
+               const absoluteVerseNum = firstAbsoluteVerse + i;
+               versesToFetchPromises.push(getVerse(absoluteVerseNum, selectedTranslation, selectedReciter, quranMeta));
+           }
+
+           const fetchedVersesNullable = await Promise.all(versesToFetchPromises);
+           const newVerses = fetchedVersesNullable.filter(v => v !== null) as Verse[]; // Filter out nulls
+
+           if (newVerses.length === 0 && numberOfVersesToFetch > 0) {
+               console.warn(`Failed to fetch any verses in range ${startAyahNum}-${endVerseIndex + 1} for Surah ${surahNum}.`);
+               if(replace) setError(`Failed to load verses for Surah ${surahNum}. Please try again.`);
+               setCanLoadMore(false); // Stop trying if fetching fails
+           } else {
+               // Update displayed verses
+               setDisplayedVerses(prev => replace ? newVerses : [...prev, ...newVerses]);
+               // Determine if more verses can be loaded
+               const lastLoadedAyah = newVerses[newVerses.length - 1]?.ayahNumberInSurah;
+               setCanLoadMore(lastLoadedAyah < surahMeta.numberOfAyahs);
+           }
        }
 
      } catch (err) {
@@ -233,7 +247,23 @@ export function ReaderView() {
      // Load initial block only when metadata, editions are selected, and no verses are loaded yet
      if (quranMeta && selectedTranslation && currentSurahNumber && displayedVerses.length === 0 && !isLoadingVerses && !isLoadingMeta && !isLoadingReciters && !isLoadingTranslations) {
        console.log(`Initial load triggered for Surah ${currentSurahNumber}`);
-       loadVerses(currentSurahNumber, 1, true); // Load first block, replace existing
+       // Use getSurahData for efficiency on initial load
+       loadVerses(currentSurahNumber, 1, true);
+       // getSurahData(currentSurahNumber, selectedTranslation, selectedReciter, quranMeta)
+       //    .then(verses => {
+       //        if (verses) {
+       //            setDisplayedVerses(verses);
+       //            setCanLoadMore(false); // Entire surah loaded
+       //        } else {
+       //             setError(`Failed to load initial data for Surah ${currentSurahNumber}.`);
+       //        }
+       //        setIsLoadingVerses(false);
+       //    })
+       //    .catch(err => {
+       //         console.error("Error in initial getSurahData:", err);
+       //         setError(`Failed to load initial data for Surah ${currentSurahNumber}.`);
+       //         setIsLoadingVerses(false);
+       //    });
      }
    }, [quranMeta, selectedTranslation, selectedReciter, currentSurahNumber, displayedVerses.length, loadVerses, isLoadingVerses, isLoadingMeta, isLoadingReciters, isLoadingTranslations]);
 
@@ -289,9 +319,26 @@ export function ReaderView() {
        // Clear existing verses and initiate loading the new surah's first block
        setDisplayedVerses([]); // Clear immediately
        setCanLoadMore(true); // Reset load more flag
-       // loadVerses will be triggered by the useEffect watching currentSurahNumber change
-       // We need to scroll to the top or the target verse *after* load
-       setTimeout(() => scrollToVerse(absoluteVerseNum, 'instant'), 100); // Scroll after a delay
+       // Use getSurahData for efficiency when switching surahs
+        setIsLoadingVerses(true); // Indicate loading
+        getSurahData(targetSurahNum, selectedTranslation, selectedReciter, quranMeta)
+           .then(verses => {
+               if (verses) {
+                   setDisplayedVerses(verses);
+                   setCanLoadMore(false); // Entire surah loaded
+               } else {
+                    setError(`Failed to load data for Surah ${targetSurahNum}.`);
+               }
+               setIsLoadingVerses(false);
+                // Scroll after loading completes
+               setTimeout(() => scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth'), 100);
+           })
+           .catch(err => {
+                console.error(`Error getting Surah ${targetSurahNum} data:`, err);
+                setError(`Failed to load data for Surah ${targetSurahNum}.`);
+                setIsLoadingVerses(false);
+           });
+
      } else {
         // Surah is the same, check if the verse is already loaded
         const isVerseLoaded = displayedVerses.some(v => v.verseNumber === absoluteVerseNum);
@@ -300,17 +347,30 @@ export function ReaderView() {
             console.warn(`Verse ${absoluteVerseNum} in Surah ${targetSurahNum} not loaded. Re-loading surah from this verse.`);
             // Stop any playing audio
             setPlayingVerseNumber(null);
+            // Reloading the entire surah might be inefficient here.
+            // Option 1: Reload entire surah (simpler, current approach for consistency)
             setDisplayedVerses([]); // Clear potentially incomplete list
             setCanLoadMore(true);
-            loadVerses(targetSurahNum, targetAyahNum, true); // Load starting from the target ayah
-            // Scroll after loading completes
-             setTimeout(() => scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth'), 100);
+            getSurahData(targetSurahNum, selectedTranslation, selectedReciter, quranMeta)
+                .then(verses => {
+                     if (verses) {
+                        setDisplayedVerses(verses);
+                        setCanLoadMore(false);
+                        setTimeout(() => scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth'), 100);
+                     } else { setError(`Failed to reload data for Surah ${targetSurahNum}.`); }
+                    setIsLoadingVerses(false);
+                }).catch(err => { setError(`Error reloading Surah ${targetSurahNum}.`); setIsLoadingVerses(false); });
+
+            // Option 2: Try loading just the missing block (more complex logic)
+            // loadVerses(targetSurahNum, targetAyahNum, true); // Load starting from the target ayah
+            // setTimeout(() => scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth'), 100);
+
         } else if (scroll) {
           // Verse is loaded, just scroll to it
           scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth');
         }
      }
-   }, [quranMeta, currentSurahNumber, displayedVerses, loadVerses, scrollToVerse, toast]); // Added dependencies
+   }, [quranMeta, currentSurahNumber, displayedVerses, loadVerses, scrollToVerse, toast, selectedTranslation, selectedReciter]); // Added dependencies
 
 
     const handleNextVerseFocus = useCallback(() => {
@@ -333,8 +393,30 @@ export function ReaderView() {
     if (reciterId !== selectedReciter) {
         console.log("Reciter changed to:", reciterId);
         setSelectedReciter(reciterId);
-        // Refetch current verse data to get the new audio URL
-        refetchCurrentVerseData();
+        // Stop current playback if any
+        setPlayingVerseNumber(null);
+        const audioElement = document.querySelector('audio'); // Find the audio element
+        if (audioElement && !audioElement.paused) {
+           audioElement.pause();
+        }
+        // Refetch current surah data with the new reciter to update audio URLs
+        if (currentSurahNumber && quranMeta) {
+             setIsLoadingVerses(true);
+             getSurahData(currentSurahNumber, selectedTranslation, reciterId, quranMeta)
+               .then(verses => {
+                 if (verses) {
+                   setDisplayedVerses(verses);
+                   // No need to scroll, focus remains the same
+                 } else {
+                   setError(`Failed to update audio for Surah ${currentSurahNumber}.`);
+                 }
+                 setIsLoadingVerses(false);
+               })
+               .catch(err => {
+                  setError(`Error updating audio: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                  setIsLoadingVerses(false);
+               });
+        }
     }
   };
 
@@ -343,49 +425,64 @@ export function ReaderView() {
        console.log("Translation changed to:", translationId);
        setSelectedTranslation(translationId);
        // Reload verses from the beginning of the current surah with the new translation
-       if (currentSurahNumber) {
+       if (currentSurahNumber && quranMeta) {
           setDisplayedVerses([]); // Clear old translation
           setCanLoadMore(true);
-          loadVerses(currentSurahNumber, 1, true); // Start reload
-          // Scroll to the currently focused verse (which might now be the start of the surah)
-          setTimeout(() => scrollToVerse(currentAbsoluteVerse, 'instant'), 100);
+           setIsLoadingVerses(true);
+           getSurahData(currentSurahNumber, translationId, selectedReciter, quranMeta)
+             .then(verses => {
+                 if (verses) {
+                     setDisplayedVerses(verses);
+                     setCanLoadMore(false);
+                     setTimeout(() => scrollToVerse(currentAbsoluteVerse, 'instant'), 100); // Scroll to focused verse
+                 } else {
+                     setError(`Failed to load translation ${translationId} for Surah ${currentSurahNumber}.`);
+                 }
+                 setIsLoadingVerses(false);
+             })
+             .catch(err => {
+                  setError(`Error loading translation: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                  setIsLoadingVerses(false);
+             });
+
+           toast({
+             title: "Translation Changed",
+             description: `Loading verses with ${translations.find(t => t.id === translationId)?.name ?? translationId}.`,
+           });
        }
-       toast({
-         title: "Translation Changed",
-         description: `Loading verse with ${translations.find(t => t.id === translationId)?.name ?? translationId}.`,
-       });
      }
    };
 
     // Helper to refetch data for the currently focused verse (e.g., after reciter change)
-    const refetchCurrentVerseData = useCallback(async () => {
-        if (!quranMeta || currentAbsoluteVerse === null) return;
+    // This might not be needed if we refetch the whole surah on reciter change
+    // const refetchCurrentVerseData = useCallback(async () => {
+    //     if (!quranMeta || currentAbsoluteVerse === null) return;
 
-        console.log(`Refetching data for verse ${currentAbsoluteVerse}`);
-        // No need to set isLoadingVerses here as it's a background update
-        try {
-            const verseData = await getVerse(currentAbsoluteVerse, selectedTranslation, selectedReciter, quranMeta);
-            if (verseData) {
-                // Update the specific verse in the displayedVerses array
-                setDisplayedVerses(prev => {
-                    const index = prev.findIndex(v => v.verseNumber === currentAbsoluteVerse);
-                    if (index !== -1) {
-                        const updatedVerses = [...prev];
-                        updatedVerses[index] = verseData;
-                        return updatedVerses;
-                    }
-                    // If not found, maybe it scrolled out of view during refetch? Return prev state.
-                    return prev;
-                });
-            } else {
-                 console.warn(`Failed to refetch data for verse ${currentAbsoluteVerse}`);
-                 toast({ title: "Update Failed", description: "Could not refresh verse audio/text.", variant: "destructive" });
-            }
-        } catch (err) {
-            console.error(`Error refetching verse ${currentAbsoluteVerse}:`, err);
-             toast({ title: "Network Error", description: "Failed to update verse data.", variant: "destructive" });
-        }
-    }, [currentAbsoluteVerse, quranMeta, selectedReciter, selectedTranslation, toast]);
+    //     console.log(`Refetching data for verse ${currentAbsoluteVerse}`);
+    //     // No need to set isLoadingVerses here as it's a background update
+    //     try {
+    //         const verseData = await getVerse(currentAbsoluteVerse, selectedTranslation, selectedReciter, quranMeta);
+    //         if (verseData) {
+    //             // Update the specific verse in the displayedVerses array
+    //             setDisplayedVerses(prev => {
+    //                 const index = prev.findIndex(v => v.verseNumber === currentAbsoluteVerse);
+    //                 if (index !== -1) {
+    //                     const updatedVerses = [...prev];
+    //                     updatedVerses[index] = verseData;
+    //                     return updatedVerses;
+    //                 }
+    //                 // If not found, maybe it scrolled out of view during refetch? Return prev state.
+    //                 return prev;
+    //             });
+    //         } else {
+    //              console.warn(`Failed to refetch data for verse ${currentAbsoluteVerse}`);
+    //              toast({ title: "Update Failed", description: "Could not refresh verse audio/text.", variant: "destructive" });
+    //         }
+    //     } catch (err) {
+    //         console.error(`Error refetching verse ${currentAbsoluteVerse}:`, err);
+    //          toast({ title: "Network Error", description: "Failed to update verse data.", variant: "destructive" });
+    //     }
+    // }, [currentAbsoluteVerse, quranMeta, selectedReciter, selectedTranslation, toast]);
 
 
   // --- Settings Panel Handlers ---
@@ -525,9 +622,9 @@ export function ReaderView() {
         setPlayingVerseNumber(null); // Update state immediately
 
         // Logic moved to Controls component via onEnded -> onNextVerse call
+        // The Controls component's useEffect hook for audio events will now handle the onNextVerse call
         // if (endedVerse === currentAbsoluteVerse) {
-        //     // Auto-advance focus if the ended verse was the focused one
-        //     handleNextVerseFocus();
+        //     handleNextVerseFocus(); // Advance focus after playback ends
         // }
    };
    const handleAudioError = (errorMsg: string) => {
@@ -704,7 +801,8 @@ export function ReaderView() {
         onVerseSliderCommit={handleVerseSliderCommit} // Navigation on release
         onJuzChange={handleJuzChange}
         onPageChange={handlePageChange}
-        isLoading={isLoadingVerses || isAppLoading} // Combined loading state for controls
+        isLoading={isLoadingVerses || isLoadingMeta} // Pass relevant loading states
+        isLoadingReciters={isLoadingReciters} // Pass reciter loading state
         quranMeta={quranMeta}
         onPlay={handleAudioPlay} // Renamed for clarity
         onPause={handleAudioPause}
@@ -757,8 +855,10 @@ export function ReaderView() {
         onArabicFontSizeChange={handleArabicFontSizeChange}
         onLineHeightChange={handleLineHeightChange}
         onTranslationChange={handleTranslationChange}
-        isLoading={isLoadingTranslations || isAppLoading} // Disable translation select if loading
+        isLoading={isLoadingTranslations || isLoadingMeta} // Disable translation select if loading
       />
     </div>
   );
 }
+
+    
