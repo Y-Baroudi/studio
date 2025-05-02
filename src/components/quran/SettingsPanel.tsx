@@ -14,21 +14,23 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Settings, Minus, Plus, TextQuote, Baseline, Palette, View } from 'lucide-react'; // Added icons
+import { Settings, Minus, Plus, TextQuote, Baseline, Palette, View } from 'lucide-react'; // Use Baseline for Line Height
 import type { Translation } from '@/services/alquran-cloud';
 import { ThemeToggle } from '@/components/theme-toggle'; // Re-use ThemeToggle
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  fontSize: number;
-  arabicFontSize: number;
-  lineHeight: number;
+  fontSize: number; // Translation font size
+  arabicFontSize: number; // Arabic font size
+  lineHeight: number; // Arabic line height
+  translationLineHeight: number; // Translation line height (NEW)
   translations: Translation[]; // Expecting array of Translation objects
   selectedTranslation: string; // Expecting the ID string
-  onFontSizeChange: (value: number[]) => void;
-  onArabicFontSizeChange: (value: number[]) => void;
-  onLineHeightChange: (value: number[]) => void;
+  onFontSizeChange: (value: number[]) => void; // Handler for translation font size
+  onArabicFontSizeChange: (value: number[]) => void; // Handler for Arabic font size
+  onLineHeightChange: (value: number[]) => void; // Handler for Arabic line height
+  onTranslationLineHeightChange: (value: number[]) => void; // Handler for translation line height (NEW)
   onTranslationChange: (translationId: string) => void; // Handler takes the ID string
   isLoading: boolean; // For disabling controls while loading
   // Add props for background color and UI toggles later
@@ -37,14 +39,16 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   isOpen,
   onOpenChange,
-  fontSize,
-  arabicFontSize,
-  lineHeight,
+  fontSize, // Translation font size
+  arabicFontSize, // Arabic font size
+  lineHeight, // Arabic line height
+  translationLineHeight, // Translation line height
   translations = [], // Default to empty array
   selectedTranslation,
-  onFontSizeChange,
-  onArabicFontSizeChange,
-  onLineHeightChange,
+  onFontSizeChange, // Handler for translation font size
+  onArabicFontSizeChange, // Handler for Arabic font size
+  onLineHeightChange, // Handler for Arabic line height
+  onTranslationLineHeightChange, // Handler for translation line height
   onTranslationChange,
   isLoading,
 }: SettingsPanelProps) {
@@ -56,8 +60,11 @@ export function SettingsPanel({
   const decreaseArabicFontSize = () => onArabicFontSizeChange([Math.max(arabicFontSize - 1, 16)]);
 
   // Line Height Controls
-  const increaseLineHeight = () => onLineHeightChange([Math.min(lineHeight + 0.1, 2.5)]);
-  const decreaseLineHeight = () => onLineHeightChange([Math.max(lineHeight - 0.1, 1.2)]);
+  const increaseLineHeight = () => onLineHeightChange([Number((lineHeight + 0.1).toFixed(1)), 2.5]); // Arabic
+  const decreaseLineHeight = () => onLineHeightChange([Number((lineHeight - 0.1).toFixed(1)), 1.2]); // Arabic
+  const increaseTranslationLineHeight = () => onTranslationLineHeightChange([Number((translationLineHeight + 0.1).toFixed(1)), 2.5]); // Translation
+  const decreaseTranslationLineHeight = () => onTranslationLineHeightChange([Number((translationLineHeight - 0.1).toFixed(1)), 1.2]); // Translation
+
 
   // Find the name of the selected translation for display
   const selectedTranslationName = translations.find(t => t.id === selectedTranslation)?.name ?? "Select Translation";
@@ -129,17 +136,30 @@ export function SettingsPanel({
             </div>
           </div>
 
-          {/* Line Height */}
+          {/* Arabic Line Height */}
            <div className="space-y-2">
             <Label htmlFor="line-height-slider" className="flex items-center gap-1.5">
-                <Baseline className="h-4 w-4 text-muted-foreground"/> Line Height ({lineHeight.toFixed(1)})
+                <Baseline className="h-4 w-4 text-muted-foreground"/> Arabic Line Height ({lineHeight.toFixed(1)})
             </Label>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={decreaseLineHeight} disabled={lineHeight <= 1.2 || isLoading} aria-label="Decrease line height"> <Minus className="h-4 w-4" /> </Button>
-              <Slider id="line-height-slider" min={1.2} max={2.5} step={0.1} value={[lineHeight]} onValueChange={onLineHeightChange} className="flex-1" aria-label="Adjust line height" disabled={isLoading} />
-              <Button variant="outline" size="icon" onClick={increaseLineHeight} disabled={lineHeight >= 2.5 || isLoading} aria-label="Increase line height"> <Plus className="h-4 w-4" /> </Button>
+              <Button variant="outline" size="icon" onClick={decreaseLineHeight} disabled={lineHeight <= 1.2 || isLoading} aria-label="Decrease Arabic line height"> <Minus className="h-4 w-4" /> </Button>
+              <Slider id="line-height-slider" min={1.2} max={2.5} step={0.1} value={[lineHeight]} onValueChange={onLineHeightChange} className="flex-1" aria-label="Adjust Arabic line height" disabled={isLoading} />
+              <Button variant="outline" size="icon" onClick={increaseLineHeight} disabled={lineHeight >= 2.5 || isLoading} aria-label="Increase Arabic line height"> <Plus className="h-4 w-4" /> </Button>
             </div>
           </div>
+
+           {/* Translation Line Height */}
+           <div className="space-y-2">
+            <Label htmlFor="translation-line-height-slider" className="flex items-center gap-1.5">
+                <Baseline className="h-4 w-4 text-muted-foreground"/> English Line Height ({translationLineHeight.toFixed(1)})
+            </Label>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={decreaseTranslationLineHeight} disabled={translationLineHeight <= 1.2 || isLoading} aria-label="Decrease English line height"> <Minus className="h-4 w-4" /> </Button>
+              <Slider id="translation-line-height-slider" min={1.2} max={2.5} step={0.1} value={[translationLineHeight]} onValueChange={onTranslationLineHeightChange} className="flex-1" aria-label="Adjust English line height" disabled={isLoading} />
+              <Button variant="outline" size="icon" onClick={increaseTranslationLineHeight} disabled={translationLineHeight >= 2.5 || isLoading} aria-label="Increase English line height"> <Plus className="h-4 w-4" /> </Button>
+            </div>
+          </div>
+
 
           {/* Theme Toggle */}
           <div className="flex items-center justify-between pt-4 border-t">

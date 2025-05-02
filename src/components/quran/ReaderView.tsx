@@ -92,11 +92,15 @@ export function ReaderView() {
 
    // --- Apply dynamic styles ---
    useEffect(() => {
-     const root = document.documentElement;
-     root.style.setProperty('--arabic-font-size', `${arabicFontSize}px`);
-     root.style.setProperty('--translation-font-size', `${fontSize}px`);
-     root.style.setProperty('--verse-line-height', `${lineHeight}`);
-     root.style.setProperty('--translation-line-height', `${translationLineHeight}`);
+     // This check ensures we only try to access document on the client side
+     if (typeof window !== 'undefined') {
+       const root = document.documentElement;
+       root.style.setProperty('--arabic-font-size', `${arabicFontSize}px`);
+       root.style.setProperty('--translation-font-size', `${fontSize}px`);
+       root.style.setProperty('--verse-line-height', `${lineHeight}`);
+       root.style.setProperty('--translation-line-height', `${translationLineHeight}`);
+       console.log('Applied styles:', { arabicFontSize, fontSize, lineHeight, translationLineHeight });
+     }
    }, [arabicFontSize, fontSize, lineHeight, translationLineHeight]);
 
 
@@ -548,11 +552,22 @@ export function ReaderView() {
    };
 
   // --- Settings Panel Handlers ---
-  const handleFontSizeChange = (value: number[]) => setFontSize(value[0]);
-  const handleArabicFontSizeChange = (value: number[]) => setArabicFontSize(value[0]);
-  const handleLineHeightChange = (value: number[]) => setLineHeight(value[0]);
-  // Need handler for translation line height too if adjustable
-  const handleTranslationLineHeightChange = (value: number[]) => setTranslationLineHeight(value[0]);
+  const handleFontSizeChange = (value: number[]) => {
+    console.log("Setting Font Size (Translation):", value[0]);
+    setFontSize(value[0]);
+  };
+  const handleArabicFontSizeChange = (value: number[]) => {
+    console.log("Setting Font Size (Arabic):", value[0]);
+    setArabicFontSize(value[0]);
+  };
+  const handleLineHeightChange = (value: number[]) => {
+     console.log("Setting Line Height (Arabic):", value[0]);
+     setLineHeight(value[0]);
+  };
+  const handleTranslationLineHeightChange = (value: number[]) => {
+      console.log("Setting Line Height (Translation):", value[0]);
+      setTranslationLineHeight(value[0]);
+  };
 
 
   // --- Verse Input/Slider Handlers ---
@@ -708,12 +723,16 @@ export function ReaderView() {
   const [scrollContainerHeight, setScrollContainerHeight] = useState('calc(100vh - 200px)'); // Default guess
 
   useEffect(() => {
-      const headerHeight = fixedHeaderRef.current?.offsetHeight ?? 0;
-      const controlsHeight = controlsRef.current?.offsetHeight ?? 0;
-      const calculatedHeight = `calc(100vh - ${headerHeight}px - ${controlsHeight}px - 1rem)`; // 1rem buffer
-      // console.log(`Calculated Height: ${calculatedHeight} (Header: ${headerHeight}, Controls: ${controlsHeight})`);
-      setScrollContainerHeight(calculatedHeight);
-  }, [fixedHeaderRef.current, controlsRef.current, isMobile]); // Recalculate on mobile toggle too
+       // Check if window is defined before accessing window properties
+       if (typeof window !== 'undefined') {
+          const headerHeight = fixedHeaderRef.current?.offsetHeight ?? 0;
+          const controlsHeight = controlsRef.current?.offsetHeight ?? 0;
+          // Calculate height ensuring it's not negative
+          const calculatedHeight = `calc(100vh - ${Math.max(0, headerHeight)}px - ${Math.max(0, controlsHeight)}px - 1rem)`;
+          // console.log(`Calculated Height: ${calculatedHeight} (Header: ${headerHeight}, Controls: ${controlsHeight})`);
+          setScrollContainerHeight(calculatedHeight);
+       }
+  }, [fixedHeaderRef, controlsRef, isMobile]); // Recalculate on mobile toggle too
 
 
   return (
@@ -885,7 +904,7 @@ export function ReaderView() {
                    )}
               </div>
             </div>
-          {/* <ScrollBar orientation="vertical" /> Enable if needed */}
+          <ScrollBar orientation="vertical" /> {/* Enable scrollbar explicitly */}
           </ScrollArea>
       </div>
 
@@ -978,18 +997,16 @@ export function ReaderView() {
         fontSize={fontSize}
         arabicFontSize={arabicFontSize}
         lineHeight={lineHeight}
+        translationLineHeight={translationLineHeight} // Pass translation line height
         translations={translations}
         selectedTranslation={selectedTranslation}
-        onFontSizeChange={handleFontSizeChange}
-        onArabicFontSizeChange={handleArabicFontSizeChange}
-        onLineHeightChange={handleLineHeightChange}
-        // Pass translation line height handler if needed in SettingsPanel
-        // onTranslationLineHeightChange={handleTranslationLineHeightChange}
+        onFontSizeChange={handleFontSizeChange} // Correct handler for translation font size
+        onArabicFontSizeChange={handleArabicFontSizeChange} // Correct handler for Arabic font size
+        onLineHeightChange={handleLineHeightChange} // Correct handler for Arabic line height
+        onTranslationLineHeightChange={handleTranslationLineHeightChange} // Add handler for translation line height
         onTranslationChange={handleTranslationChange}
         isLoading={isLoadingTranslations || isLoadingMeta} // Disable relevant controls while loading
       />
     </div>
   );
 }
-
-    

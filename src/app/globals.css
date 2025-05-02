@@ -157,14 +157,14 @@ body {
   .text-arabic-display {
     font-size: var(--arabic-font-size);
     line-height: var(--verse-line-height);
-    text-align: right !important;
-    direction: rtl !important;
+    text-align: right !important; /* Use !important for stronger override */
+    direction: rtl !important; /* Use !important */
   }
   .text-translation-display {
     font-size: var(--translation-font-size);
     line-height: var(--translation-line-height);
-    text-align: left !important;
-    direction: ltr !important;
+    text-align: left !important; /* Use !important for stronger override */
+    direction: ltr !important; /* Use !important */
   }
 
   /* Force Right Alignment for Arabic */
@@ -181,12 +181,13 @@ body {
 
   /* Inline Verse Number Indicators */
   .verse-number-inline {
-    @apply inline-block mx-1 font-sans text-muted-foreground text-opacity-70; /* Use muted foreground */
-    font-size: 0.6em !important; /* Smaller size */
-    line-height: 1; /* Prevent interference */
-    direction: ltr !important; /* Force LTR for numbers */
-    vertical-align: middle; /* Better alignment */
-    user-select: none; /* Prevent selection */
+     @apply inline-block font-sans text-muted-foreground text-opacity-70 ml-1 mr-0.5 px-0.5; /* Adjusted spacing */
+     font-size: calc(var(--translation-font-size) * 0.6) !important; /* Relative to parent, ensure half size */
+     line-height: 1 !important; /* Prevent interference */
+     direction: ltr !important; /* Force LTR for numbers */
+     vertical-align: middle; /* Better alignment */
+     user-select: none; /* Prevent selection */
+     /* Removed position: absolute; not needed for inline span */
   }
 
   /* Verse Container Styling */
