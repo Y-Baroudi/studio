@@ -163,7 +163,7 @@ body {
   .text-translation-display {
     font-size: var(--translation-font-size);
     line-height: var(--translation-line-height);
-    text-align: left !important; /* Use !important for stronger override */
+    text-align: left !important; /* Ensure this is left-aligned! */
     direction: ltr !important; /* Use !important */
   }
 
@@ -175,26 +175,30 @@ body {
 
   /* Force Left Alignment for Translation */
   .translation-text, [dir="ltr"], *:lang(en) {
-    text-align: left !important;
+    text-align: left !important; /* Ensure this is left-aligned! */
     direction: ltr !important;
   }
 
   /* Inline Verse Number Indicators */
-  .verse-number-inline {
-     @apply inline-block font-sans text-muted-foreground text-opacity-70 ml-1 mr-0.5 px-0.5; /* Adjusted spacing */
-     font-size: calc(var(--translation-font-size) * 0.6) !important; /* Relative to parent, ensure half size */
-     line-height: 1 !important; /* Prevent interference */
-     direction: ltr !important; /* Force LTR for numbers */
-     vertical-align: middle; /* Better alignment */
-     user-select: none; /* Prevent selection */
-     /* Removed position: absolute; not needed for inline span */
-  }
+   .verse-number-inline {
+      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-0.5; /* Adjust spacing as needed */
+      font-size: calc(var(--translation-font-size) * 0.6) !important; /* Adjusted relative size */
+      line-height: 1 !important; /* Prevent interference */
+      direction: ltr !important; /* Force LTR for numbers */
+      vertical-align: super; /* Align slightly above baseline */
+      user-select: none; /* Prevent selection */
+      /* Use relative positioning within the text flow */
+      position: relative;
+      top: -0.2em; /* Fine-tune vertical position */
+   }
+
 
   /* Verse Container Styling */
   .verse-container {
-    @apply transition-colors duration-300 ease-in-out px-4; /* Added px-4 for horizontal padding */
-    border-left: 0px solid transparent;
-    padding-left: 1rem; /* Base left padding (equivalent to px-4) */
+    @apply transition-colors duration-300 ease-in-out px-4; /* Ensure horizontal padding is applied */
+    border-left: 0px solid transparent; /* Reset border */
+    padding-left: 1rem; /* Base left padding (px-4) */
+    padding-right: 1rem; /* Add right padding (px-4) */
     margin-bottom: 1rem; /* Spacing between verses */
     padding-bottom: 1rem; /* Spacing before border */
     border-bottom-width: 1px;
@@ -205,7 +209,10 @@ body {
   .verse-container.playing {
     @apply bg-primary/10 dark:bg-primary/15 rounded-md; /* Use theme primary with opacity */
     border-left: 4px solid hsl(var(--primary)); /* Solid primary border */
-    padding-left: calc(1rem + 4px); /* Adjust left padding to account for border */
+    /* Adjust padding to account for border, maintain total space */
+    padding-left: calc(1rem - 4px + 1rem); /* Original + extra space for border = same visual left edge */
+    padding-right: 1rem; /* Keep right padding consistent */
+
   }
 }
 

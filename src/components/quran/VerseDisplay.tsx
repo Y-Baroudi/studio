@@ -54,7 +54,7 @@ export function VerseDisplay({
 
   // --- Verse Number Formatting ---
   // Format as XX:XX (Surah:Ayah)
-  const verseReferenceDisplay = `${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'}`;
+  const verseReferenceDisplay = `(${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'})`; // Wrapped in parentheses
 
 
   // --- Context Menu Action Handlers ---
@@ -190,8 +190,8 @@ export function VerseDisplay({
                     dir="rtl"
                   >
                     {displayArabicText}
-                    {/* Inline Verse Number */}
-                     <span className="verse-number-inline" dir="ltr">({verseReferenceDisplay})</span>
+                    {/* Inline Verse Number for Arabic */}
+                     <span className="verse-number-inline">{verseReferenceDisplay}</span>
                   </p>
                </div>
 
@@ -209,8 +209,8 @@ export function VerseDisplay({
                     dir="ltr"
                   >
                      {displayEnglishTranslation}
-                     {/* Inline Verse Number */}
-                     <span className="verse-number-inline">({verseReferenceDisplay})</span>
+                     {/* Inline Verse Number for Translation */}
+                     <span className="verse-number-inline">{verseReferenceDisplay}</span>
                   </p>
                 </div>
             </div>

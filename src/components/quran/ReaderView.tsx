@@ -93,15 +93,19 @@ export function ReaderView() {
    // --- Apply dynamic styles ---
    useEffect(() => {
      // This check ensures we only try to access document on the client side
-     if (typeof window !== 'undefined') {
+     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
        const root = document.documentElement;
-       root.style.setProperty('--arabic-font-size', `${arabicFontSize}px`);
-       root.style.setProperty('--translation-font-size', `${fontSize}px`);
-       root.style.setProperty('--verse-line-height', `${lineHeight}`);
-       root.style.setProperty('--translation-line-height', `${translationLineHeight}`);
-       console.log('Applied styles:', { arabicFontSize, fontSize, lineHeight, translationLineHeight });
+        if (root) {
+            root.style.setProperty('--arabic-font-size', `${arabicFontSize}px`);
+            root.style.setProperty('--translation-font-size', `${fontSize}px`);
+            root.style.setProperty('--verse-line-height', `${lineHeight}`);
+            root.style.setProperty('--translation-line-height', `${translationLineHeight}`);
+            console.log('Applied styles:', { arabicFontSize, fontSize, lineHeight, translationLineHeight });
+        } else {
+            console.warn('Could not find document root element to apply styles.');
+        }
      }
-   }, [arabicFontSize, fontSize, lineHeight, translationLineHeight]);
+   }, [arabicFontSize, fontSize, lineHeight, translationLineHeight]); // Re-run when any of these change
 
 
   // --- Fetch Metadata, Reciters, Translations ---
@@ -552,22 +556,29 @@ export function ReaderView() {
    };
 
   // --- Settings Panel Handlers ---
-  const handleFontSizeChange = (value: number[]) => {
-    console.log("Setting Font Size (Translation):", value[0]);
-    setFontSize(value[0]);
-  };
-  const handleArabicFontSizeChange = (value: number[]) => {
-    console.log("Setting Font Size (Arabic):", value[0]);
-    setArabicFontSize(value[0]);
-  };
-  const handleLineHeightChange = (value: number[]) => {
-     console.log("Setting Line Height (Arabic):", value[0]);
-     setLineHeight(value[0]);
-  };
-  const handleTranslationLineHeightChange = (value: number[]) => {
+  // Handler for Translation Font Size
+  const handleFontSizeChange = useCallback((value: number[]) => {
+      console.log("Setting Font Size (Translation):", value[0]);
+      setFontSize(value[0]);
+  }, []);
+
+  // Handler for Arabic Font Size
+  const handleArabicFontSizeChange = useCallback((value: number[]) => {
+      console.log("Setting Font Size (Arabic):", value[0]);
+      setArabicFontSize(value[0]);
+  }, []);
+
+  // Handler for Arabic Line Height
+  const handleLineHeightChange = useCallback((value: number[]) => {
+      console.log("Setting Line Height (Arabic):", value[0]);
+      setLineHeight(value[0]);
+  }, []);
+
+  // Handler for Translation Line Height
+  const handleTranslationLineHeightChange = useCallback((value: number[]) => {
       console.log("Setting Line Height (Translation):", value[0]);
       setTranslationLineHeight(value[0]);
-  };
+  }, []);
 
 
   // --- Verse Input/Slider Handlers ---
@@ -1000,10 +1011,10 @@ export function ReaderView() {
         translationLineHeight={translationLineHeight} // Pass translation line height
         translations={translations}
         selectedTranslation={selectedTranslation}
-        onFontSizeChange={handleFontSizeChange} // Correct handler for translation font size
-        onArabicFontSizeChange={handleArabicFontSizeChange} // Correct handler for Arabic font size
-        onLineHeightChange={handleLineHeightChange} // Correct handler for Arabic line height
-        onTranslationLineHeightChange={handleTranslationLineHeightChange} // Add handler for translation line height
+        onFontSizeChange={handleFontSizeChange} // Use useCallback memoized handler
+        onArabicFontSizeChange={handleArabicFontSizeChange} // Use useCallback memoized handler
+        onLineHeightChange={handleLineHeightChange} // Use useCallback memoized handler
+        onTranslationLineHeightChange={handleTranslationLineHeightChange} // Use useCallback memoized handler
         onTranslationChange={handleTranslationChange}
         isLoading={isLoadingTranslations || isLoadingMeta} // Disable relevant controls while loading
       />
