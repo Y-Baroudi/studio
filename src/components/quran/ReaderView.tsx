@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -17,6 +18,7 @@ import { VerseDisplay } from './VerseDisplay';
 import { Controls } from './Controls';
 import { NotesSidebar } from './NotesSidebar';
 import { SettingsPanel } from './SettingsPanel';
+import { Header } from '@/components/layout/Header'; // Import Header
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Added Notebook icon
@@ -78,7 +80,7 @@ export function ReaderView() {
   const verseRefs = useRef<Map<number, HTMLDivElement | null>>(new Map()); // Refs for individual verse elements
   const isProgrammaticScroll = useRef<boolean>(false); // Flag to prevent scroll events during programmatic scroll
   const programmaticScrollTimeout = useRef<NodeJS.Timeout | null>(null); // Timeout for programmatic scroll flag
-  const fixedHeaderRef = useRef<HTMLDivElement>(null); // Ref for the fixed header
+  // Removed fixedHeaderRef - Header component manages its own stickiness
   const controlsRef = useRef<HTMLDivElement>(null); // Ref for the controls component
 
 
@@ -99,7 +101,7 @@ export function ReaderView() {
             root.style.setProperty('--translation-font-size', `${fontSize}px`);
             root.style.setProperty('--verse-line-height', `${lineHeight}`);
             root.style.setProperty('--translation-line-height', `${translationLineHeight}`);
-            console.log('Applied styles:', { arabicFontSize, fontSize, lineHeight, translationLineHeight });
+            // console.log('Applied styles:', { arabicFontSize, fontSize, lineHeight, translationLineHeight });
         } else {
             console.warn('Could not find document root element to apply styles.');
         }
@@ -729,188 +731,185 @@ export function ReaderView() {
   const currentSurahMetaData = quranMeta?.surahs.references.find(s => s?.number === currentSurahNumber) ?? null;
   const showBismillah = currentSurahMetaData && currentSurahMetaData.number !== 1 && currentSurahMetaData.number !== 9;
 
-  // Calculate scroll container height dynamically
-  const [scrollContainerHeight, setScrollContainerHeight] = useState('calc(100vh - 200px)'); // Default guess
-
-  useEffect(() => {
-       // Check if window is defined before accessing window properties
-       if (typeof window !== 'undefined') {
-          const headerHeight = fixedHeaderRef.current?.offsetHeight ?? 0;
-          const controlsHeight = controlsRef.current?.offsetHeight ?? 0;
-          // Calculate height ensuring it's not negative
-          const calculatedHeight = `calc(100vh - ${Math.max(0, headerHeight)}px - ${Math.max(0, controlsHeight)}px - 1rem)`;
-          // console.log(`Calculated Height: ${calculatedHeight} (Header: ${headerHeight}, Controls: ${controlsHeight})`);
-          setScrollContainerHeight(calculatedHeight);
-       }
-  }, [fixedHeaderRef, controlsRef, isMobile]); // Recalculate on mobile toggle too
-
+  // Calculate scroll container height dynamically - Removed, handled by flex/ScrollArea
+  // const [scrollContainerHeight, setScrollContainerHeight] = useState('calc(100vh - 200px)'); // Default guess
 
   return (
-    // Changed overall structure: header, scroll area, then controls
-    <div className="flex flex-col h-screen max-w-5xl mx-auto bg-background" dir="ltr">
+    // Changed overall structure: Header, Scroll Area, Controls inside flex column
+    <div className="flex flex-col h-screen bg-background" dir="ltr">
 
-      {/* Fixed Surah Header */}
-      <div ref={fixedHeaderRef} className="sticky-header flex-shrink-0">
-         {currentSurahMetaData ? (
-             <div className="flex justify-between items-start gap-4">
-               {/* Left: English Info */}
-               <div className="text-left">
-                 <h2 className="text-lg md:text-xl font-semibold text-foreground flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center bg-primary text-primary-foreground w-7 h-7 rounded-full text-sm">
-                       {currentSurahMetaData.number}
-                    </span>
-                    {currentSurahMetaData.englishName}
-                 </h2>
-                 <p className="text-xs md:text-sm text-muted-foreground">
-                    {currentSurahMetaData.englishNameTranslation} ({currentSurahMetaData.numberOfAyahs} Ayahs)
-                 </p>
-               </div>
-               {/* Right: Arabic Info */}
-               <div className="text-right">
-                 <h2 className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
-                    {currentSurahMetaData.name}
-                 </h2>
-                  <p className="text-[0.6rem] md:text-xs italic text-muted-foreground">
-                    {currentSurahMetaData.revelationType}
-                  </p>
-               </div>
-             </div>
-         ) : (
-             // Placeholder while loading metadata
-             <div className="flex justify-between items-center gap-4">
-                 <Skeleton className="h-6 w-1/3" />
-                 <Skeleton className="h-6 w-1/4" />
-             </div>
-         )}
-      </div>
+        {/* App Header */}
+        <Header
+           quranMeta={quranMeta}
+           navigateToVerse={navigateToVerse}
+           isLoading={isAnythingLoading} // Pass combined loading state
+        />
 
 
-       {/* Main Scrollable Content Area */}
-       <div
-         className="flex-grow overflow-hidden relative" // Takes remaining height, handles overflow internally
-         onTouchStart={handleTouchStart}
-         onTouchMove={handleTouchMove}
-         onTouchEnd={handleTouchEnd}
-         style={{
-            touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto',
-            // Removed height calculation from here, ScrollArea handles it
-         }}
-       >
-          <ScrollArea
-            className="h-full" // Make ScrollArea fill the parent container's height
-            viewportRef={scrollContainerRef}
-          >
-            <div className="reader-verses-scroll-container"> {/* Padding inside scroll area */}
-              {/* Bismillah (conditionally rendered inside scroll area) */}
-              {showBismillah && (
-                <p className="font-bismillah text-center text-foreground my-4 text-2xl md:text-3xl" aria-label="Bismillah">
-                   {BISMILLAH_TEXT}
-                </p>
-              )}
+        {/* Main Content Area: Sticky Surah Header + Scrollable Verses */}
+        <div className="flex-grow overflow-hidden relative flex flex-col"> {/* Use flex-col for header + scroll area */}
 
-              {/* Loading Skeletons */}
-               {isEssentialLoading && (
-                 <div className="space-y-6 p-4"> {/* Added padding to skeletons */}
-                   {[...Array(3)].map((_, i) => (
-                     <div key={i} className="flex flex-col gap-4 border-b border-border/30 pb-4">
-                        <Skeleton className="h-20 w-full mb-2" /> {/* Arabic Placeholder */}
-                        <Skeleton className="h-12 w-full" /> {/* Translation Placeholder */}
-                     </div>
-                   ))}
-                   <p className="text-center text-muted-foreground mt-4 text-sm">
-                     {isLoadingMeta ? 'Initializing reader...' : 'Loading verses...'}
-                   </p>
-                 </div>
-               )}
-
-              {/* Error Display */}
-              {displayError && (
-                <div className="flex flex-col justify-center items-center h-full p-6 text-center"> {/* Centered error */}
-                  <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-                  <p className="text-destructive font-semibold mb-2">Loading Error</p>
-                  <p className="text-sm text-muted-foreground mb-4">{error}</p>
-                  <Button onClick={() => {
-                      setError(null); // Clear error
-                      if (!quranMeta) {
-                         fetchInitialData(); // Retry initial load if meta failed
-                      } else if (currentSurahNumber && displayedVerses.length === 0) {
-                         loadVerses(currentSurahNumber, 1, true); // Retry loading current surah if verses failed
-                      } else {
-                          // Fallback: force reload initial data if state is unclear
-                           fetchInitialData();
-                      }
-                  }}
-                  variant="outline"
-                  size="sm"
-                  >
-                    Retry
-                  </Button>
-                </div>
-              )}
-
-              {/* Verse Display Area */}
-              {!isEssentialLoading && !displayError && displayedVerses.length === 0 && (
-                <div className="flex justify-center items-center h-full p-6"> {/* Centered message */}
-                  <p className="text-center text-muted-foreground text-sm">No verses loaded. Select a Surah or navigate.</p>
-                </div>
-              )}
-
-              {/* Render Displayed Verses */}
-              {!isEssentialLoading && !displayError && displayedVerses.map((verse) => (
-                <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)}>
-                    <VerseDisplay
-                        verse={verse}
-                        isHighlighted={verse.verseNumber === currentAbsoluteVerse}
-                        isPlaying={verse.verseNumber === playingVerseNumber}
-                        onContextMenu={handleVerseContextMenu}
-                        onClick={handleVerseClick} // Pass click handler
-                    />
-                </div>
-              ))}
-
-              {/* Load More Trigger/Indicator */}
-              <div ref={loadMoreRef} className={cn(
-                  "flex justify-center items-center py-6 text-center min-h-[60px]",
-                  // Render only when not critically loading and no error
-                  (isEssentialLoading || displayError) && "hidden"
-                  )}>
-                  {isLoadingVerses && displayedVerses.length > 0 && ( // Show spinner only when loading *more*
-                    <Button variant="ghost" disabled>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading More...
-                    </Button>
-                  )}
-                 {canLoadMore && !isLoadingVerses && ( // Show button only if more can be loaded and not currently loading
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => {
-                                if (currentSurahNumber && displayedVerses.length > 0) {
-                                  const nextAyah = displayedVerses[displayedVerses.length - 1].ayahNumberInSurah + 1;
-                                  loadVerses(currentSurahNumber, nextAyah, false);
-                                }
-                              }}
-                             disabled={isLoadingVerses}
-                           >
-                             <ChevronsDown className="h-4 w-4" />
-                             <span className="ml-1 hidden sm:inline">Load More</span>
-                             <span className="sr-only">Load More Verses</span>
-                           </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Load Next {VERSES_TO_LOAD_AT_ONCE} Verses</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                   {!canLoadMore && displayedVerses.length > 0 && !isLoadingVerses && !displayError && (
-                      <div className="text-center text-muted-foreground text-sm">End of Surah</div>
-                   )}
-              </div>
+             {/* Fixed Surah Header */}
+             <div className="sticky-header flex-shrink-0"> {/* Uses sticky-header class from globals */}
+                {currentSurahMetaData ? (
+                    <div className="flex justify-between items-start gap-4">
+                        {/* Left: English Info */}
+                        <div className="text-left">
+                            <h2 className="text-lg md:text-xl font-semibold text-foreground flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center bg-primary text-primary-foreground w-7 h-7 rounded-full text-sm">
+                                {currentSurahMetaData.number}
+                                </span>
+                                {currentSurahMetaData.englishName}
+                            </h2>
+                            <p className="text-xs md:text-sm text-muted-foreground">
+                                {currentSurahMetaData.englishNameTranslation} ({currentSurahMetaData.numberOfAyahs} Ayahs)
+                            </p>
+                        </div>
+                        {/* Right: Arabic Info */}
+                        <div className="text-right">
+                            <h2 className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
+                                {currentSurahMetaData.name}
+                            </h2>
+                            <p className="text-[0.6rem] md:text-xs italic text-muted-foreground">
+                                {currentSurahMetaData.revelationType}
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    // Placeholder while loading metadata
+                    <div className="flex justify-between items-center gap-4">
+                        <Skeleton className="h-6 w-1/3" />
+                        <Skeleton className="h-6 w-1/4" />
+                    </div>
+                )}
             </div>
-          <ScrollBar orientation="vertical" /> {/* Enable scrollbar explicitly */}
-          </ScrollArea>
-      </div>
+
+           {/* Scrollable Verses */}
+           <div
+                className="flex-grow overflow-hidden" // Takes remaining height
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{
+                    touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto',
+                }}
+            >
+                <ScrollArea
+                    className="h-full" // Make ScrollArea fill the parent container's height
+                    viewportRef={scrollContainerRef}
+                >
+                    <div className="reader-verses-scroll-container"> {/* Padding inside scroll area */}
+                        {/* Bismillah (conditionally rendered inside scroll area) */}
+                        {showBismillah && (
+                        <p className="font-bismillah text-center text-foreground my-4 text-2xl md:text-3xl" aria-label="Bismillah">
+                            {BISMILLAH_TEXT}
+                        </p>
+                        )}
+
+                        {/* Loading Skeletons */}
+                        {isEssentialLoading && (
+                        <div className="space-y-6 p-4"> {/* Added padding to skeletons */}
+                            {[...Array(3)].map((_, i) => (
+                            <div key={i} className="flex flex-col gap-4 border-b border-border/30 pb-4">
+                                <Skeleton className="h-20 w-full mb-2" /> {/* Arabic Placeholder */}
+                                <Skeleton className="h-12 w-full" /> {/* Translation Placeholder */}
+                            </div>
+                            ))}
+                            <p className="text-center text-muted-foreground mt-4 text-sm">
+                            {isLoadingMeta ? 'Initializing reader...' : 'Loading verses...'}
+                            </p>
+                        </div>
+                        )}
+
+                        {/* Error Display */}
+                        {displayError && (
+                        <div className="flex flex-col justify-center items-center h-full p-6 text-center"> {/* Centered error */}
+                            <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+                            <p className="text-destructive font-semibold mb-2">Loading Error</p>
+                            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+                            <Button onClick={() => {
+                                setError(null); // Clear error
+                                if (!quranMeta) {
+                                    fetchInitialData(); // Retry initial load if meta failed
+                                } else if (currentSurahNumber && displayedVerses.length === 0) {
+                                    loadVerses(currentSurahNumber, 1, true); // Retry loading current surah if verses failed
+                                } else {
+                                    // Fallback: force reload initial data if state is unclear
+                                    fetchInitialData();
+                                }
+                            }}
+                            variant="outline"
+                            size="sm"
+                            >
+                            Retry
+                            </Button>
+                        </div>
+                        )}
+
+                        {/* Verse Display Area */}
+                        {!isEssentialLoading && !displayError && displayedVerses.length === 0 && (
+                        <div className="flex justify-center items-center h-full p-6"> {/* Centered message */}
+                            <p className="text-center text-muted-foreground text-sm">No verses loaded. Select a Surah or navigate.</p>
+                        </div>
+                        )}
+
+                        {/* Render Displayed Verses */}
+                        {!isEssentialLoading && !displayError && displayedVerses.map((verse) => (
+                        <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)}>
+                            <VerseDisplay
+                                verse={verse}
+                                isHighlighted={verse.verseNumber === currentAbsoluteVerse}
+                                isPlaying={verse.verseNumber === playingVerseNumber}
+                                onContextMenu={handleVerseContextMenu}
+                                onClick={handleVerseClick} // Pass click handler
+                            />
+                        </div>
+                        ))}
+
+                        {/* Load More Trigger/Indicator */}
+                        <div ref={loadMoreRef} className={cn(
+                            "flex justify-center items-center py-6 text-center min-h-[60px]",
+                            // Render only when not critically loading and no error
+                            (isEssentialLoading || displayError) && "hidden"
+                            )}>
+                            {isLoadingVerses && displayedVerses.length > 0 && ( // Show spinner only when loading *more*
+                            <Button variant="ghost" disabled>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading More...
+                            </Button>
+                            )}
+                            {canLoadMore && !isLoadingVerses && ( // Show button only if more can be loaded and not currently loading
+                            <TooltipProvider>
+                                <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            if (currentSurahNumber && displayedVerses.length > 0) {
+                                            const nextAyah = displayedVerses[displayedVerses.length - 1].ayahNumberInSurah + 1;
+                                            loadVerses(currentSurahNumber, nextAyah, false);
+                                            }
+                                        }}
+                                        disabled={isLoadingVerses}
+                                    >
+                                        <ChevronsDown className="h-4 w-4" />
+                                        <span className="ml-1 hidden sm:inline">Load More</span>
+                                        <span className="sr-only">Load More Verses</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Load Next {VERSES_TO_LOAD_AT_ONCE} Verses</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            )}
+                            {!canLoadMore && displayedVerses.length > 0 && !isLoadingVerses && !displayError && (
+                                <div className="text-center text-muted-foreground text-sm">End of Surah</div>
+                            )}
+                        </div>
+                    </div>
+                    <ScrollBar orientation="vertical" /> {/* Enable scrollbar explicitly */}
+                </ScrollArea>
+            </div> {/* End Scrollable Verses */}
+        </div> {/* End Main Content Area */}
 
 
        {/* Controls Area */}
