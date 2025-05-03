@@ -7,14 +7,14 @@
 
 // Define the structure for a note
 export interface Note {
-  noteId: string;          // Unique identifier
-  surahNumber: number;     // Surah number (absolute, 1-114)
-  ayahNumberInSurah: number; // Ayah number within the surah
-  absoluteVerseNumber: number; // Absolute verse number (1-6236)
+  noteId: string;          // Unique identifier (based on absoluteVerseNumber)
+  absoluteVerseNumber: number; // Absolute verse number (1-6236) - Primary Key
+  surahNumber: number;     // Surah number (1-114) - For context
+  ayahNumberInSurah: number; // Ayah number within the surah - For context
   createdAt: string;       // ISO string format timestamp
   updatedAt: string;       // ISO string format timestamp
   noteText: string;        // The note content
-  tags: string[];          // Array of concept tags
+  tags: string[];          // Array of concept tags (concept IDs)
   isPrivate: boolean;      // Whether the note is private (default true)
 }
 
@@ -27,13 +27,17 @@ const NOTES_STORAGE_KEY = 'quranCompanionNotes';
  */
 function getAllNotes(): Note[] {
   if (typeof window === 'undefined') {
+    console.log("localStorage not available on server, returning empty notes array.");
     return []; // Cannot access localStorage on server
   }
   try {
     const notesJson = localStorage.getItem(NOTES_STORAGE_KEY);
-    return notesJson ? JSON.parse(notesJson) : [];
+    const notes = notesJson ? JSON.parse(notesJson) : [];
+    // Basic validation to ensure it's an array
+    return Array.isArray(notes) ? notes : [];
   } catch (error) {
     console.error('Error parsing notes from localStorage:', error);
+    localStorage.removeItem(NOTES_STORAGE_KEY); // Clear potentially corrupted data
     return [];
   }
 }
@@ -48,21 +52,26 @@ function saveAllNotes(notes: Note[]): void {
     return;
   }
   try {
+    // Ensure we're saving a valid array
+    if (!Array.isArray(notes)) {
+        throw new Error("Attempted to save non-array data as notes.");
+    }
     localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
   } catch (error) {
     console.error('Error saving notes to localStorage:', error);
     // Consider notifying the user here if saving fails critically
+    // Possibly implement a more robust error handling/recovery mechanism
   }
 }
 
 /**
- * Adds or updates a note for a specific verse.
+ * Adds or updates a note for a specific verse, using the absolute verse number as the primary key.
  *
  * @param absoluteVerseNumber The absolute verse number (1-6236).
- * @param surahNumber The surah number.
- * @param ayahNumberInSurah The ayah number within the surah.
+ * @param surahNumber The surah number (for context).
+ * @param ayahNumberInSurah The ayah number within the surah (for context).
  * @param noteText The text content of the note.
- * @param tags An array of tags associated with the note (optional).
+ * @param tags An array of concept IDs associated with the note (optional).
  * @param isPrivate Whether the note should be private (optional, default true).
  * @returns The saved Note object or null if saving failed.
  */
@@ -78,11 +87,22 @@ export function saveNote(
     console.error('Cannot save note on server.');
     return null;
    }
+   if (absoluteVerseNumber < 1 || absoluteVerseNumber > 6236) {
+       console.error(`Invalid absoluteVerseNumber: ${absoluteVerseNumber}`);
+       return null;
+   }
+   if (!noteText && tags.length === 0) {
+       console.log(`Note for verse ${absoluteVerseNumber} is empty, deleting if exists.`);
+       deleteNoteForVerse(absoluteVerseNumber); // Delete empty note
+       return null; // Return null as no note is saved/updated
+   }
+
+
   try {
     const allNotes = getAllNotes();
     const now = new Date().toISOString();
 
-    // Check if a note for this verse already exists
+    // Find existing note based on absoluteVerseNumber
     const existingNoteIndex = allNotes.findIndex(
       n => n.absoluteVerseNumber === absoluteVerseNumber
     );
@@ -93,25 +113,28 @@ export function saveNote(
       // Update existing note
       noteToSave = {
         ...allNotes[existingNoteIndex],
+        surahNumber, // Update context info in case it changes (shouldn't but safe)
+        ayahNumberInSurah,
         noteText,
-        tags,
-        isPrivate, // Allow updating privacy status
+        tags: [...new Set(tags)], // Ensure tags are unique
+        isPrivate,
         updatedAt: now,
       };
       allNotes[existingNoteIndex] = noteToSave;
       console.log(`Updating note for verse ${absoluteVerseNumber}`);
     } else {
       // Add new note
-       const noteId = `note_${absoluteVerseNumber}_${Date.now()}`; // Use absolute verse number for consistency
+      // Generate a more robust unique ID, although absoluteVerseNumber is the functional key
+      const noteId = `note_${absoluteVerseNumber}`;
       noteToSave = {
         noteId,
+        absoluteVerseNumber,
         surahNumber,
         ayahNumberInSurah,
-        absoluteVerseNumber,
         createdAt: now,
         updatedAt: now,
         noteText,
-        tags,
+        tags: [...new Set(tags)], // Ensure tags are unique
         isPrivate,
       };
       allNotes.push(noteToSave);
@@ -120,28 +143,35 @@ export function saveNote(
 
     // Save back to localStorage
     saveAllNotes(allNotes);
-    console.log("Notes saved to localStorage:", noteToSave);
+    console.log("Notes saved to localStorage. Current count:", allNotes.length);
 
     return noteToSave;
   } catch (error) {
-    console.error('Error in saveNote function:', error);
+    console.error(`Error in saveNote function for verse ${absoluteVerseNumber}:`, error);
     return null;
   }
 }
 
 /**
  * Gets the note for a specific absolute verse number.
- * Assumes only one note per verse for simplicity in this implementation.
  *
  * @param absoluteVerseNumber The absolute verse number (1-6236).
  * @returns The Note object if found, otherwise null.
  */
 export function getNoteForVerse(absoluteVerseNumber: number): Note | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {
+      console.log("localStorage not available on server, cannot get note.");
+      return null;
+  }
+   if (absoluteVerseNumber < 1 || absoluteVerseNumber > 6236) {
+       console.error(`Invalid absoluteVerseNumber: ${absoluteVerseNumber}`);
+       return null;
+   }
   try {
     const allNotes = getAllNotes();
-    // Find the first note matching the absolute verse number
+    // Find the note matching the absolute verse number
     const note = allNotes.find(note => note.absoluteVerseNumber === absoluteVerseNumber);
+    // console.log(`getNoteForVerse(${absoluteVerseNumber}): Found:`, note ? note.noteId : 'None');
     return note || null; // Return the found note or null
   } catch (error) {
     console.error(`Error getting note for verse ${absoluteVerseNumber}:`, error);
@@ -151,7 +181,6 @@ export function getNoteForVerse(absoluteVerseNumber: number): Note | null {
 
 /**
  * Retrieves all notes stored.
- * Useful for features like "View All Notes".
  * @returns An array of all Note objects.
  */
 export function getAllStoredNotes(): Note[] {
@@ -161,10 +190,17 @@ export function getAllStoredNotes(): Note[] {
 /**
  * Deletes a note based on its absolute verse number.
  * @param absoluteVerseNumber The absolute verse number of the note to delete.
- * @returns True if deletion was successful, false otherwise.
+ * @returns True if deletion was successful (or note didn't exist), false if an error occurred.
  */
 export function deleteNoteForVerse(absoluteVerseNumber: number): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') {
+      console.warn("Cannot delete note on server.");
+      return false;
+  }
+   if (absoluteVerseNumber < 1 || absoluteVerseNumber > 6236) {
+       console.error(`Invalid absoluteVerseNumber for deletion: ${absoluteVerseNumber}`);
+       return false;
+   }
   try {
     let allNotes = getAllNotes();
     const initialLength = allNotes.length;
@@ -173,13 +209,21 @@ export function deleteNoteForVerse(absoluteVerseNumber: number): boolean {
     if (allNotes.length < initialLength) {
       saveAllNotes(allNotes);
       console.log(`Deleted note for verse ${absoluteVerseNumber}`);
-      return true;
     } else {
       console.log(`No note found for verse ${absoluteVerseNumber} to delete.`);
-      return false;
     }
+    return true; // Return true even if no note was found, as the state is correct
   } catch (error) {
     console.error(`Error deleting note for verse ${absoluteVerseNumber}:`, error);
     return false;
   }
+}
+
+/**
+ * Checks if a note exists for a given absolute verse number.
+ * @param absoluteVerseNumber The absolute verse number (1-6236).
+ * @returns True if a note exists, false otherwise.
+ */
+export function checkNoteExists(absoluteVerseNumber: number): boolean {
+    return getNoteForVerse(absoluteVerseNumber) !== null;
 }

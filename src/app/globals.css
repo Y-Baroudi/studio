@@ -185,14 +185,17 @@ body {
     direction: ltr !important;
   }
 
-   /* Inline Verse Number Indicators - Removed */
-   /* .verse-number-inline { ... } */
-
+   /* Inline Verse Number Styling */
+   .verse-number-inline {
+     @apply text-muted-foreground/70 text-xs font-normal ml-1 mr-1 align-baseline inline-block px-1; /* Smaller, grayish, inline */
+     direction: ltr; /* Ensure numbers read LTR */
+     unicode-bidi: embed; /* Needed for embedding LTR in RTL context */
+     /* font-size: 0.6em; */ /* Adjust size relative to parent if needed */
+   }
 
    /* Verse Container Styling - Updated */
   .verse-container {
     @apply relative transition-colors duration-300 ease-in-out px-4; /* Ensure horizontal padding */
-    /* border-left: 0px solid transparent; */ /* Reset border - removed */
     padding-left: 1rem; /* Base left padding (px-4) */
     padding-right: 1rem; /* Add right padding (px-4) */
     padding-top: 2.5rem; /* Add padding top for the verse number badge */
@@ -210,29 +213,37 @@ body {
   /* Highlight style for the currently playing verse */
   .verse-container.playing {
     @apply bg-primary/10 dark:bg-primary/15 rounded-md; /* Use theme primary with opacity */
-    /* Removed border-left for playing state */
   }
 
    /* Highlight style for the currently selected verse */
    .verse-container.highlighted {
       @apply bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 rounded-md; /* Consistent background, add ring, make rounded */
-      /* Add shadow effect for the badge when highlighted */
       box-shadow: 0 1px 3px 0 hsla(var(--primary) / 0.1), 0 1px 2px -1px hsla(var(--primary) / 0.1); /* Subtle shadow */
     }
 
-   /* Verse Number Badge Styling */
-   .verse-number-badge {
-      @apply absolute top-2 left-2 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium;
-      @apply bg-muted text-muted-foreground; /* Use muted colors */
-      /* Optionally adjust padding/size if needed */
-      min-width: 40px; /* Example width */
-      transition: background-color 0.3s, color 0.3s, box-shadow 0.3s; /* Add transition */
+   /* Verse Number Badge Positioning Container */
+   .verse-number-badge-container {
+     @apply absolute top-2 left-2 z-10; /* Position top-left, above content */
+     /* Optional: Adjust positioning further if needed */
    }
 
-    /* Highlighted Verse Number Badge Styling */
-   .verse-number-badge.highlighted-badge {
-      @apply bg-primary text-primary-foreground shadow-md; /* Use primary colors when highlighted */
+   /* Verse Number Badge Styling */
+   .verse-number-badge {
+      @apply relative inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium; /* Added relative for potential absolute children like note indicator */
+      @apply bg-muted text-muted-foreground;
+      min-width: 40px;
+      transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
    }
+
+   /* Highlighted Verse Number Badge Styling */
+   .verse-number-badge.highlighted-badge {
+      @apply bg-primary text-primary-foreground shadow-md;
+   }
+
+    /* Note Indicator Styling (within VerseDisplay) */
+    /* Uses absolute positioning relative to the badge/badge container */
+    /* .note-indicator { @apply absolute -top-1 -right-1 ... } */
+
 }
 
 /* Ensure sticky header has correct background in both themes */
