@@ -19,7 +19,7 @@ body {
     --primary-foreground: 0 0% 98%; /* Soft White text on primary */
     --secondary: 0 0% 96.1%; /* Lighter gray for secondary elements */
     --secondary-foreground: 240 5.9% 10%;
-    --muted: 0 0% 96.1%;
+    --muted: 0 0% 90%; /* Slightly darker muted for badge background */
     --muted-foreground: 240 3.8% 46.1%; /* Medium Gray */
     --accent: 0 0% 96.1%; /* Use secondary for accent */
     --accent-foreground: 240 5.9% 10%;
@@ -62,7 +62,7 @@ body {
     --primary-foreground: 0 0% 98%;
     --secondary: 240 6% 15%; /* Darker Gray */
     --secondary-foreground: 0 0% 80%; /* Lighter gray */
-    --muted: 240 6% 15%;
+    --muted: 240 6% 25%; /* Darker muted for badge background */
     --muted-foreground: 0 0% 65%; /* Medium-light Gray */
     --accent: 240 6% 20%; /* Dark accent */
     --accent-foreground: 0 0% 95%;
@@ -184,29 +184,19 @@ body {
     direction: ltr !important;
   }
 
-   /* Inline Verse Number Indicators */
-   .verse-number-inline {
-      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-1 text-[0.7em] align-super relative top-[-0.2em] select-none;
-      direction: ltr !important; /* Force LTR for numbers */
-      line-height: 1 !important; /* Prevent interference */
-      vertical-align: super; /* Align slightly above baseline */
-      /* Gray color, half size */
-      color: hsl(var(--muted-foreground) / 0.7);
-      font-size: 0.5em; /* Half the size of the surrounding text */
-      /* Parentheses */
-      &::before { content: '('; }
-      &::after { content: ')'; }
-   }
+   /* Inline Verse Number Indicators - Removed */
+   /* .verse-number-inline { ... } */
 
 
-  /* Verse Container Styling */
+   /* Verse Container Styling - Updated */
   .verse-container {
-    @apply transition-colors duration-300 ease-in-out px-4; /* Ensure horizontal padding is applied */
-    border-left: 0px solid transparent; /* Reset border */
+    @apply relative transition-colors duration-300 ease-in-out px-4; /* Ensure horizontal padding */
+    /* border-left: 0px solid transparent; */ /* Reset border - removed */
     padding-left: 1rem; /* Base left padding (px-4) */
     padding-right: 1rem; /* Add right padding (px-4) */
-    margin-bottom: 1rem; /* Spacing between verses */
+    padding-top: 2.5rem; /* Add padding top for the verse number badge */
     padding-bottom: 1rem; /* Spacing before border */
+    margin-bottom: 1rem; /* Spacing between verses */
     border-bottom-width: 1px;
     border-bottom-color: hsl(var(--border) / 0.3); /* Use theme border */
     min-height: 80px; /* Ensure a minimum height to prevent extreme squashing */
@@ -219,12 +209,16 @@ body {
   /* Highlight style for the currently playing verse */
   .verse-container.playing {
     @apply bg-primary/10 dark:bg-primary/15 rounded-md; /* Use theme primary with opacity */
-    border-left: 4px solid hsl(var(--primary)); /* Solid primary border */
-    /* Adjust padding to account for border, maintain total space */
-    padding-left: calc(1rem - 4px + 1rem); /* Original + extra space for border = same visual left edge */
-    padding-right: 1rem; /* Keep right padding consistent */
-
+    /* Removed border-left for playing state */
   }
+
+   /* Verse Number Badge Styling */
+   .verse-number-badge {
+      @apply absolute top-2 left-2 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium;
+      @apply bg-muted text-muted-foreground; /* Use muted colors */
+      /* Optionally adjust padding/size if needed */
+      min-width: 40px; /* Example width */
+   }
 }
 
 /* Ensure sticky header has correct background in both themes */

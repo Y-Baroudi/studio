@@ -53,10 +53,9 @@ export function VerseDisplay({
    }, [synth]); // Dependency on synth
 
   // --- Verse Number Formatting ---
-  // Format as (Surah:Ayah) - used for aria-label and context menu
-  const verseReferenceDisplay = `(${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'})`;
-  // Format for inline display - just the number part
-  const inlineVerseNumber = `(${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'})`;
+  // Format as Surah:Ayah for badge and context menu
+  const verseReferenceDisplay = `${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'}`;
+  // Removed inlineVerseNumber
 
 
   // --- Context Menu Action Handlers ---
@@ -178,46 +177,44 @@ export function VerseDisplay({
           data-verse-abs={verse.verseNumber}
         >
 
-           {/* Grid layout for Arabic and Translation */}
+           {/* Verse Number Badge */}
+           <span className="verse-number-badge">{verseReferenceDisplay}</span>
+
+           {/* Flex container for text */}
             <div className={cn(
-              "flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-x-6 gap-y-2", // Reduced gap-y from 4 to 2
+              "flex flex-col",
               "min-h-fit" // Ensure the container adjusts its height to fit content
               )}>
 
-               {/* Arabic Text Column (Right for LTR context, but RTL content) */}
-                <div className="order-1 md:order-2 flex flex-col items-end py-1 md:py-0"> {/* Reduced py from 2 to 1 */}
+               {/* Arabic Text */}
+                <div className="order-1 py-1 md:py-0"> {/* Reduced py from 2 to 1 */}
                   {/* Arabic Text Paragraph */}
                   <p
                     className={cn(
                         "font-amiri text-foreground text-arabic-display arabic-text", // Use class, force alignment via CSS
-                        "mb-0" // Remove bottom margin if verse number is inline
+                        "mb-0" // Remove bottom margin as verse number is separate
                     )}
                     lang="ar"
                     dir="rtl"
                   >
                     {displayArabicText}
-                    {/* Inline Verse Number for Arabic */}
-                     <span className="verse-number-inline">{inlineVerseNumber}</span>
+                    {/* Removed Inline Verse Number for Arabic */}
                   </p>
                </div>
 
-              {/* Vertical Separator (Hidden on mobile) */}
-              <Separator orientation="vertical" className="h-auto hidden md:block order-2 md:order-1 border-border/50" />
-
-              {/* English Translation Column (Left for LTR context) */}
-                <div className="order-2 md:order-1 flex flex-col items-start py-1 md:py-0"> {/* Reduced py from 2 to 1 */}
+              {/* English Translation */}
+                <div className="order-2 py-1 md:py-0"> {/* Reduced py from 2 to 1 */}
                    {/* English Translation Paragraph */}
                   <p
                     className={cn(
                         "text-foreground text-translation-display translation-text", // Use class, force alignment via CSS
-                        "mb-0" // Remove bottom margin if verse number is inline
+                        "mb-0" // Remove bottom margin as verse number is separate
                     )}
                     lang="en"
                     dir="ltr"
                   >
                      {displayEnglishTranslation}
-                     {/* Inline Verse Number for Translation */}
-                     <span className="verse-number-inline">{inlineVerseNumber}</span>
+                     {/* Removed Inline Verse Number for Translation */}
                   </p>
                 </div>
             </div>
