@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -747,14 +746,11 @@ export function ReaderView() {
 
 
   return (
-    // Add direction based on language for overall layout (useful for LTR/RTL consistency)
-    <div className="w-full max-w-5xl mx-auto flex flex-grow flex-col gap-0 pb-0 relative" dir="ltr">
+    // Changed overall structure: header, scroll area, then controls
+    <div className="flex flex-col h-screen max-w-5xl mx-auto bg-background" dir="ltr">
 
       {/* Fixed Surah Header */}
-      <div
-        ref={fixedHeaderRef} // Add ref
-        className="sticky-header" // Use class from globals.css for consistent styling
-        >
+      <div ref={fixedHeaderRef} className="sticky-header flex-shrink-0">
          {currentSurahMetaData ? (
              <div className="flex justify-between items-start gap-4">
                {/* Left: English Info */}
@@ -789,23 +785,20 @@ export function ReaderView() {
       </div>
 
 
-      {/* Main Scrollable Content Area */}
-       {/* Apply Tailwind classes for overflow and height */}
-      <div
-        className="flex-grow rounded-lg relative bg-card" // Removed fixed height & overflow-hidden
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{
+       {/* Main Scrollable Content Area */}
+       <div
+         className="flex-grow overflow-hidden relative" // Takes remaining height, handles overflow internally
+         onTouchStart={handleTouchStart}
+         onTouchMove={handleTouchMove}
+         onTouchEnd={handleTouchEnd}
+         style={{
             touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto',
-             minHeight: scrollContainerHeight // Use minHeight instead of height
-            // Removed explicit height style
-        }}
-      >
-          {/* Wrap content in ScrollArea, ensure it fills parent height */}
+            // Removed height calculation from here, ScrollArea handles it
+         }}
+       >
           <ScrollArea
             className="h-full" // Make ScrollArea fill the parent container's height
-            viewportRef={scrollContainerRef} // Pass the ref here
+            viewportRef={scrollContainerRef}
           >
             <div className="reader-verses-scroll-container"> {/* Padding inside scroll area */}
               {/* Bismillah (conditionally rendered inside scroll area) */}
@@ -817,7 +810,7 @@ export function ReaderView() {
 
               {/* Loading Skeletons */}
                {isEssentialLoading && (
-                 <div className="space-y-6">
+                 <div className="space-y-6 p-4"> {/* Added padding to skeletons */}
                    {[...Array(3)].map((_, i) => (
                      <div key={i} className="flex flex-col gap-4 border-b border-border/30 pb-4">
                         <Skeleton className="h-20 w-full mb-2" /> {/* Arabic Placeholder */}
@@ -832,7 +825,7 @@ export function ReaderView() {
 
               {/* Error Display */}
               {displayError && (
-                <div className="flex flex-col justify-center items-center h-60 p-6 text-center">
+                <div className="flex flex-col justify-center items-center h-full p-6 text-center"> {/* Centered error */}
                   <AlertCircle className="w-12 h-12 text-destructive mb-4" />
                   <p className="text-destructive font-semibold mb-2">Loading Error</p>
                   <p className="text-sm text-muted-foreground mb-4">{error}</p>
@@ -857,7 +850,7 @@ export function ReaderView() {
 
               {/* Verse Display Area */}
               {!isEssentialLoading && !displayError && displayedVerses.length === 0 && (
-                <div className="flex justify-center items-center h-60 p-6">
+                <div className="flex justify-center items-center h-full p-6"> {/* Centered message */}
                   <p className="text-center text-muted-foreground text-sm">No verses loaded. Select a Surah or navigate.</p>
                 </div>
               )}
@@ -921,7 +914,7 @@ export function ReaderView() {
 
 
        {/* Controls Area */}
-       <div ref={controlsRef} className="sticky bottom-0 z-10 w-full">
+       <div ref={controlsRef} className="sticky bottom-0 z-10 w-full flex-shrink-0 bg-background">
          <Controls
            verseNumber={currentAbsoluteVerse}
            audioUrl={currentVerseDataForAudio?.audioUrl ?? null} // Pass audio URL for the *focused* verse

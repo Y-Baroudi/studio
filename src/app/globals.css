@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -103,6 +102,11 @@ body {
     @apply bg-background text-foreground;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
+  html, body {
+    /* Prevent default browser scroll */
+    overflow: hidden;
+    height: 100%;
+  }
 }
 
 /* Custom Arabic Font - Uthmani (Original - Keep as fallback) */
@@ -159,12 +163,13 @@ body {
     line-height: var(--verse-line-height) !important; /* Use !important */
     text-align: right !important; /* Use !important */
     direction: rtl !important; /* Use !important */
+    margin-bottom: 0.5rem !important; /* Adjust spacing between arabic and translation */
   }
   .text-translation-display {
     font-size: var(--translation-font-size) !important; /* Use !important */
     line-height: var(--translation-line-height) !important; /* Use !important */
     text-align: left !important; /* Ensure this is left-aligned! */
-    direction: ltr !important; /* Use !important */
+    direction: ltr !important;
   }
 
   /* Force Right Alignment for Arabic */
@@ -179,12 +184,18 @@ body {
     direction: ltr !important;
   }
 
-  /* Inline Verse Number Indicators */
+   /* Inline Verse Number Indicators */
    .verse-number-inline {
-      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-0.5 text-[0.7em] align-super relative top-[-0.2em] select-none; /* Increased size slightly */
+      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-1 text-[0.7em] align-super relative top-[-0.2em] select-none;
       direction: ltr !important; /* Force LTR for numbers */
       line-height: 1 !important; /* Prevent interference */
       vertical-align: super; /* Align slightly above baseline */
+      /* Gray color, half size */
+      color: hsl(var(--muted-foreground) / 0.7);
+      font-size: 0.5em; /* Half the size of the surrounding text */
+      /* Parentheses */
+      &::before { content: '('; }
+      &::after { content: ')'; }
    }
 
 
@@ -218,6 +229,7 @@ body {
 
 /* Ensure sticky header has correct background in both themes */
 .sticky-header {
+    position: -webkit-sticky !important; /* For Safari */
     position: sticky !important; /* Ensure stickiness */
     top: 0 !important;
     z-index: 20 !important; /* Ensure it's above most content but potentially below modals */
@@ -239,13 +251,12 @@ body {
 
 /* Styling for the scroll container */
 .reader-verses-scroll-container {
-   padding: 1rem !important; /* Keep padding */
-   padding-top: 0 !important; /* Remove top padding as it's handled by header */
+   padding: 1rem !important; /* Add padding around the verse content */
    -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
    /* Removed explicit height and overflow-y - ScrollArea handles this */
 }
 
-/* Prevent padding-top on the scroll container itself */
+/* Prevent padding-top on the scroll container itself (was conflicting with sticky header) */
 .scroll-area-viewport > div.reader-verses-scroll-container {
     padding-top: 0 !important;
 }
