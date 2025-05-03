@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ChangeEvent, SyntheticEvent } from 'react';
@@ -60,8 +59,7 @@ interface ControlsProps {
   onEnded: () => void; // Notify parent when playback ends naturally
   onError: (errorMessage: string) => void; // Notify parent of playback errors
   updatePlayingVerse: (verseNum: number | null) => void; // Allow controls to tell parent which verse is playing/stopped
-  // --- New Props for UI Control ---
-   onOpenSettings: () => void; // Function to open the main settings panel
+  // --- Removed onOpenSettings prop ---
 }
 
 export function Controls({
@@ -86,7 +84,6 @@ export function Controls({
   onEnded,
   onError,
   updatePlayingVerse,
-  onOpenSettings, // Destructure the new prop
 }: ControlsProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -642,6 +639,5 @@ export function Controls({
     </Card>
   );
 }
-
 
     

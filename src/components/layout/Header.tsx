@@ -1,9 +1,8 @@
-
 'use client'; // Needs to be a client component to use state and interact with dropdowns
 
 import Link from 'next/link';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { BookOpen, Menu, Search, Tags, Loader2, ChevronDown } from 'lucide-react'; // Import new icons
+// import { ThemeToggle } from '@/components/theme-toggle'; // Removed ThemeToggle
+import { BookOpen, Menu, Search, Tags, Loader2, ChevronDown, Settings, NotebookText } from 'lucide-react'; // Added Settings, NotebookText
 import { Button } from '@/components/ui/button'; // Import Button
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'; // Import Sheet for drawer
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // Import Dropdown for Surah selection
@@ -11,11 +10,14 @@ import type { QuranMeta, SurahMeta } from '@/services/alquran-cloud'; // Import 
 import { surahAyahToAbsoluteVerse } from '@/services/alquran-cloud'; // Import helper function
 import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area'; // Import ScrollArea for long dropdown list
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
 
 interface HeaderProps {
   quranMeta: QuranMeta | null;
   navigateToVerse: (absoluteVerseNum: number, scroll?: boolean, immediateScroll?: boolean) => void;
   isLoading: boolean; // Pass general loading state
+  onOpenSettings: () => void; // Callback to open settings panel
+  // Add callback for All Notes later: onOpenAllNotes: () => void;
 }
 
 // Function to get the starting verse number for a surah
@@ -25,7 +27,7 @@ const getSurahStartVerse = (surahNumber: number, meta: QuranMeta | null): number
 
 
 // Enhanced Header Component accepting props
-export function Header({ quranMeta, navigateToVerse, isLoading }: HeaderProps) {
+export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }: HeaderProps) {
    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -58,7 +60,11 @@ export function Header({ quranMeta, navigateToVerse, isLoading }: HeaderProps) {
            {/* Drawer Menu Trigger */}
            <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden"> {/* Show only on mobile */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden focus-visible:ring-0 focus-visible:ring-offset-0" // Remove default ring on mobile trigger
+              >
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open Menu</span>
               </Button>
@@ -101,6 +107,7 @@ export function Header({ quranMeta, navigateToVerse, isLoading }: HeaderProps) {
                   {/* Other drawer links - TODO: Implement functionality */}
                    <Button variant="ghost" className="justify-start" disabled><Search className="mr-2 h-4 w-4" />Search (Soon)</Button>
                    <Button variant="ghost" className="justify-start" disabled><Tags className="mr-2 h-4 w-4" />Concepts (Soon)</Button>
+                   <Button variant="ghost" className="justify-start" disabled><NotebookText className="mr-2 h-4 w-4" />All Notes (Soon)</Button>
                </nav>
             </SheetContent>
           </Sheet>
@@ -145,22 +152,62 @@ export function Header({ quranMeta, navigateToVerse, isLoading }: HeaderProps) {
          </div>
 
 
-        {/* Right Section: Icons & Theme Toggle */}
+        {/* Right Section: Icons & Settings */}
         <div className="flex items-center gap-2">
-           {/* Search Icon - TODO: Implement functionality */}
-           <Button variant="ghost" size="icon" aria-label="Search" disabled>
-            <Search className="h-5 w-5" />
-          </Button>
+            <TooltipProvider>
+              {/* Search Icon */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Search" disabled>
+                    <Search className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Search (Coming Soon)</p></TooltipContent>
+              </Tooltip>
 
-           {/* Concept/Tag Browsing Icon - TODO: Implement functionality */}
-           <Button variant="ghost" size="icon" aria-label="Browse Concepts/Tags" disabled>
-            <Tags className="h-5 w-5" />
-          </Button>
+              {/* Tags/Concepts Icon */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Browse Concepts/Tags" disabled>
+                    <Tags className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Browse Concepts (Coming Soon)</p></TooltipContent>
+              </Tooltip>
 
-           {/* Theme Toggle */}
-          <ThemeToggle />
+               {/* All Notes Icon */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="View All Notes" disabled>
+                    <NotebookText className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>View All Notes (Coming Soon)</p></TooltipContent>
+              </Tooltip>
+
+               {/* Settings Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                   <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Open Settings"
+                      onClick={onOpenSettings}
+                      disabled={isLoading} // Disable if general loading
+                    >
+                      <Settings className="h-5 w-5" />
+                   </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Display Settings</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+           {/* Theme Toggle Removed */}
+           {/* <ThemeToggle /> */}
         </div>
       </div>
     </header>
   );
 }
+
+    

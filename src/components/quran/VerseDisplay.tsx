@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react'; // Added useEffect
 import type { Verse } from '@/services/alquran-cloud';
 import { Separator } from '@/components/ui/separator';
@@ -162,7 +161,7 @@ export function VerseDisplay({
         <div
           className={cn(
             "verse-container", // Base class with styling from globals.css
-            isHighlighted && "bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50", // Highlight focused verse
+            isHighlighted && "highlighted", // Highlight focused verse - Use CSS class
             isPlaying && "playing" // Apply 'playing' class for audio highlight
           )}
           onClick={() => onClick(verse.verseNumber)}
@@ -178,7 +177,12 @@ export function VerseDisplay({
         >
 
            {/* Verse Number Badge */}
-           <span className="verse-number-badge">{verseReferenceDisplay}</span>
+           <span className={cn(
+              "verse-number-badge",
+              isHighlighted && "highlighted-badge" // Add class for highlighted state
+            )}>
+              {verseReferenceDisplay}
+            </span>
 
            {/* Flex container for text */}
             <div className={cn(
@@ -248,3 +252,5 @@ export function VerseDisplay({
     </ContextMenu>
   );
 }
+
+    

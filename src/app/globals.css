@@ -212,12 +212,25 @@ body {
     /* Removed border-left for playing state */
   }
 
+   /* Highlight style for the currently selected verse */
+   .verse-container.highlighted {
+      @apply bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 rounded-md; /* Consistent background, add ring */
+      /* Add shadow effect for the badge when highlighted */
+      box-shadow: 0 1px 3px 0 hsla(var(--primary) / 0.1), 0 1px 2px -1px hsla(var(--primary) / 0.1); /* Subtle shadow */
+    }
+
    /* Verse Number Badge Styling */
    .verse-number-badge {
       @apply absolute top-2 left-2 inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium;
       @apply bg-muted text-muted-foreground; /* Use muted colors */
       /* Optionally adjust padding/size if needed */
       min-width: 40px; /* Example width */
+      transition: background-color 0.3s, color 0.3s, box-shadow 0.3s; /* Add transition */
+   }
+
+    /* Highlighted Verse Number Badge Styling */
+   .verse-number-badge.highlighted-badge {
+      @apply bg-primary text-primary-foreground shadow-md; /* Use primary colors when highlighted */
    }
 }
 
@@ -254,3 +267,5 @@ body {
 .scroll-area-viewport > div.reader-verses-scroll-container {
     padding-top: 0 !important;
 }
+
+    

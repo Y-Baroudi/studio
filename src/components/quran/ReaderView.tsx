@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -21,7 +20,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { Header } from '@/components/layout/Header'; // Import Header
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Added Notebook icon
+import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Notebook needed for NotesSidebar
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'; // Import ScrollBar as well for explicit scroll handling
@@ -743,6 +742,7 @@ export function ReaderView() {
            quranMeta={quranMeta}
            navigateToVerse={navigateToVerse}
            isLoading={isAnythingLoading} // Pass combined loading state
+           onOpenSettings={toggleSettingsPanel} // Pass handler to Header
         />
 
 
@@ -937,60 +937,23 @@ export function ReaderView() {
            onEnded={handleAudioEnd}
            onError={handleAudioError}
            updatePlayingVerse={updatePlayingVerseCallback}
-           onOpenSettings={toggleSettingsPanel} // Pass the toggle function
+           onOpenSettings={() => {}} // Now handled by Header
          />
        </div>
 
 
-       {/* Floating Action Buttons (FAB) Area */}
-       <div className="fixed bottom-24 right-4 md:right-6 z-20 flex flex-col gap-3">
-          {/* Settings Button */}
-           <TooltipProvider>
-               <Tooltip>
-                   <TooltipTrigger asChild>
-                       <Button
-                           variant="default"
-                           size="icon"
-                           className="h-12 w-12 rounded-full shadow-lg" // Slightly larger FAB
-                           aria-label="Open Settings"
-                           onClick={toggleSettingsPanel}
-                           disabled={isAnythingLoading} // Disable if anything is loading
-                       >
-                           <Settings className="h-6 w-6" />
-                       </Button>
-                   </TooltipTrigger>
-                   <TooltipContent side="left"><p>Display Settings</p></TooltipContent>
-               </Tooltip>
-           </TooltipProvider>
-            {/* Notes Button */}
-             <TooltipProvider>
-               <Tooltip>
-                   <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-12 w-12 rounded-full shadow-lg border bg-background" // Style as secondary FAB
-                        aria-label="Open Notes"
-                        onClick={toggleNotesSidebar}
-                      >
-                        <Notebook className="h-6 w-6" />
-                      </Button>
-                   </TooltipTrigger>
-                   <TooltipContent side="left"><p>Notes</p></TooltipContent>
-               </Tooltip>
-           </TooltipProvider>
+       {/* Floating Action Button Removed */}
+       {/* <div className="fixed bottom-24 right-4 md:right-6 z-20 flex flex-col gap-3"> ... </div> */}
 
-           {/* Placeholder: Keep NotesSidebar component, but trigger it from FAB */}
-           <NotesSidebar
-               currentVerseNumber={currentAbsoluteVerse}
-               isOpen={isNotesSidebarOpen}
-               onOpenChange={setIsNotesSidebarOpen}
-               surahName={currentSurahMetaData?.englishName ?? ''}
-               ayahNumber={currentVerseDataForSidebars?.ayahNumberInSurah?.toString() ?? ''}
-               // The trigger is now the FAB, so this component won't render its own trigger button
-           />
-
-       </div>
+       {/* Placeholder for NotesSidebar - Still used, triggered by context menu */}
+       <NotesSidebar
+           currentVerseNumber={currentAbsoluteVerse}
+           isOpen={isNotesSidebarOpen}
+           onOpenChange={setIsNotesSidebarOpen}
+           surahName={currentSurahMetaData?.englishName ?? ''}
+           ayahNumber={currentVerseDataForSidebars?.ayahNumberInSurah?.toString() ?? ''}
+           // The trigger is now the context menu, so this component won't render its own trigger button
+       />
 
 
       {/* Settings Panel Component */}
@@ -1013,3 +976,5 @@ export function ReaderView() {
     </div>
   );
 }
+
+    
