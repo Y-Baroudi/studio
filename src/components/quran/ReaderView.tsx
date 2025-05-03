@@ -748,7 +748,7 @@ export function ReaderView() {
 
   return (
     // Add direction based on language for overall layout (useful for LTR/RTL consistency)
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-0 pb-0 relative" dir="ltr">
+    <div className="w-full max-w-5xl mx-auto flex flex-grow flex-col gap-0 pb-0 relative" dir="ltr">
 
       {/* Fixed Surah Header */}
       <div
@@ -807,7 +807,7 @@ export function ReaderView() {
             className="h-full" // Make ScrollArea fill the parent container's height
             viewportRef={scrollContainerRef} // Pass the ref here
           >
-            <div className="verses-scroll-container"> {/* Padding inside scroll area */}
+            <div className="reader-verses-scroll-container"> {/* Padding inside scroll area */}
               {/* Bismillah (conditionally rendered inside scroll area) */}
               {showBismillah && (
                 <p className="font-bismillah text-center text-foreground my-4 text-2xl md:text-3xl" aria-label="Bismillah">

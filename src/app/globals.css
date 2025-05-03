@@ -181,7 +181,7 @@ body {
 
   /* Inline Verse Number Indicators */
    .verse-number-inline {
-      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-0.5 text-[0.5em] align-super relative top-[-0.2em] select-none;
+      @apply inline-block font-sans text-muted-foreground/70 ml-1 mr-1 px-0.5 text-[0.7em] align-super relative top-[-0.2em] select-none; /* Increased size slightly */
       direction: ltr !important; /* Force LTR for numbers */
       line-height: 1 !important; /* Prevent interference */
       vertical-align: super; /* Align slightly above baseline */
@@ -238,8 +238,14 @@ body {
 
 
 /* Styling for the scroll container */
-.verses-scroll-container {
-   padding: 1rem !important;
+.reader-verses-scroll-container {
+   padding: 1rem !important; /* Keep padding */
+   padding-top: 0 !important; /* Remove top padding as it's handled by header */
    -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
    /* Removed explicit height and overflow-y - ScrollArea handles this */
+}
+
+/* Prevent padding-top on the scroll container itself */
+.scroll-area-viewport > div.reader-verses-scroll-container {
+    padding-top: 0 !important;
 }
