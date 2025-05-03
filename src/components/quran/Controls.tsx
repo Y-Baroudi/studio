@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent, SyntheticEvent } from 'react';
@@ -441,7 +442,8 @@ export function Controls({
                 </Select>
            </div>
 
-          {/* Verse Input */}
+          {/* Verse Input Removed */}
+          {/*
            <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground hidden sm:inline">Verse:</span>
                 <Input
@@ -457,6 +459,7 @@ export function Controls({
                 />
                 <span className="text-sm text-muted-foreground">/ {MAX_VERSE_NUMBER}</span>
            </div>
+           */}
         </div>
 
 
@@ -612,7 +615,8 @@ export function Controls({
                        </PopoverContent>
                      </Popover>
 
-                     {/* Mute Button */}
+                     {/* Mute Button Removed */}
+                     {/*
                      <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
                         <Button
                             variant="ghost"
@@ -625,6 +629,7 @@ export function Controls({
                             {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                         </Button>
                      </TooltipTrigger> <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent> </Tooltip> </TooltipProvider>
+                     */}
                  </div>
             </div>
         </div>
@@ -639,5 +644,3 @@ export function Controls({
     </Card>
   );
 }
-
-    

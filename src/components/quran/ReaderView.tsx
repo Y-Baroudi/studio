@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -756,9 +757,7 @@ export function ReaderView() {
                         {/* Left: English Info */}
                         <div className="text-left">
                             <h2 className="text-lg md:text-xl font-semibold text-foreground flex items-center gap-2">
-                                <span className="inline-flex items-center justify-center bg-primary text-primary-foreground w-7 h-7 rounded-full text-sm">
-                                {currentSurahMetaData.number}
-                                </span>
+                                {/* Surah Number is moved to the Arabic side */}
                                 {currentSurahMetaData.englishName}
                             </h2>
                             <p className="text-xs md:text-sm text-muted-foreground">
@@ -766,10 +765,13 @@ export function ReaderView() {
                             </p>
                         </div>
                         {/* Right: Arabic Info */}
-                        <div className="text-right">
+                        <div className="text-right flex items-center gap-2"> {/* Flex container for Arabic name and number */}
                             <h2 className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
                                 {currentSurahMetaData.name}
                             </h2>
+                             <span className="inline-flex items-center justify-center bg-primary text-primary-foreground w-7 h-7 rounded-full text-sm">
+                                {currentSurahMetaData.number}
+                            </span>
                             <p className="text-[0.6rem] md:text-xs italic text-muted-foreground">
                                 {currentSurahMetaData.revelationType}
                             </p>
@@ -976,5 +978,3 @@ export function ReaderView() {
     </div>
   );
 }
-
-    

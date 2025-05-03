@@ -1,3 +1,4 @@
+
 'use client'; // Needs to be a client component to use state and interact with dropdowns
 
 import Link from 'next/link';
@@ -153,7 +154,7 @@ export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }
 
 
         {/* Right Section: Icons & Settings */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1"> {/* Reduced gap from 2 to 1 */}
             <TooltipProvider>
               {/* Search Icon */}
               <Tooltip>
@@ -209,5 +210,3 @@ export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }
     </header>
   );
 }
-
-    

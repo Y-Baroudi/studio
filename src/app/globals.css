@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -214,7 +215,7 @@ body {
 
    /* Highlight style for the currently selected verse */
    .verse-container.highlighted {
-      @apply bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 rounded-md; /* Consistent background, add ring */
+      @apply bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 rounded-md; /* Consistent background, add ring, make rounded */
       /* Add shadow effect for the badge when highlighted */
       box-shadow: 0 1px 3px 0 hsla(var(--primary) / 0.1), 0 1px 2px -1px hsla(var(--primary) / 0.1); /* Subtle shadow */
     }
@@ -267,5 +268,3 @@ body {
 .scroll-area-viewport > div.reader-verses-scroll-container {
     padding-top: 0 !important;
 }
-
-    
