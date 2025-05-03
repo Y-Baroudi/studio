@@ -80,7 +80,6 @@ export function ReaderView() {
   const verseRefs = useRef<Map<number, HTMLDivElement | null>>(new Map()); // Refs for individual verse elements
   const isProgrammaticScroll = useRef<boolean>(false); // Flag to prevent scroll events during programmatic scroll
   const programmaticScrollTimeout = useRef<NodeJS.Timeout | null>(null); // Timeout for programmatic scroll flag
-  // Removed fixedHeaderRef - Header component manages its own stickiness
   const controlsRef = useRef<HTMLDivElement>(null); // Ref for the controls component
 
 
@@ -101,7 +100,6 @@ export function ReaderView() {
             root.style.setProperty('--translation-font-size', `${fontSize}px`);
             root.style.setProperty('--verse-line-height', `${lineHeight}`);
             root.style.setProperty('--translation-line-height', `${translationLineHeight}`);
-            // console.log('Applied styles:', { arabicFontSize, fontSize, lineHeight, translationLineHeight });
         } else {
             console.warn('Could not find document root element to apply styles.');
         }
@@ -730,9 +728,11 @@ export function ReaderView() {
 
   const currentSurahMetaData = quranMeta?.surahs.references.find(s => s?.number === currentSurahNumber) ?? null;
   const showBismillah = currentSurahMetaData && currentSurahMetaData.number !== 1 && currentSurahMetaData.number !== 9;
-
-  // Calculate scroll container height dynamically - Removed, handled by flex/ScrollArea
-  // const [scrollContainerHeight, setScrollContainerHeight] = useState('calc(100vh - 200px)'); // Default guess
+  // Function to get the Arabic name without the "Surah" prefix
+  const getCleanArabicName = (name: string | undefined): string => {
+    if (!name) return '';
+    return name.replace(/^سُورَةُ\s+/, ''); // Remove "سُورَةُ " prefix
+  };
 
   return (
     // Changed overall structure: Header, Scroll Area, Controls inside flex column
@@ -757,22 +757,23 @@ export function ReaderView() {
                         {/* Left: English Info */}
                         <div className="text-left">
                             <h2 className="text-lg md:text-xl font-semibold text-foreground flex items-center gap-2">
-                                {/* Surah Number is moved to the Arabic side */}
                                 {currentSurahMetaData.englishName}
                             </h2>
                             <p className="text-xs md:text-sm text-muted-foreground">
                                 {currentSurahMetaData.englishNameTranslation} ({currentSurahMetaData.numberOfAyahs} Ayahs)
                             </p>
                         </div>
-                        {/* Right: Arabic Info */}
-                        <div className="text-right flex items-center gap-2"> {/* Flex container for Arabic name and number */}
-                            <h2 className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
-                                {currentSurahMetaData.name}
-                            </h2>
-                             <span className="inline-flex items-center justify-center bg-primary text-primary-foreground w-7 h-7 rounded-full text-sm">
-                                {currentSurahMetaData.number}
-                            </span>
-                            <p className="text-[0.6rem] md:text-xs italic text-muted-foreground">
+                        {/* Right: Arabic Info (Adjusted Layout) */}
+                        <div className="text-right flex flex-col items-end"> {/* Stack vertically */}
+                            <div className="flex items-center gap-2"> {/* Top row for name and number */}
+                               <h2 className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
+                                 {getCleanArabicName(currentSurahMetaData.name)}
+                               </h2>
+                               <span className="inline-flex items-center justify-center bg-primary text-primary-foreground w-7 h-7 rounded-full text-sm flex-shrink-0">
+                                   {currentSurahMetaData.number}
+                               </span>
+                            </div>
+                            <p className="text-[0.6rem] md:text-xs italic text-muted-foreground mt-0.5"> {/* Revelation type below */}
                                 {currentSurahMetaData.revelationType}
                             </p>
                         </div>
