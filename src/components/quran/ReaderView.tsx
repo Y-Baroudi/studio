@@ -55,6 +55,7 @@ export function ReaderView() {
   const [displayedVerses, setDisplayedVerses] = useState<Verse[]>([]);
   const [playingVerseNumber, setPlayingVerseNumber] = useState<number | null>(null);
   const [versesWithNotes, setVersesWithNotes] = useState<Set<number>>(new Set()); // Track verses with notes/tags
+  const [isRepeatingVerse, setIsRepeatingVerse] = useState<number | null>(null); // State for repeating verse
 
   const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE);
   const [arabicFontSize, setArabicFontSize] = useState<number>(DEFAULT_ARABIC_FONT_SIZE);
@@ -81,6 +82,7 @@ export function ReaderView() {
   const isProgrammaticScroll = useRef<boolean>(false);
   const programmaticScrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null); // Ref for the audio element in Controls
 
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
     threshold: 0.1,
@@ -377,7 +379,7 @@ export function ReaderView() {
         console.log("Reciter changed to:", reciterId);
         setSelectedReciter(reciterId);
         setPlayingVerseNumber(null); // Stop playback
-        const audioElement = document.querySelector('audio');
+        const audioElement = audioRef.current; // Access audio element via ref from Controls
         if (audioElement && !audioElement.paused) {
            audioElement.pause();
         }
@@ -471,7 +473,7 @@ export function ReaderView() {
       if (verseNumber !== currentAbsoluteVerse) {
           setCurrentAbsoluteVerse(verseNumber);
           // Optionally stop audio if a different verse is clicked while playing
-          const audioElement = document.querySelector('audio');
+          const audioElement = audioRef.current; // Access audio element via ref from Controls
           if (audioElement && !audioElement.paused && playingVerseNumber !== verseNumber) {
               audioElement.pause();
               setPlayingVerseNumber(null);
@@ -515,6 +517,7 @@ export function ReaderView() {
 
    const handleAudioPlay = () => {
       console.log("handleAudioPlay called, verse:", currentAbsoluteVerse);
+      setIsRepeatingVerse(null); // Stop any previous repeat on manual play
       setPlayingVerseNumber(currentAbsoluteVerse);
       // Scroll to verse if needed, but only if not currently scrolling manually
       if (!isProgrammaticScroll.current) {
@@ -542,7 +545,18 @@ export function ReaderView() {
    const handleAudioEnd = () => {
         console.log("handleAudioEnd called for verse:", playingVerseNumber);
         setPlayingVerseNumber(null);
-        // Logic moved to Controls component via onEnded -> onNextVerse call
+        if (isRepeatingVerse !== null) {
+             console.log(`Looping verse ${isRepeatingVerse}`);
+             setIsRepeatingVerse(null); // Clear repeat flag
+             setTimeout(() => { // Use timeout to ensure state update cycle completes
+                const audioElement = audioRef.current;
+                if (audioElement) {
+                    audioElement.currentTime = 0;
+                    audioElement.play().catch(err => handleAudioError(`Failed to loop audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
+                }
+             }, 50); // Small delay
+        }
+        // Logic moved to Controls component via onEnded -> onNextVerse call for non-repeating cases
    };
    const handleAudioError = (errorMsg: string) => {
         console.error("Received audio error:", errorMsg);
@@ -560,6 +574,33 @@ export function ReaderView() {
           setCurrentAbsoluteVerse(verseNum);
        }
     }, [currentAbsoluteVerse]);
+
+  // Handler for the "Repeat Verse" context menu option
+  const handleRepeatVerse = useCallback((verseNumber: number) => {
+      const audioElement = audioRef.current;
+      if (!audioElement) {
+          toast({ title: "Audio Error", description: "Audio player not ready.", variant: "destructive" });
+          return;
+      }
+      console.log(`Repeating verse ${verseNumber}`);
+      // Set the repeat flag
+      setIsRepeatingVerse(verseNumber);
+      // Navigate to the verse if it's not the current one (to load audio)
+      if (verseNumber !== currentAbsoluteVerse) {
+          navigateToVerse(verseNumber, true, true); // Navigate and scroll immediately
+           // Start playing *after* navigation and potential data load
+           setTimeout(() => {
+               audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
+           }, 200); // Delay to allow potential load
+      } else {
+          // Already on the verse, restart and play
+           audioElement.currentTime = 0;
+           audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
+      }
+      // Toast confirmation moved to VerseDisplay
+
+  }, [currentAbsoluteVerse, navigateToVerse, toast, audioRef]); // Include audioRef
+
 
   // Find verse data for the *currently focused* verse to pass to controls/sidebars
   const currentVerseDataForControls = displayedVerses.find(v => v.verseNumber === currentAbsoluteVerse);
@@ -700,9 +741,10 @@ export function ReaderView() {
                                 <VerseDisplay
                                     verse={verse}
                                     isHighlighted={verse.verseNumber === currentAbsoluteVerse}
-                                    isPlaying={verse.verseNumber === playingVerseNumber}
+                                    isPlaying={verse.verseNumber === playingVerseNumber || verse.verseNumber === isRepeatingVerse} // Highlight if playing or repeating
                                     onContextMenu={handleVerseContextMenu}
                                     onClick={handleVerseClick}
+                                    onRepeatVerse={handleRepeatVerse} // Pass repeat handler
                                     // Removed hasNote prop - VerseDisplay now checks internally
                                 />
                             </div>
@@ -726,6 +768,7 @@ export function ReaderView() {
        {/* Fixed Controls Area */}
        <div ref={controlsRef} className="sticky bottom-0 z-10 w-full flex-shrink-0 bg-background/90 backdrop-blur-sm border-t border-border/50">
          <Controls
+           audioRef={audioRef} // Pass the audio ref to Controls
            verseNumber={currentAbsoluteVerse}
            audioUrl={currentVerseDataForControls?.audioUrl ?? null} // Use focused verse data
            reciters={reciters}
@@ -748,6 +791,11 @@ export function ReaderView() {
            // Removed verse slider props
            onVerseSliderChange={() => {}}
            onVerseSliderCommit={() => {}}
+           // Pass repeat state and handler
+           isRepeatingVerse={isRepeatingVerse === currentAbsoluteVerse} // Tell controls if *this* verse is repeating
+           onRepeatVerseToggle={(verseNum, shouldRepeat) => {
+               setIsRepeatingVerse(shouldRepeat ? verseNum : null);
+           }}
          />
        </div>
 

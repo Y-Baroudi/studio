@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import type { Verse } from '@/services/alquran-cloud';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Bookmark, Tag, Share2, StickyNote, Volume2, FileText } from 'lucide-react'; // Added FileText for note indicator
+import { Bookmark, Tag, Share2, StickyNote, FileText, Repeat1 } from 'lucide-react'; // Added Repeat1, removed Volume2
 import {
   ContextMenu,
   ContextMenuContent,
@@ -21,6 +21,8 @@ interface VerseDisplayProps {
   isHighlighted: boolean;
   isPlaying: boolean;
   // hasNote: boolean; // Prop is now derived internally or via checkNoteExists
+  // Add callback for repeating a verse
+  onRepeatVerse?: (verseNumber: number) => void;
 }
 
 export function VerseDisplay({
@@ -29,12 +31,13 @@ export function VerseDisplay({
     onClick,
     isHighlighted,
     isPlaying,
+    onRepeatVerse, // Add the new prop
     // hasNote, // No longer passed as prop
 }: VerseDisplayProps) {
   // --- State ---
   const [isBookmarked, setIsBookmarked] = useState(false); // Example state for bookmark
-  const [synth, setSynth] = useState<SpeechSynthesis | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  // const [synth, setSynth] = useState<SpeechSynthesis | null>(null); // Removed synth state
+  // const [isSpeaking, setIsSpeaking] = useState(false); // Removed speaking state
   const [verseHasNoteOrTag, setVerseHasNoteOrTag] = useState(false); // Local state for indicator
   const { toast } = useToast();
 
@@ -47,21 +50,8 @@ export function VerseDisplay({
    }, [verse.verseNumber]); // Re-check if the verse prop itself changes (which implies number change)
 
 
-   // --- Speech Synthesis Setup ---
-   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        setSynth(window.speechSynthesis);
-    } else {
-        console.warn("Speech synthesis not supported in this browser.");
-    }
-    return () => {
-        if (synth && synth.speaking) {
-             console.log("Cancelling speech synthesis on unmount");
-             synth.cancel();
-             setIsSpeaking(false);
-         }
-    };
-   }, [synth]);
+   // --- Speech Synthesis Removed ---
+
 
   // --- Verse Number Formatting ---
   const verseReferenceDisplay = `${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'}`;
@@ -115,32 +105,14 @@ export function VerseDisplay({
     toast({ title: newState ? "Bookmarked" : "Bookmark Removed", description: `Verse ${verseReferenceDisplay} ${newState ? 'bookmarked' : 'bookmark removed'}.` });
   };
 
-    // --- Text-to-Speech Handler ---
-    const handleSpeakTranslation = () => {
-        if (!synth) {
-            toast({ title: "Speech Error", description: "Text-to-speech is not available.", variant: "destructive" });
-            return;
-        }
-        if (isSpeaking) {
-            console.log("Cancelling ongoing speech.");
-            synth.cancel();
-             setIsSpeaking(false);
-        } else if (verse.englishTranslation) {
-             console.log("Starting speech for:", verse.englishTranslation);
-            const utterance = new SpeechSynthesisUtterance(verse.englishTranslation);
-            utterance.rate = 0.9;
-            utterance.pitch = 1.0;
-            utterance.onstart = () => setIsSpeaking(true);
-             utterance.onend = () => setIsSpeaking(false);
-             utterance.onerror = (event) => {
-                 console.error('Speech synthesis error:', event.error);
-                 toast({ title: "Speech Error", description: `Could not speak text: ${event.error}`, variant: "destructive" });
-                 setIsSpeaking(false);
-            };
-             synth.cancel();
-             synth.speak(utterance);
+    // --- Repeat Verse Handler ---
+    const handleRepeatVerse = () => {
+        if (onRepeatVerse) {
+            onRepeatVerse(verse.verseNumber);
+             toast({ title: "Repeat Verse", description: `Repeating verse ${verseReferenceDisplay}.` });
         } else {
-             toast({ title: "Speech Error", description: "No translation available to speak.", variant: "destructive" });
+            console.warn("onRepeatVerse handler not provided to VerseDisplay.");
+             toast({ title: "Repeat Error", description: "Cannot repeat verse.", variant: "destructive" });
         }
     };
 
@@ -252,9 +224,11 @@ export function VerseDisplay({
           <span>{isBookmarked ? 'Remove Bookmark' : 'Bookmark Verse'}</span>
         </ContextMenuItem>
          <ContextMenuSeparator />
-         <ContextMenuItem onClick={handleSpeakTranslation} disabled={!synth || !verse.englishTranslation}>
-           <Volume2 className="mr-2 h-4 w-4" />
-           <span>{isSpeaking ? 'Stop Speaking' : 'Speak Translation'}</span>
+         {/* Removed Speak Translation */}
+         {/* Add Repeat Verse Option */}
+          <ContextMenuItem onClick={handleRepeatVerse} disabled={!onRepeatVerse}>
+           <Repeat1 className="mr-2 h-4 w-4" /> {/* Use Repeat1 icon */}
+           <span>Repeat Verse</span>
          </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

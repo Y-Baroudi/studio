@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { ChangeEvent, SyntheticEvent } from 'react';
+import type { ChangeEvent, SyntheticEvent, RefObject } from 'react'; // Added RefObject
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import type { Reciter, QuranMeta } from '@/services/alquran-cloud';
 import { Button } from '@/components/ui/button';
@@ -11,20 +11,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Import Popover
+// import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Removed Popover import
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // For reciter select alternative
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Import RadioGroup for Popover
-import { Separator } from '@/components/ui/separator'; // Import Separator
+// import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Removed RadioGroup import
+// import { Separator } from '@/components/ui/separator'; // Removed Separator import
 
-import { Play, Pause, SkipBack, SkipForward, Repeat, Volume2, VolumeX, Gauge, BookCopy, BookOpenCheck, Loader2, ChevronDown, Settings, MicVocal, ListMusic, CheckIcon } from 'lucide-react'; // Added icons
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Gauge, BookCopy, BookOpenCheck, Loader2, ChevronDown, Settings, MicVocal, ListMusic, CheckIcon } from 'lucide-react'; // Removed Repeat
 import { formatTime } from '@/lib/utils';
 import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { cn } from '@/lib/utils'; // Import cn
 
 const MAX_VERSE_NUMBER_DEFAULT = 6236;
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5];
-type RepeatMode = 'none' | 'verse' | 'selection' | 'surah'; // Define repeat modes
-type RepeatCount = 1 | 3 | 5 | 10 | typeof Infinity; // Use typeof Infinity
+// type RepeatMode = 'none' | 'verse' | 'selection' | 'surah'; // Removed repeat modes
+// type RepeatCount = 1 | 3 | 5 | 10 | typeof Infinity; // Removed repeat count
 
 // List of identifiers for popular reciters to show first
 const POPULAR_RECITERS = [
@@ -38,6 +38,7 @@ const POPULAR_RECITERS = [
 
 
 interface ControlsProps {
+  audioRef: RefObject<HTMLAudioElement>; // Accept audioRef from parent
   verseNumber: number; // Currently focused verse number
   audioUrl: string | null | undefined; // Audio URL for the *focused* verse
   reciters: Reciter[];
@@ -60,10 +61,13 @@ interface ControlsProps {
   onEnded: () => void; // Notify parent when playback ends naturally
   onError: (errorMessage: string) => void; // Notify parent of playback errors
   updatePlayingVerse: (verseNum: number | null) => void; // Allow controls to tell parent which verse is playing/stopped
-  // --- Removed onOpenSettings prop ---
+  // --- Repeat props ---
+  isRepeatingVerse: boolean; // Is the current verse actively repeating?
+  onRepeatVerseToggle: (verseNum: number, shouldRepeat: boolean) => void; // Toggle repeat for a verse
 }
 
 export function Controls({
+  audioRef, // Use the passed ref
   verseNumber,
   audioUrl,
   reciters,
@@ -85,8 +89,10 @@ export function Controls({
   onEnded,
   onError,
   updatePlayingVerse,
+  isRepeatingVerse, // Receive repeat state
+  onRepeatVerseToggle, // Receive repeat toggle handler
 }: ControlsProps) {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  // const audioRef = useRef<HTMLAudioElement>(null); // Use the passed ref instead
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false); // Keep mute state
   const [playbackError, setPlaybackError] = useState<string | null>(null);
@@ -96,10 +102,10 @@ export function Controls({
   // const [isSeeking, setIsSeeking] = useState(false); // Removed, no slider
   const [localVerseNumber, setLocalVerseNumber] = useState<number>(verseNumber); // Local state for input/slider value
 
-  // --- New State for Repeat Logic ---
-  const [repeatMode, setRepeatMode] = useState<RepeatMode>('none');
-  const [repeatCount, setRepeatCount] = useState<RepeatCount>(1); // Default count, only relevant for some modes
-  const [showRepeatPopover, setShowRepeatPopover] = useState(false);
+  // --- Removed Repeat State ---
+  // const [repeatMode, setRepeatMode] = useState<RepeatMode>('none');
+  // const [repeatCount, setRepeatCount] = useState<RepeatCount>(1);
+  // const [showRepeatPopover, setShowRepeatPopover] = useState(false);
 
    // Sync local verse number with prop
    useEffect(() => {
@@ -125,6 +131,10 @@ export function Controls({
 
     if (isPlaying) {
       audioRef.current.pause();
+      // If paused manually, stop repeating
+      if (isRepeatingVerse) {
+           onRepeatVerseToggle(verseNumber, false);
+      }
     } else {
       setIsAudioLoading(true);
       audioRef.current.play().catch(err => {
@@ -144,33 +154,16 @@ export function Controls({
         setIsAudioLoading(false);
         onError(errorMsg);
         updatePlayingVerse(null);
+        // If play fails, stop repeating
+        if (isRepeatingVerse) {
+            onRepeatVerseToggle(verseNumber, false);
+        }
       });
     }
-  }, [isPlaying, isLoading, audioUrl, isAudioLoading, onError, updatePlayingVerse]);
+  }, [isPlaying, isLoading, audioUrl, isAudioLoading, onError, updatePlayingVerse, isRepeatingVerse, onRepeatVerseToggle, verseNumber, audioRef]);
 
-  // --- Repeat Logic ---
-  const handleRepeatModeChange = (newMode: RepeatMode) => {
-    setRepeatMode(newMode);
-    // Update audio element loop property based on simple verse repeat
-    if (audioRef.current) {
-        audioRef.current.loop = newMode === 'verse' && repeatCount === Infinity; // Only native loop for infinite verse repeat
-    }
-    // Close the popover after selection (optional)
-    // setShowRepeatPopover(false);
-    // Add logic here to handle 'selection' and 'surah' repeat modes if needed
-    console.log("Repeat mode set to:", newMode);
-  };
-
-  const handleRepeatCountChange = (newCountString: string) => {
-    const newCount = newCountString === 'Infinity' ? Infinity : parseInt(newCountString, 10) as RepeatCount;
-    setRepeatCount(newCount);
-     if (audioRef.current) {
-        audioRef.current.loop = repeatMode === 'verse' && newCount === Infinity; // Update native loop status
-    }
-    console.log("Repeat count set to:", newCount);
-     // Optionally close popover, or keep it open for mode change
-     // setShowRepeatPopover(false);
-  };
+  // --- Removed Repeat Logic Handlers ---
+  // handleRepeatModeChange, handleRepeatCountChange removed
 
 
   // --- Volume & Mute Logic (simplified for mute only in controls) ---
@@ -217,42 +210,20 @@ export function Controls({
     const handlePlay = () => { /* console.log("Audio 'play'..."); */ setIsPlaying(true); setIsAudioLoading(false); setPlaybackError(null); onPlay(); updatePlayingVerse(verseNumber); };
     const handlePause = () => { /* console.log("Audio 'pause'..."); */ setIsPlaying(false); onPause(); updatePlayingVerse(null); };
     const handleEnded = () => {
-        /* console.log("Audio 'ended'..."); */
+        console.log("Audio 'ended'...");
         setIsPlaying(false);
         setIsAudioLoading(false);
         updatePlayingVerse(null);
         onEnded(); // Notify parent first
 
-        const isSimpleRepeat = repeatMode === 'verse' && repeatCount !== Infinity;
-        let currentRepeatIteration = Number(audioElement.dataset.repeatIteration || '0');
+        // No repeat logic here anymore, handled by parent via onEnded
+        // if (isRepeatingVerse) { ... } // Parent handles this now
+        // else { ... }
 
-        if (repeatMode === 'verse' && repeatCount === Infinity) {
-            // Native loop handled by audio element, just reset time visually
-             setCurrentTime(0);
-            // No need to call play() again, native loop handles it
-        } else if (isSimpleRepeat && currentRepeatIteration < repeatCount -1) {
-            currentRepeatIteration++;
-            audioElement.dataset.repeatIteration = String(currentRepeatIteration);
-            console.log(`Repeating verse ${verseNumber}, iteration ${currentRepeatIteration + 1}/${repeatCount}`);
-            audioElement.currentTime = 0;
-            audioElement.play().catch(err => {
-                console.error("Repeat play error:", err);
-                onError(`Failed to repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`);
-            });
-             // 'play' event will update state
-        } else {
-             // Reset repeat count for next time
-            audioElement.dataset.repeatIteration = '0';
-            // Not repeating or finished repeats, move to next verse focus
-            if (repeatMode !== 'none' && repeatMode !== 'verse' /* TODO: Add selection/surah checks */) {
-                 console.log(`Repeat mode ${repeatMode} finished or unsupported, stopping.`);
-                 // Handle end of selection/surah logic if implemented
-            } else {
-                console.log("Audio ended naturally or finished repeats, moving to next verse focus.");
-                setCurrentTime(0); // Reset time visually
-                onNextVerse(); // Trigger parent's next verse *focus* logic
-            }
-        }
+        console.log("Audio ended naturally, moving to next verse focus.");
+        setCurrentTime(0); // Reset time visually
+        onNextVerse(); // Trigger parent's next verse *focus* logic
+
     };
      const handleError = (e: Event) => {
         const target = e.target as HTMLAudioElement;
@@ -283,6 +254,10 @@ export function Controls({
         setDuration(0); // Reset duration as it might be invalid
         onError(errorMsg); // Notify parent
         updatePlayingVerse(null); // Tell parent nothing is playing
+        // If error occurs, stop repeating
+        if (isRepeatingVerse) {
+            onRepeatVerseToggle(verseNumber, false);
+        }
     };
      const handleWaiting = () => { /* console.log("Audio 'waiting'..."); */ setIsAudioLoading(true); } // Removed isSeeking check
     const handleCanPlay = () => { /* console.log("Audio 'canplay'..."); */ setIsAudioLoading(false); if (playbackError?.includes("Network error")) { setPlaybackError(null); } }
@@ -306,7 +281,7 @@ export function Controls({
 
     // Set initial properties
     audioElement.muted = isMuted;
-    audioElement.loop = repeatMode === 'verse' && repeatCount === Infinity; // Only native loop for infinite verse repeat
+    // Removed loop property setting
 
 
     // Cleanup function
@@ -325,9 +300,9 @@ export function Controls({
     };
   // Ensure all relevant state and props are included
   }, [
-      verseNumber, repeatMode, repeatCount, isMuted, duration, // Removed isSeeking
+      verseNumber, isMuted, duration, // Removed repeatMode, repeatCount, isSeeking
       onPlay, onPause, onEnded, onError, updatePlayingVerse, onNextVerse,
-      isAudioLoading, playbackError
+      isAudioLoading, playbackError, audioRef, isRepeatingVerse, onRepeatVerseToggle // Add audioRef and repeat props
     ]);
 
   // --- Handle Audio Source Change ---
@@ -347,10 +322,9 @@ export function Controls({
 
            audioElement.src = audioUrl;
            audioElement.load();
-           audioElement.loop = repeatMode === 'verse' && repeatCount === Infinity;
+           // Removed loop setting
            audioElement.muted = isMuted;
-           // Reset repeat count state when source changes
-           audioElement.dataset.repeatIteration = '0';
+           // Reset repeat count state when source changes - removed
 
        } else if (shouldClearSrc) {
            console.log(`Clearing audio source`);
@@ -368,7 +342,7 @@ export function Controls({
             else if (audioElement.readyState >= 3) setIsAudioLoading(false);
             if (audioUrl && playbackError) setPlaybackError(null);
        }
-   }, [audioUrl, repeatMode, repeatCount, isMuted, updatePlayingVerse, playbackError]);
+   }, [audioUrl, isMuted, updatePlayingVerse, playbackError, audioRef]); // Removed repeatMode, repeatCount dependency
 
 
   // --- Input/Slider Sync for Verse Number ---
@@ -426,40 +400,53 @@ export function Controls({
     // Adjusted Card Styling for Compact Controls
     <Card className="shadow-lg rounded-lg overflow-hidden sticky bottom-4 left-0 right-0 w-full max-w-4xl mx-auto z-10 backdrop-blur-sm bg-background/80 dark:bg-background/70 border">
       <CardContent className="p-3 flex flex-col gap-3">
-        <audio ref={audioRef} preload="metadata" data-repeat-iteration="0" />
+        {/* Audio element now controlled by parent via ref */}
+        {/* <audio ref={audioRef} preload="metadata" data-repeat-iteration="0" /> */}
 
-        {/* Row 1: Navigation & Verse Input */}
-        <div className="flex items-center justify-between gap-3 w-full">
-           {/* Jump To */}
-           <div className="flex items-center gap-2 flex-wrap justify-start">
+        {/* Row 1: Navigation & Reciter */}
+        {/* Adjusted flex layout for better responsiveness */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full flex-wrap">
+           {/* Jump To (Left side on larger screens) */}
+           <div className="flex items-center gap-2 flex-wrap justify-start w-full sm:w-auto">
                 <Select onValueChange={handleJuzSelect} disabled={navDisabled}>
-                   <SelectTrigger className="w-[130px] h-9 text-sm shrink-0" aria-label="Jump to Juz"> <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Juz" /> </SelectTrigger>
+                   <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Juz"> <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Juz" /> </SelectTrigger>
                    <SelectContent> <SelectGroup> <SelectLabel>Juz</SelectLabel> {Object.entries(JUZ_STARTS).map(([juz, startVerse]) => ( <SelectItem key={juz} value={juz}> Juz {juz} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
                 </Select>
                 <Select onValueChange={handlePageSelect} disabled={navDisabled}>
-                   <SelectTrigger className="w-[130px] h-9 text-sm shrink-0" aria-label="Jump to Page"> <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Page" /> </SelectTrigger>
+                   <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Page"> <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Page" /> </SelectTrigger>
                    <SelectContent> <SelectGroup> <SelectLabel>Page (Mushaf)</SelectLabel> {Object.entries(PAGE_STARTS).map(([page, startVerse]) => ( <SelectItem key={page} value={page}> Page {page} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
                 </Select>
+                {/* Reciter Selection Moved Here */}
+                 <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       className="flex items-center gap-1.5 px-2 h-9 text-sm w-full sm:w-auto flex-grow sm:flex-grow-0" // Full width on small screens
+                       disabled={isLoadingReciters || reciters.length === 0 || navDisabled}
+                       aria-label="Select Reciter"
+                     >
+                       {isLoadingReciters ? (
+                         <> <Loader2 className="h-4 w-4 animate-spin" /> Loading... </>
+                       ) : (
+                         <> <MicVocal className="h-4 w-4 text-muted-foreground"/> <span className="truncate max-w-[120px]">{selectedReciterName}</span> <ChevronDown className="h-4 w-4 opacity-50 ml-auto sm:ml-1"/> </> // Truncate text
+                       )}
+                     </Button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width] max-h-[60vh] overflow-y-auto">
+                     <DropdownMenuLabel>Select Reciter</DropdownMenuLabel>
+                     <DropdownMenuSeparator />
+                      <DropdownMenuRadioGroup value={selectedReciter} onValueChange={onReciterChange}>
+                         {isLoadingReciters && (<DropdownMenuItem disabled> <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading... </DropdownMenuItem> )}
+                         {!isLoadingReciters && popularReciterOptions.length > 0 && ( <> <DropdownMenuLabel className="text-xs text-muted-foreground px-2 pt-1.5">Popular</DropdownMenuLabel> {popularReciterOptions} </> )}
+                         {!isLoadingReciters && otherReciterOptions.length > 0 && ( <> <DropdownMenuSeparator/> <DropdownMenuLabel className="text-xs text-muted-foreground px-2 pt-1.5">All</DropdownMenuLabel> {otherReciterOptions} </> )}
+                         {!isLoadingReciters && reciters.length === 0 && ( <DropdownMenuItem disabled>No reciters</DropdownMenuItem> )}
+                       </DropdownMenuRadioGroup>
+                   </DropdownMenuContent>
+                 </DropdownMenu>
            </div>
 
-          {/* Verse Input Removed */}
-          {/*
-           <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground hidden sm:inline">Verse:</span>
-                <Input
-                  type="number"
-                  min="1"
-                  max={MAX_VERSE_NUMBER}
-                  value={localVerseNumber > 0 ? localVerseNumber : ''}
-                  onChange={handleLocalVerseInputChange}
-                  onBlur={onVerseInputBlur}
-                  className="w-20 h-9 text-center border-input rounded-md text-sm shrink-0"
-                  aria-label="Current Verse Number"
-                  disabled={navDisabled}
-                />
-                <span className="text-sm text-muted-foreground">/ {MAX_VERSE_NUMBER}</span>
-           </div>
-           */}
+           {/* Verse Input Removed */}
         </div>
 
 
@@ -474,35 +461,9 @@ export function Controls({
             </div>
 
             {/* Bottom Part: Main Buttons & Secondary Options */}
-            <div className="flex items-center justify-between gap-3 w-full">
-                 {/* Left Side: Reciter Selection */}
-                 <DropdownMenu>
-                   <DropdownMenuTrigger asChild>
-                     <Button
-                       variant="ghost"
-                       size="sm"
-                       className="flex items-center gap-1.5 px-2 text-sm"
-                       disabled={isLoadingReciters || reciters.length === 0 || navDisabled}
-                       aria-label="Select Reciter"
-                     >
-                       {isLoadingReciters ? (
-                         <> <Loader2 className="h-4 w-4 animate-spin" /> Loading... </>
-                       ) : (
-                         <> <MicVocal className="h-4 w-4 text-muted-foreground"/> {selectedReciterName} <ChevronDown className="h-4 w-4 opacity-50"/> </>
-                       )}
-                     </Button>
-                   </DropdownMenuTrigger>
-                   <DropdownMenuContent align="start">
-                     <DropdownMenuLabel>Select Reciter</DropdownMenuLabel>
-                     <DropdownMenuSeparator />
-                      <DropdownMenuRadioGroup value={selectedReciter} onValueChange={onReciterChange}>
-                         {isLoadingReciters && (<DropdownMenuItem disabled> <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading... </DropdownMenuItem> )}
-                         {!isLoadingReciters && popularReciterOptions.length > 0 && ( <> <DropdownMenuLabel className="text-xs text-muted-foreground px-2 pt-1.5">Popular</DropdownMenuLabel> {popularReciterOptions} </> )}
-                         {!isLoadingReciters && otherReciterOptions.length > 0 && ( <> <DropdownMenuSeparator/> <DropdownMenuLabel className="text-xs text-muted-foreground px-2 pt-1.5">All</DropdownMenuLabel> {otherReciterOptions} </> )}
-                         {!isLoadingReciters && reciters.length === 0 && ( <DropdownMenuItem disabled>No reciters</DropdownMenuItem> )}
-                       </DropdownMenuRadioGroup>
-                   </DropdownMenuContent>
-                 </DropdownMenu>
+            <div className="flex items-center justify-center gap-3 w-full"> {/* Centered main buttons */}
+                 {/* Left Side: Reciter Selection - REMOVED from here */}
+
 
                  {/* Center: Main Playback Buttons */}
                  <div className="flex items-center gap-2">
@@ -537,100 +498,13 @@ export function Controls({
                     </TooltipTrigger> <TooltipContent><p>Next Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
                  </div>
 
-                 {/* Right Side: Repeat, Mute */}
-                 <div className="flex items-center gap-1">
-                     {/* Repeat Popover */}
-                     <Popover open={showRepeatPopover} onOpenChange={setShowRepeatPopover}>
-                       <PopoverTrigger asChild>
-                         <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                             <Button
-                                variant="ghost"
-                                size="icon"
-                                className={cn(repeatMode !== 'none' && 'text-primary')}
-                                aria-label="Repeat Options"
-                                disabled={audioActionDisabled}
-                                onClick={() => setShowRepeatPopover(prev => !prev)}
-                             >
-                                 <Repeat className="h-5 w-5" />
-                             </Button>
-                         </TooltipTrigger> <TooltipContent><p>Repeat Options</p></TooltipContent> </Tooltip> </TooltipProvider>
-                       </PopoverTrigger>
-                       <PopoverContent className="w-auto p-0" align="end">
-                          <div className="p-2 space-y-2">
-                             <Label className="text-xs px-2 font-semibold">Repeat Mode</Label>
-                             <RadioGroup value={repeatMode} onValueChange={(val) => handleRepeatModeChange(val as RepeatMode)} className="flex flex-col gap-1">
-                                <div className="flex items-center space-x-2 px-2 py-1">
-                                  <RadioGroupItem value="none" id="r-none" />
-                                  <Label htmlFor="r-none" className="text-sm font-normal">No Repeat</Label>
-                                </div>
-                                <div className="flex items-center space-x-2 px-2 py-1">
-                                  <RadioGroupItem value="verse" id="r-verse" />
-                                  <Label htmlFor="r-verse" className="text-sm font-normal">Repeat Verse</Label>
-                                </div>
-                                {/* Placeholder for future modes
-                                <div className="flex items-center space-x-2 px-2 py-1 opacity-50">
-                                  <RadioGroupItem value="selection" id="r-selection" disabled />
-                                  <Label htmlFor="r-selection" className="text-sm font-normal">Repeat Selection (Soon)</Label>
-                                </div>
-                                <div className="flex items-center space-x-2 px-2 py-1 opacity-50">
-                                  <RadioGroupItem value="surah" id="r-surah" disabled />
-                                  <Label htmlFor="r-surah" className="text-sm font-normal">Repeat Surah (Soon)</Label>
-                                </div>
-                                */}
-                              </RadioGroup>
+                 {/* Right Side: Repeat, Mute - REMOVED Repeat button */}
 
-                             {repeatMode === 'verse' && (
-                                <>
-                                 <Separator className="my-1"/>
-                                 <Label className="text-xs px-2 font-semibold">Repeat Count</Label>
-                                 {/* Use RadioGroup for counts as well for consistency, styled like buttons */}
-                                 <RadioGroup
-                                     value={repeatCount === Infinity ? 'Infinity' : repeatCount.toString()}
-                                     onValueChange={handleRepeatCountChange}
-                                     className="flex flex-row gap-1 justify-around p-1"
-                                 >
-                                     {([1, 3, 5, 10, Infinity] as RepeatCount[]).map((count) => (
-                                         <div key={count} className="flex-1">
-                                             <RadioGroupItem
-                                                 value={count === Infinity ? 'Infinity' : count.toString()}
-                                                 id={`rc-${count}`}
-                                                 className="sr-only peer" // Hide default radio button
-                                             />
-                                             <Label
-                                                 htmlFor={`rc-${count}`}
-                                                 className={cn(
-                                                     "text-xs px-2 py-1 block text-center border rounded-md cursor-pointer",
-                                                     "peer-data-[state=unchecked]:hover:bg-accent/50",
-                                                     "peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary peer-data-[state=checked]:border-primary/30"
-                                                 )}
-                                             >
-                                                 {count === Infinity ? '∞' : `${count}x`}
-                                             </Label>
-                                         </div>
-                                     ))}
-                                 </RadioGroup>
-                                </>
-                             )}
-                           </div>
-                       </PopoverContent>
-                     </Popover>
+                 {/* Removed Repeat Popover */}
+                 {/* <Popover open={showRepeatPopover} onOpenChange={setShowRepeatPopover}> ... </Popover> */}
 
-                     {/* Mute Button Removed */}
-                     {/*
-                     <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={toggleMute}
-                            aria-pressed={isMuted}
-                            aria-label={isMuted ? 'Unmute' : 'Mute'}
-                            disabled={audioActionDisabled}
-                        >
-                            {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                        </Button>
-                     </TooltipTrigger> <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent> </Tooltip> </TooltipProvider>
-                     */}
-                 </div>
+                 {/* Removed Mute Button */}
+
             </div>
         </div>
 

@@ -345,35 +345,32 @@ export function NotesSidebar({
           </div>
         </ScrollArea>
 
-        {/* Footer with Actions */}
-        <SheetFooter className="p-6 pt-4 border-t flex justify-between"> {/* Adjusted for space-between */}
-           {/* Delete Button (only show if note or concepts exist) */}
-           {hasExistingNoteData ? (
+        {/* Footer with Actions - Reordered */}
+        <SheetFooter className="p-6 pt-4 border-t flex justify-end space-x-2"> {/* Use justify-end and space-x */}
+            <Button onClick={handleSaveNote} disabled={isSaving || isLoadingData || !canSaveNoteText} size="sm">
+                 {isSaving ? (
+                   <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </>
+                 ) : (
+                   <> <Save className="mr-2 h-4 w-4" /> Save Note </>
+                 )}
+            </Button>
+            <SheetClose asChild>
+                 <Button variant="outline" disabled={isSaving} size="sm">Cancel</Button>
+            </SheetClose>
+           {/* Delete Button */}
+           {hasExistingNoteData && (
               <Button
                   variant="destructive"
                   onClick={handleDeleteNote} // Note: This only deletes the text note currently
                   disabled={isSaving || isLoadingData || !currentNote} // Disable if no text note exists
                   size="sm"
                   aria-label="Delete Note Text"
+                  className="ml-auto mr-2" // Push delete to the left
               >
-                  <Trash2 className="mr-1 h-4 w-4" /> Delete Note
+                  <Trash2 className="mr-1 h-4 w-4" /> Delete
               </Button>
-           ) : (
-                <div /> // Placeholder to keep spacing consistent
            )}
 
-           <div className="flex gap-2"> {/* Group Cancel and Save */}
-              <SheetClose asChild>
-                 <Button variant="outline" disabled={isSaving} size="sm">Cancel</Button>
-              </SheetClose>
-              <Button onClick={handleSaveNote} disabled={isSaving || isLoadingData || !canSaveNoteText} size="sm">
-                 {isSaving ? (
-                   <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </>
-                 ) : (
-                   <> <Save className="mr-2 h-4 w-4" /> Save Note </>
-                 )}
-              </Button>
-           </div>
         </SheetFooter>
       </SheetContent>
     </Sheet>
@@ -383,4 +380,3 @@ export function NotesSidebar({
 // Helper to check if a note *object* exists OR concepts are tagged
 // Moved to notes.ts and imported
 import { checkNoteExists } from '@/services/notes';
-
