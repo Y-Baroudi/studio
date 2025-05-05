@@ -242,7 +242,10 @@ body {
 
     /* Note Indicator Styling (within VerseDisplay) */
     /* Uses absolute positioning relative to the badge/badge container */
-    /* .note-indicator { @apply absolute -top-1 -right-1 ... } */
+    /* Example - applied to the icon itself: */
+    .note-indicator {
+        @apply absolute -top-1 -right-1 h-3 w-3 text-primary opacity-80;
+    }
 
 }
 

@@ -125,7 +125,7 @@ export function saveNote(
     } else {
       // Add new note
       // Generate a more robust unique ID, although absoluteVerseNumber is the functional key
-      const noteId = `note_${absoluteVerseNumber}`;
+      const noteId = `note_${absoluteVerseNumber}_${Date.now()}`; // Added timestamp for better uniqueness
       noteToSave = {
         noteId,
         absoluteVerseNumber,

@@ -21,7 +21,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react';
+import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Added Notebook icon
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -461,7 +461,7 @@ export function ReaderView() {
 
   const handleVerseContextMenu = (verseNumber: number) => {
     console.log(`Context menu triggered for verse ${verseNumber}`);
-    // setCurrentAbsoluteVerse(verseNumber); // Set focus immediately
+    setCurrentAbsoluteVerse(verseNumber); // Set focus immediately
     setIsNotesSidebarOpen(true);
   };
 
@@ -476,7 +476,7 @@ export function ReaderView() {
           }
       } else {
          // If clicking the currently focused verse, maybe open notes?
-         // setIsNotesSidebarOpen(true);
+         setIsNotesSidebarOpen(true);
       }
   };
 
@@ -506,7 +506,7 @@ export function ReaderView() {
       setIsNotesSidebarOpen(prev => !prev);
       if (!isNotesSidebarOpen) {
          // Optionally ensure the current verse is set when opening
-         // setCurrentAbsoluteVerse(currentAbsoluteVerse);
+         setCurrentAbsoluteVerse(currentAbsoluteVerse);
       }
   };
   const toggleSettingsPanel = () => setIsSettingsPanelOpen(prev => !prev);
@@ -582,6 +582,7 @@ export function ReaderView() {
            navigateToVerse={navigateToVerse}
            isLoading={isAnythingLoading}
            onOpenSettings={toggleSettingsPanel}
+           // Add callback for All Notes later: onOpenAllNotes={() => {}}
         />
 
        <div className="flex-grow overflow-hidden relative flex flex-col">

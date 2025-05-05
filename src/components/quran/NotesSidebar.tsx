@@ -385,3 +385,4 @@ function checkNoteExists(absoluteVerseNumber: number): boolean {
    const conceptsTagged = getConceptsForVerse(absoluteVerseNumber).length > 0;
    return noteExists || conceptsTagged;
 }
+
