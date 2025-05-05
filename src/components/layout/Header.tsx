@@ -80,7 +80,7 @@ export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }
                {/* Drawer Navigation */}
                <nav className="flex flex-col gap-2 py-4">
                    {/* Surah Selection Dropdown in Drawer */}
-                   <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+                   <DropdownMenu> {/* Removed open state control here to avoid conflict */}
                       <DropdownMenuTrigger asChild>
                          <Button
                             variant="outline"
@@ -123,6 +123,7 @@ export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }
         </div>
 
          {/* Center Section: Surah Selection on Desktop */}
+         {/* Ensure this section is hidden on mobile (md breakpoint) */}
          <div className="hidden md:flex items-center gap-4">
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
              <DropdownMenuTrigger asChild>
@@ -210,3 +211,4 @@ export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }
     </header>
   );
 }
+
