@@ -19,10 +19,10 @@ interface VerseDisplayProps {
   onContextMenu: (verseNumber: number) => void;
   onClick: (verseNumber: number) => void;
   isHighlighted: boolean;
-  isPlaying: boolean;
-  // hasNote: boolean; // Prop is now derived internally or via checkNoteExists
+  isPlaying: boolean; // Indicates if audio for *this* verse is actively playing
+  isRepeating: boolean; // Indicates if repeat is active for *this* verse
   // Add callback for repeating a verse
-  onRepeatVerse?: (verseNumber: number) => void;
+  onRepeatVerse?: () => void; // Simplified toggle handler
 }
 
 export function VerseDisplay({
@@ -31,6 +31,7 @@ export function VerseDisplay({
     onClick,
     isHighlighted,
     isPlaying,
+    isRepeating, // Receive repeat state
     onRepeatVerse, // Add the new prop
     // hasNote, // No longer passed as prop
 }: VerseDisplayProps) {
@@ -55,7 +56,8 @@ export function VerseDisplay({
 
   // --- Verse Number Formatting ---
   const verseReferenceDisplay = `${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'}`;
-  const verseNumberFormatted = `(${verseReferenceDisplay})`; // Format for display
+  // Removed parentheses from inline display to match screenshot
+  const verseNumberFormatted = `${verseReferenceDisplay}`; // Format for inline display
 
   // --- Context Menu Action Handlers ---
   const handleAddNote = () => {
@@ -106,10 +108,10 @@ export function VerseDisplay({
   };
 
     // --- Repeat Verse Handler ---
-    const handleRepeatVerse = () => {
+    const handleRepeatVerseClick = () => {
         if (onRepeatVerse) {
-            onRepeatVerse(verse.verseNumber);
-             toast({ title: "Repeat Verse", description: `Repeating verse ${verseReferenceDisplay}.` });
+            onRepeatVerse(); // Call the parent's toggle handler
+            toast({ title: isRepeating ? "Repeat Off" : "Repeat Verse", description: `${isRepeating ? 'Stopped repeating' : 'Repeating'} verse ${verseReferenceDisplay}.` });
         } else {
             console.warn("onRepeatVerse handler not provided to VerseDisplay.");
              toast({ title: "Repeat Error", description: "Cannot repeat verse.", variant: "destructive" });
@@ -128,8 +130,8 @@ export function VerseDisplay({
         <div
           className={cn(
             "verse-container", // Base class with styling from globals.css
-            isHighlighted && "highlighted",
-            isPlaying && "playing"
+            isHighlighted && "highlighted", // Highlight when focused/selected
+            isPlaying && "playing" // Highlight differently when playing
           )}
           onClick={() => onClick(verse.verseNumber)}
           aria-current={isHighlighted ? "true" : "false"}
@@ -145,13 +147,15 @@ export function VerseDisplay({
            {/* Verse Number Badge */}
             <div className={cn(
                "verse-number-badge-container", // Wrapper for positioning
-               isHighlighted && "highlighted-badge-container" // Optional: Style wrapper on highlight
             )}>
                 <span className={cn(
                     "verse-number-badge",
+                    // Highlight badge only when focused, not necessarily when playing/repeating
                     isHighlighted && "highlighted-badge"
                  )}>
                     {verseReferenceDisplay}
+                    {/* Repeating indicator inside badge */}
+                    {isRepeating && <Repeat1 className="ml-1.5 h-3 w-3 text-primary-foreground/80" />}
                 </span>
                  {/* Note Indicator - Uses local state */}
                  {verseHasNoteOrTag && (
@@ -163,7 +167,7 @@ export function VerseDisplay({
            {/* Flex container for text */}
             <div className={cn(
               "flex flex-col",
-              "min-h-fit"
+              "min-h-fit" // Use min-h-fit instead of fixed height
               )}>
 
                {/* Arabic Text */}
@@ -171,7 +175,7 @@ export function VerseDisplay({
                   <p
                     className={cn(
                         "font-amiri text-foreground text-arabic-display arabic-text",
-                        "mb-0"
+                        "mb-0" // Reduced margin
                     )}
                     lang="ar"
                     dir="rtl"
@@ -189,7 +193,7 @@ export function VerseDisplay({
                   <p
                     className={cn(
                         "text-foreground text-translation-display translation-text",
-                        "mb-0"
+                        "mb-0" // Reduced margin
                     )}
                     lang="en"
                     dir="ltr"
@@ -226,9 +230,9 @@ export function VerseDisplay({
          <ContextMenuSeparator />
          {/* Removed Speak Translation */}
          {/* Add Repeat Verse Option */}
-          <ContextMenuItem onClick={handleRepeatVerse} disabled={!onRepeatVerse}>
+          <ContextMenuItem onClick={handleRepeatVerseClick} disabled={!onRepeatVerse}>
            <Repeat1 className="mr-2 h-4 w-4" /> {/* Use Repeat1 icon */}
-           <span>Repeat Verse</span>
+           <span>{isRepeating ? "Stop Repeating" : "Repeat Verse"}</span>
          </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

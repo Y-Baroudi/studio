@@ -117,50 +117,72 @@ export function Controls({
 
   // --- Play/Pause Logic ---
   const togglePlayPause = useCallback(() => {
-    if (!audioRef.current) return; // Guard against null ref
+    console.log("togglePlayPause called");
+    if (!audioRef.current) {
+        console.log("Audio ref is null, cannot toggle play/pause.");
+        return;
+    }
     setPlaybackError(null); // Clear previous errors
 
     if (isLoading || isAudioLoading || !audioUrl) {
-        console.log("Play/Pause blocked: isLoading", isLoading, "isAudioLoading", isAudioLoading, "audioUrl", !!audioUrl);
+        console.warn("Play/Pause blocked:", { isLoading, isAudioLoading, audioUrl: !!audioUrl });
         if (!audioUrl && !isLoading && !isAudioLoading) {
-            setPlaybackError("Audio not available for this verse or reciter.");
-            onError("Audio not available for this verse or reciter.");
+            const msg = "Audio not available for this verse or reciter.";
+            console.log(msg);
+            setPlaybackError(msg);
+            onError(msg);
         }
         return;
     }
 
+    const audioElement = audioRef.current;
+
     if (isPlaying) {
-      audioRef.current.pause();
-      // If paused manually, stop repeating
-      if (isRepeatingVerse) {
-           onRepeatVerseToggle(verseNumber, false);
-      }
-    } else {
-      setIsAudioLoading(true);
-      audioRef.current.play().catch(err => {
-        console.error("Audio playback error on play():", err);
-        const audioError = audioRef.current?.error;
-        let errorMsg = "Could not play audio.";
-        if (audioError) {
-           errorMsg = `Audio Error Code ${audioError.code}: ${audioError.message || 'Could not load audio.'}`;
-           if (audioError.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED || audioError.code === MediaError.MEDIA_ERR_NETWORK) {
-               errorMsg += ` Please check the selected reciter or your network connection. URL: ${audioRef.current?.currentSrc}`;
-           }
-        } else if (err instanceof Error) {
-            errorMsg = `Playback initiation failed: ${err.message}`;
-        }
-        setPlaybackError(errorMsg);
-        setIsPlaying(false);
-        setIsAudioLoading(false);
-        onError(errorMsg);
-        updatePlayingVerse(null);
-        // If play fails, stop repeating
+        console.log("Attempting to pause audio");
+        audioElement.pause();
+        // If paused manually, tell the parent to stop repeating (if it was repeating)
         if (isRepeatingVerse) {
-            onRepeatVerseToggle(verseNumber, false);
+             console.log("Manual pause during repeat, toggling repeat off.");
+             onRepeatVerseToggle(verseNumber, false);
         }
-      });
+    } else {
+        console.log("Attempting to play audio");
+        setIsAudioLoading(true);
+        audioElement.play()
+            .then(() => {
+                console.log("Audio playback started successfully.");
+                // State updates handled by 'play' event listener
+            })
+            .catch(err => {
+                console.error("Audio playback error on play():", err);
+                const audioError = audioElement?.error;
+                let errorMsg = "Could not play audio.";
+                if (audioError) {
+                    errorMsg = `Audio Error Code ${audioError.code}: ${audioError.message || 'Could not load audio.'}`;
+                    if (audioError.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED || audioError.code === MediaError.MEDIA_ERR_NETWORK) {
+                        errorMsg += ` Please check the selected reciter or your network connection. URL: ${audioElement?.currentSrc}`;
+                    }
+                } else if (err instanceof Error) {
+                    errorMsg = `Playback initiation failed: ${err.message}`;
+                }
+                console.log("Setting playback error:", errorMsg);
+                setPlaybackError(errorMsg);
+                setIsPlaying(false); // Ensure playing state is false on error
+                setIsAudioLoading(false); // Ensure loading state is false on error
+                onError(errorMsg);
+                updatePlayingVerse(null);
+                // If play fails, tell the parent to stop repeating
+                if (isRepeatingVerse) {
+                    console.log("Play failed, toggling repeat off.");
+                    onRepeatVerseToggle(verseNumber, false);
+                }
+            });
     }
-  }, [isPlaying, isLoading, audioUrl, isAudioLoading, onError, updatePlayingVerse, isRepeatingVerse, onRepeatVerseToggle, verseNumber, audioRef]);
+  }, [
+    isPlaying, isLoading, audioUrl, isAudioLoading, onError,
+    updatePlayingVerse, isRepeatingVerse, onRepeatVerseToggle, verseNumber, audioRef
+  ]); // Added all dependencies
+
 
   // --- Removed Repeat Logic Handlers ---
   // handleRepeatModeChange, handleRepeatCountChange removed
@@ -188,6 +210,7 @@ export function Controls({
    const handleLoadedMetadata = (event: SyntheticEvent<HTMLAudioElement>) => {
        const targetDuration = event.currentTarget.duration;
        if (!isNaN(targetDuration) && isFinite(targetDuration)) {
+         console.log(`Loaded metadata, duration: ${targetDuration}`);
          setDuration(targetDuration);
        } else {
          console.warn("Received invalid or infinite duration:", targetDuration, "Resetting to 0.");
@@ -206,29 +229,37 @@ export function Controls({
     const audioElement = audioRef.current;
     if (!audioElement) return;
 
+    console.log("Setting up audio event listeners");
+
     // Define handlers within useEffect to capture current state/props
-    const handlePlay = () => { /* console.log("Audio 'play'..."); */ setIsPlaying(true); setIsAudioLoading(false); setPlaybackError(null); onPlay(); updatePlayingVerse(verseNumber); };
-    const handlePause = () => { /* console.log("Audio 'pause'..."); */ setIsPlaying(false); onPause(); updatePlayingVerse(null); };
+    const handlePlay = () => {
+        console.log("Audio 'play' event triggered.");
+        setIsPlaying(true);
+        setIsAudioLoading(false);
+        setPlaybackError(null);
+        onPlay(); // Notify parent
+        // updatePlayingVerse is called by parent's onPlay handler now
+    };
+    const handlePause = () => {
+        console.log("Audio 'pause' event triggered.");
+        setIsPlaying(false);
+        onPause(); // Notify parent
+        // updatePlayingVerse is called by parent's onPause handler now
+    };
     const handleEnded = () => {
-        console.log("Audio 'ended'...");
+        console.log("Audio 'ended' event triggered.");
         setIsPlaying(false);
         setIsAudioLoading(false);
-        updatePlayingVerse(null);
-        onEnded(); // Notify parent first
-
-        // No repeat logic here anymore, handled by parent via onEnded
-        // if (isRepeatingVerse) { ... } // Parent handles this now
-        // else { ... }
-
-        console.log("Audio ended naturally, moving to next verse focus.");
+        // updatePlayingVerse(null); // Parent handles this via onEnded
         setCurrentTime(0); // Reset time visually
-        onNextVerse(); // Trigger parent's next verse *focus* logic
+        onEnded(); // Notify parent that the track finished
 
+        // Parent (ReaderView) will handle logic for repeating or moving next based on isRepeatingVerse state
     };
      const handleError = (e: Event) => {
         const target = e.target as HTMLAudioElement;
         const audioError = target.error;
-        console.error("Audio Error Event:", e);
+        console.error("Audio 'error' event triggered:", e);
         console.error("Audio Element Error Object:", audioError);
 
         let errorMsg = "An error occurred during playback.";
@@ -254,16 +285,17 @@ export function Controls({
         setDuration(0); // Reset duration as it might be invalid
         onError(errorMsg); // Notify parent
         updatePlayingVerse(null); // Tell parent nothing is playing
-        // If error occurs, stop repeating
+        // If error occurs, tell parent to stop repeating
         if (isRepeatingVerse) {
-            onRepeatVerseToggle(verseNumber, false);
+             console.log("Audio error during repeat, toggling repeat off.");
+             onRepeatVerseToggle(verseNumber, false);
         }
     };
-     const handleWaiting = () => { /* console.log("Audio 'waiting'..."); */ setIsAudioLoading(true); } // Removed isSeeking check
-    const handleCanPlay = () => { /* console.log("Audio 'canplay'..."); */ setIsAudioLoading(false); if (playbackError?.includes("Network error")) { setPlaybackError(null); } }
-     const handleCanPlayThrough = () => { /* console.log("Audio 'canplaythrough'..."); */ setIsAudioLoading(false); }
-      const handleSuspend = () => { /* console.log("Audio 'suspend'..."); */ }
-     const handleStalled = () => { /* console.log("Audio 'stalled'..."); */ setIsAudioLoading(true); }
+     const handleWaiting = () => { console.log("Audio 'waiting'..."); setIsAudioLoading(true); } // Removed isSeeking check
+    const handleCanPlay = () => { console.log("Audio 'canplay'..."); setIsAudioLoading(false); if (playbackError?.includes("Network error")) { setPlaybackError(null); } }
+     const handleCanPlayThrough = () => { console.log("Audio 'canplaythrough'..."); setIsAudioLoading(false); }
+      const handleSuspend = () => { console.log("Audio 'suspend'..."); }
+     const handleStalled = () => { console.log("Audio 'stalled'..."); setIsAudioLoading(true); }
 
 
     // Add listeners
@@ -286,6 +318,7 @@ export function Controls({
 
     // Cleanup function
     return () => {
+      console.log("Cleaning up audio event listeners");
       audioElement.removeEventListener('play', handlePlay);
       audioElement.removeEventListener('pause', handlePause);
       audioElement.removeEventListener('ended', handleEnded);
@@ -300,7 +333,7 @@ export function Controls({
     };
   // Ensure all relevant state and props are included
   }, [
-      verseNumber, isMuted, duration, // Removed repeatMode, repeatCount, isSeeking
+      verseNumber, isMuted, // Removed duration, repeatMode, repeatCount, isSeeking
       onPlay, onPause, onEnded, onError, updatePlayingVerse, onNextVerse,
       isAudioLoading, playbackError, audioRef, isRepeatingVerse, onRepeatVerseToggle // Add audioRef and repeat props
     ]);
@@ -318,10 +351,10 @@ export function Controls({
            console.log(`Updating audio source to "${audioUrl}"`);
            if (!audioElement.paused) audioElement.pause();
            setCurrentTime(0); setDuration(0); setPlaybackError(null);
-           setIsPlaying(false); setIsAudioLoading(true);
+           setIsPlaying(false); setIsAudioLoading(true); // Set loading true when changing src
 
            audioElement.src = audioUrl;
-           audioElement.load();
+           audioElement.load(); // Important: Trigger load for new source
            // Removed loop setting
            audioElement.muted = isMuted;
            // Reset repeat count state when source changes - removed
@@ -337,10 +370,19 @@ export function Controls({
            updatePlayingVerse(null);
        } else {
             // Source is same or was already null/undefined
-            // Removed seeking check
-            if (audioElement.readyState < 3 && audioUrl) setIsAudioLoading(true);
-            else if (audioElement.readyState >= 3) setIsAudioLoading(false);
-            if (audioUrl && playbackError) setPlaybackError(null);
+            // Check if loading state needs adjustment based on readyState
+            if (audioElement.readyState < 3 && audioUrl) {
+                // console.log("Audio source unchanged, but readyState is low, setting loading true.");
+                setIsAudioLoading(true);
+            } else if (audioElement.readyState >= 3) {
+                // console.log("Audio source unchanged, readyState sufficient, setting loading false.");
+                setIsAudioLoading(false);
+            }
+            // Clear playback error if audioUrl is valid and was previously set
+            if (audioUrl && playbackError) {
+                console.log("Clearing playback error as audio URL is now valid.");
+                setPlaybackError(null);
+            }
        }
    }, [audioUrl, isMuted, updatePlayingVerse, playbackError, audioRef]); // Removed repeatMode, repeatCount dependency
 
@@ -362,7 +404,8 @@ export function Controls({
 
   // --- Combined Disabled Logic ---
   const navDisabled = isLoading;
-  const audioActionDisabled = isLoading || !audioUrl || !!playbackError || isAudioLoading;
+  // Disable play/pause if loading metadata, audio, or if there's no URL or an error
+  const audioActionDisabled = isLoading || isAudioLoading || !audioUrl || !!playbackError;
 
   // --- Jump To Handlers ---
    const handleJuzSelect = (value: string) => {

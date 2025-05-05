@@ -129,7 +129,7 @@ export function ReaderView() {
               }
           });
           setVersesWithNotes(notesExistSet);
-          console.log("Checked notes status for displayed verses:", notesExistSet);
+          // console.log("Checked notes status for displayed verses:", notesExistSet); // Less verbose logging
       }
    }, [displayedVerses]);
 
@@ -292,7 +292,7 @@ export function ReaderView() {
        loadVerses(currentSurahNumber, 1, true);
      } else {
         if (displayedVerses.length === 0 && !isLoadingVerses && !isLoadingMeta && !isLoadingReciters && !isLoadingTranslations) {
-            console.log(`Initial load condition not met: quranMeta=${!!quranMeta}, selectedTranslation=${!!selectedTranslation}, currentSurahNumber=${currentSurahNumber}, isLoadingVerses=${isLoadingVerses}, isLoadingMeta=${isLoadingMeta}, error=${!!error}`);
+            // console.log(`Initial load condition not met: quranMeta=${!!quranMeta}, selectedTranslation=${!!selectedTranslation}, currentSurahNumber=${currentSurahNumber}, isLoadingVerses=${isLoadingVerses}, isLoadingMeta=${isLoadingMeta}, error=${!!error}`); // Less verbose
         }
      }
    }, [quranMeta, selectedTranslation, currentSurahNumber, isLoadingVerses, isLoadingMeta, isLoadingReciters, isLoadingTranslations, error, loadVerses, displayedVerses.length]); // Added displayedVerses.length dependency
@@ -340,6 +340,7 @@ export function ReaderView() {
      if (targetSurahNum !== currentSurahNumber) {
        console.log(`Navigating to new Surah: ${targetSurahNum}`);
        setPlayingVerseNumber(null); // Stop playback when changing surah
+       setIsRepeatingVerse(null); // Stop repeating when changing surah
        setCurrentSurahNumber(targetSurahNum);
        // Load the new surah's data - loadVerses handles this now
        loadVerses(targetSurahNum, 1, true).then(() => {
@@ -364,6 +365,8 @@ export function ReaderView() {
         const nextVerse = Math.min(currentAbsoluteVerse + 1, maxVerse);
         if (nextVerse !== currentAbsoluteVerse) {
            navigateToVerse(nextVerse);
+        } else {
+            console.log("Already at the last verse.");
         }
     }, [quranMeta, currentAbsoluteVerse, navigateToVerse]);
 
@@ -371,6 +374,8 @@ export function ReaderView() {
         const prevVerse = Math.max(1, currentAbsoluteVerse - 1);
          if (prevVerse !== currentAbsoluteVerse) {
             navigateToVerse(prevVerse);
+         } else {
+             console.log("Already at the first verse.");
          }
     }, [currentAbsoluteVerse, navigateToVerse]);
 
@@ -379,6 +384,7 @@ export function ReaderView() {
         console.log("Reciter changed to:", reciterId);
         setSelectedReciter(reciterId);
         setPlayingVerseNumber(null); // Stop playback
+        setIsRepeatingVerse(null); // Stop repeating
         const audioElement = audioRef.current; // Access audio element via ref from Controls
         if (audioElement && !audioElement.paused) {
            audioElement.pause();
@@ -475,8 +481,10 @@ export function ReaderView() {
           // Optionally stop audio if a different verse is clicked while playing
           const audioElement = audioRef.current; // Access audio element via ref from Controls
           if (audioElement && !audioElement.paused && playingVerseNumber !== verseNumber) {
+              console.log(`Verse clicked (${verseNumber}), pausing current audio.`);
               audioElement.pause();
               setPlayingVerseNumber(null);
+              setIsRepeatingVerse(null); // Stop repeating if another verse is clicked
           }
       } else {
          // If clicking the currently focused verse, maybe open notes?
@@ -517,7 +525,7 @@ export function ReaderView() {
 
    const handleAudioPlay = () => {
       console.log("handleAudioPlay called, verse:", currentAbsoluteVerse);
-      setIsRepeatingVerse(null); // Stop any previous repeat on manual play
+      // isRepeatingVerse state is managed by the repeat toggle/handler now
       setPlayingVerseNumber(currentAbsoluteVerse);
       // Scroll to verse if needed, but only if not currently scrolling manually
       if (!isProgrammaticScroll.current) {
@@ -541,13 +549,15 @@ export function ReaderView() {
    const handleAudioPause = () => {
         console.log("handleAudioPause called");
         setPlayingVerseNumber(null);
+        // Don't clear isRepeatingVerse here, pause might be temporary
    };
-   const handleAudioEnd = () => {
-        console.log("handleAudioEnd called for verse:", playingVerseNumber);
-        setPlayingVerseNumber(null);
-        if (isRepeatingVerse !== null) {
-             console.log(`Looping verse ${isRepeatingVerse}`);
-             setIsRepeatingVerse(null); // Clear repeat flag
+   const handleAudioEnd = useCallback(() => {
+        console.log(`handleAudioEnd called for verse: ${playingVerseNumber}. Repeating: ${isRepeatingVerse === playingVerseNumber}`);
+        setPlayingVerseNumber(null); // Indicate playback stopped visually
+
+        if (isRepeatingVerse === currentAbsoluteVerse) { // Check against the *currently focused* verse
+             console.log(`Looping verse ${currentAbsoluteVerse}`);
+             // We don't set isRepeatingVerse to null here, it persists until explicitly toggled off
              setTimeout(() => { // Use timeout to ensure state update cycle completes
                 const audioElement = audioRef.current;
                 if (audioElement) {
@@ -555,12 +565,16 @@ export function ReaderView() {
                     audioElement.play().catch(err => handleAudioError(`Failed to loop audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
                 }
              }, 50); // Small delay
+        } else {
+            // If not repeating, move focus to the next verse (handled by Controls component)
+            console.log("Audio ended naturally (not repeating), Controls will handle next focus.");
         }
-        // Logic moved to Controls component via onEnded -> onNextVerse call for non-repeating cases
-   };
+   }, [playingVerseNumber, isRepeatingVerse, currentAbsoluteVerse]); // Add dependencies
+
    const handleAudioError = (errorMsg: string) => {
         console.error("Received audio error:", errorMsg);
         setPlayingVerseNumber(null);
+        setIsRepeatingVerse(null); // Stop repeating on error
          // Avoid spamming toasts for the same error
          if (!error || !error.includes(errorMsg.substring(0, 30))) {
              toast({ title: "Audio Playback Error", description: errorMsg, variant: "destructive" });
@@ -568,38 +582,60 @@ export function ReaderView() {
          }
    };
     const updatePlayingVerseCallback = useCallback((verseNum: number | null) => {
+       console.log("updatePlayingVerseCallback received:", verseNum);
        setPlayingVerseNumber(verseNum);
-       // Also update the *focused* verse when playback moves automatically
-       if (verseNum !== null && verseNum !== currentAbsoluteVerse) {
+       // Only update *focused* verse if playback moved automatically *and* we are not repeating
+       if (verseNum !== null && verseNum !== currentAbsoluteVerse && isRepeatingVerse !== verseNum) {
+          console.log(`Updating focused verse to ${verseNum} due to automatic playback`);
           setCurrentAbsoluteVerse(verseNum);
+       } else if (verseNum !== null && verseNum !== currentAbsoluteVerse) {
+          console.log(`Playback moved to ${verseNum}, but not changing focus due to repeat or mismatch with currentAbsoluteVerse (${currentAbsoluteVerse})`);
        }
-    }, [currentAbsoluteVerse]);
+    }, [currentAbsoluteVerse, isRepeatingVerse]);
 
-  // Handler for the "Repeat Verse" context menu option
-  const handleRepeatVerse = useCallback((verseNumber: number) => {
-      const audioElement = audioRef.current;
-      if (!audioElement) {
-          toast({ title: "Audio Error", description: "Audio player not ready.", variant: "destructive" });
-          return;
-      }
-      console.log(`Repeating verse ${verseNumber}`);
-      // Set the repeat flag
-      setIsRepeatingVerse(verseNumber);
-      // Navigate to the verse if it's not the current one (to load audio)
-      if (verseNumber !== currentAbsoluteVerse) {
-          navigateToVerse(verseNumber, true, true); // Navigate and scroll immediately
-           // Start playing *after* navigation and potential data load
-           setTimeout(() => {
-               audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
-           }, 200); // Delay to allow potential load
-      } else {
-          // Already on the verse, restart and play
-           audioElement.currentTime = 0;
-           audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
-      }
-      // Toast confirmation moved to VerseDisplay
+  // Handler for the "Repeat Verse" context menu option OR toggle button in Controls
+  const handleRepeatVerseToggle = useCallback((verseNumber: number, shouldRepeat: boolean) => {
+        console.log(`handleRepeatVerseToggle called for verse ${verseNumber}, shouldRepeat: ${shouldRepeat}`);
+        const audioElement = audioRef.current;
+        if (!audioElement) {
+            toast({ title: "Audio Error", description: "Audio player not ready.", variant: "destructive" });
+            return;
+        }
 
-  }, [currentAbsoluteVerse, navigateToVerse, toast, audioRef]); // Include audioRef
+        if (shouldRepeat) {
+            // If starting repeat
+            setIsRepeatingVerse(verseNumber); // Set the verse to repeat
+            // If the verse to repeat is not the current one, navigate first
+            if (verseNumber !== currentAbsoluteVerse) {
+                 console.log(`Repeating verse ${verseNumber}, navigating first.`);
+                 navigateToVerse(verseNumber, true, true); // Navigate and scroll immediately
+                 // Delay playback until navigation and potential data load complete
+                 setTimeout(() => {
+                     console.log("Attempting to play verse after navigation for repeat.");
+                     audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
+                 }, 250); // Increased delay slightly
+            } else {
+                // Already on the verse, restart and play if not already playing
+                console.log(`Repeating verse ${verseNumber}, already focused. Restarting playback.`);
+                if (audioElement.paused) {
+                    audioElement.currentTime = 0;
+                    audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
+                } else {
+                    // If already playing, just ensure it loops on end (handled by handleAudioEnd)
+                    audioElement.currentTime = 0; // Restart immediately
+                }
+            }
+            toast({ title: "Repeat Verse", description: `Repeating verse ${verseNumber}.` });
+        } else {
+            // If stopping repeat
+            console.log(`Stopping repeat for verse ${verseNumber}`);
+            setIsRepeatingVerse(null); // Clear the repeat flag
+            // Don't stop playback, just let it finish normally
+            // If the audio was paused when repeat was toggled off, it stays paused.
+             toast({ title: "Repeat Off", description: `Stopped repeating verse ${verseNumber}.` });
+        }
+
+    }, [currentAbsoluteVerse, navigateToVerse, toast, audioRef, handleAudioError]);
 
 
   // Find verse data for the *currently focused* verse to pass to controls/sidebars
@@ -741,11 +777,12 @@ export function ReaderView() {
                                 <VerseDisplay
                                     verse={verse}
                                     isHighlighted={verse.verseNumber === currentAbsoluteVerse}
-                                    isPlaying={verse.verseNumber === playingVerseNumber || verse.verseNumber === isRepeatingVerse} // Highlight if playing or repeating
+                                    isPlaying={verse.verseNumber === playingVerseNumber} // Simplified playing check
                                     onContextMenu={handleVerseContextMenu}
                                     onClick={handleVerseClick}
-                                    onRepeatVerse={handleRepeatVerse} // Pass repeat handler
+                                    onRepeatVerse={() => handleRepeatVerseToggle(verse.verseNumber, isRepeatingVerse !== verse.verseNumber)} // Pass simple toggle
                                     // Removed hasNote prop - VerseDisplay now checks internally
+                                    isRepeating={isRepeatingVerse === verse.verseNumber} // Pass repeat state for visual indication
                                 />
                             </div>
                         ))}
@@ -793,9 +830,7 @@ export function ReaderView() {
            onVerseSliderCommit={() => {}}
            // Pass repeat state and handler
            isRepeatingVerse={isRepeatingVerse === currentAbsoluteVerse} // Tell controls if *this* verse is repeating
-           onRepeatVerseToggle={(verseNum, shouldRepeat) => {
-               setIsRepeatingVerse(shouldRepeat ? verseNum : null);
-           }}
+           onRepeatVerseToggle={handleRepeatVerseToggle} // Pass the consolidated toggle handler
          />
        </div>
 
