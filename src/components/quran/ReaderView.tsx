@@ -111,6 +111,7 @@ export function ReaderView() {
        } else {
          newSet.delete(absoluteVerseNumber);
        }
+       console.log(`Note status updated for verse ${absoluteVerseNumber}. Has Note/Tag: ${hasNote}. Current set:`, newSet);
        return newSet;
      });
    }, []);
@@ -120,6 +121,7 @@ export function ReaderView() {
       if (typeof window !== 'undefined' && displayedVerses.length > 0) {
           const notesExistSet = new Set<number>();
           displayedVerses.forEach(verse => {
+              // Use the imported checkNoteExists function
               if (checkNoteExists(verse.verseNumber)) {
                   notesExistSet.add(verse.verseNumber);
               }
@@ -701,7 +703,7 @@ export function ReaderView() {
                                     isPlaying={verse.verseNumber === playingVerseNumber}
                                     onContextMenu={handleVerseContextMenu}
                                     onClick={handleVerseClick}
-                                    hasNote={versesWithNotes.has(verse.verseNumber)} // Pass note status
+                                    // Removed hasNote prop - VerseDisplay now checks internally
                                 />
                             </div>
                         ))}

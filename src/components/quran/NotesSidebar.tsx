@@ -221,8 +221,10 @@ export function NotesSidebar({
   };
 
    // Check if there's content to save (either text or tags)
-   const canSave = noteContent.trim().length > 0 || verseTags.length > 0 || verseConceptIds.length > 0;
-   const hasExistingNoteData = currentNote !== null || verseConceptIds.length > 0; // Check if note object exists OR concepts are tagged
+   // Note: Concept tagging saves immediately, so saving mainly applies to text.
+   const canSaveNoteText = noteContent.trim().length > 0;
+   // Check if *any* note-related data exists (text OR concepts tagged)
+   const hasExistingNoteData = currentNote !== null || verseConceptIds.length > 0;
 
 
   return (
@@ -345,16 +347,16 @@ export function NotesSidebar({
 
         {/* Footer with Actions */}
         <SheetFooter className="p-6 pt-4 border-t flex justify-between"> {/* Adjusted for space-between */}
-           {/* Delete Button (only show if note exists) */}
+           {/* Delete Button (only show if note or concepts exist) */}
            {hasExistingNoteData ? (
               <Button
                   variant="destructive"
-                  onClick={handleDeleteNote}
-                  disabled={isSaving || isLoadingData}
+                  onClick={handleDeleteNote} // Note: This only deletes the text note currently
+                  disabled={isSaving || isLoadingData || !currentNote} // Disable if no text note exists
                   size="sm"
-                  aria-label="Delete Note"
+                  aria-label="Delete Note Text"
               >
-                  <Trash2 className="mr-1 h-4 w-4" /> Delete
+                  <Trash2 className="mr-1 h-4 w-4" /> Delete Note
               </Button>
            ) : (
                 <div /> // Placeholder to keep spacing consistent
@@ -364,7 +366,7 @@ export function NotesSidebar({
               <SheetClose asChild>
                  <Button variant="outline" disabled={isSaving} size="sm">Cancel</Button>
               </SheetClose>
-              <Button onClick={handleSaveNote} disabled={isSaving || isLoadingData || !canSave} size="sm">
+              <Button onClick={handleSaveNote} disabled={isSaving || isLoadingData || !canSaveNoteText} size="sm">
                  {isSaving ? (
                    <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </>
                  ) : (
@@ -378,11 +380,7 @@ export function NotesSidebar({
   );
 }
 
-// Helper to check if a note exists or concepts are tagged
-function checkNoteExists(absoluteVerseNumber: number): boolean {
-   if (typeof window === 'undefined') return false;
-   const noteExists = getNoteForVerse(absoluteVerseNumber) !== null;
-   const conceptsTagged = getConceptsForVerse(absoluteVerseNumber).length > 0;
-   return noteExists || conceptsTagged;
-}
+// Helper to check if a note *object* exists OR concepts are tagged
+// Moved to notes.ts and imported
+import { checkNoteExists } from '@/services/notes';
 

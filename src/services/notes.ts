@@ -4,6 +4,7 @@
 /**
  * @fileoverview Service functions for managing Quran notes using localStorage.
  */
+import { getConceptsForVerse } from './concepts'; // Import function to check concept tags
 
 // Define the structure for a note
 export interface Note {
@@ -66,21 +67,22 @@ function saveAllNotes(notes: Note[]): void {
 
 /**
  * Adds or updates a note for a specific verse, using the absolute verse number as the primary key.
+ * If noteText is empty, it will still save/update the note object but with empty text (unless deleted separately).
  *
  * @param absoluteVerseNumber The absolute verse number (1-6236).
  * @param surahNumber The surah number (for context).
  * @param ayahNumberInSurah The ayah number within the surah (for context).
  * @param noteText The text content of the note.
- * @param tags An array of concept IDs associated with the note (optional).
+ * @param tags An array of concept IDs associated *directly with the note object itself* (distinct from verse concept tags).
  * @param isPrivate Whether the note should be private (optional, default true).
- * @returns The saved Note object or null if saving failed.
+ * @returns The saved Note object or null if saving failed or input invalid.
  */
 export function saveNote(
   absoluteVerseNumber: number,
   surahNumber: number,
   ayahNumberInSurah: number,
   noteText: string,
-  tags: string[] = [],
+  tags: string[] = [], // These are tags associated with the NOTE, not the VERSE concepts
   isPrivate: boolean = true
 ): Note | null {
    if (typeof window === 'undefined') {
@@ -91,11 +93,12 @@ export function saveNote(
        console.error(`Invalid absoluteVerseNumber: ${absoluteVerseNumber}`);
        return null;
    }
-   if (!noteText && tags.length === 0) {
-       console.log(`Note for verse ${absoluteVerseNumber} is empty, deleting if exists.`);
-       deleteNoteForVerse(absoluteVerseNumber); // Delete empty note
-       return null; // Return null as no note is saved/updated
-   }
+   // Removed automatic deletion for empty notes - should be explicit UI action
+   // if (!noteText && tags.length === 0) {
+   //     console.log(`Note for verse ${absoluteVerseNumber} is empty, deleting if exists.`);
+   //     deleteNoteForVerse(absoluteVerseNumber); // Delete empty note
+   //     return null; // Return null as no note is saved/updated
+   // }
 
 
   try {
@@ -115,8 +118,8 @@ export function saveNote(
         ...allNotes[existingNoteIndex],
         surahNumber, // Update context info in case it changes (shouldn't but safe)
         ayahNumberInSurah,
-        noteText,
-        tags: [...new Set(tags)], // Ensure tags are unique
+        noteText: noteText.trim(), // Save trimmed text
+        tags: [...new Set(tags)], // Ensure note tags are unique
         isPrivate,
         updatedAt: now,
       };
@@ -124,8 +127,8 @@ export function saveNote(
       console.log(`Updating note for verse ${absoluteVerseNumber}`);
     } else {
       // Add new note
-      // Generate a more robust unique ID, although absoluteVerseNumber is the functional key
-      const noteId = `note_${absoluteVerseNumber}_${Date.now()}`; // Added timestamp for better uniqueness
+      // Generate a unique ID, although absoluteVerseNumber is the functional key
+      const noteId = `note_${absoluteVerseNumber}_${Date.now()}`;
       noteToSave = {
         noteId,
         absoluteVerseNumber,
@@ -133,8 +136,8 @@ export function saveNote(
         ayahNumberInSurah,
         createdAt: now,
         updatedAt: now,
-        noteText,
-        tags: [...new Set(tags)], // Ensure tags are unique
+        noteText: noteText.trim(), // Save trimmed text
+        tags: [...new Set(tags)], // Ensure note tags are unique
         isPrivate,
       };
       allNotes.push(noteToSave);
@@ -153,14 +156,14 @@ export function saveNote(
 }
 
 /**
- * Gets the note for a specific absolute verse number.
+ * Gets the note *text object* for a specific absolute verse number.
  *
  * @param absoluteVerseNumber The absolute verse number (1-6236).
  * @returns The Note object if found, otherwise null.
  */
 export function getNoteForVerse(absoluteVerseNumber: number): Note | null {
   if (typeof window === 'undefined') {
-      console.log("localStorage not available on server, cannot get note.");
+      // console.log("localStorage not available on server, cannot get note.");
       return null;
   }
    if (absoluteVerseNumber < 1 || absoluteVerseNumber > 6236) {
@@ -220,10 +223,15 @@ export function deleteNoteForVerse(absoluteVerseNumber: number): boolean {
 }
 
 /**
- * Checks if a note exists for a given absolute verse number.
+ * Checks if a note *object* exists OR if any *concept tags* are associated with a given absolute verse number.
+ * This is used to determine if the note indicator should be shown.
  * @param absoluteVerseNumber The absolute verse number (1-6236).
- * @returns True if a note exists, false otherwise.
+ * @returns True if a note object exists or concepts are tagged, false otherwise.
  */
 export function checkNoteExists(absoluteVerseNumber: number): boolean {
-    return getNoteForVerse(absoluteVerseNumber) !== null;
+   if (typeof window === 'undefined') return false;
+   const noteObjectExists = getNoteForVerse(absoluteVerseNumber) !== null;
+   const conceptsTagged = getConceptsForVerse(absoluteVerseNumber).length > 0;
+   // console.log(`checkNoteExists(${absoluteVerseNumber}): noteObject=${noteObjectExists}, conceptsTagged=${conceptsTagged}`);
+   return noteObjectExists || conceptsTagged;
 }

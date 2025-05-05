@@ -12,6 +12,7 @@ import {
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { useToast } from '@/hooks/use-toast';
+import { checkNoteExists } from '@/services/notes'; // Import function to check if notes or tags exist
 
 interface VerseDisplayProps {
   verse: Verse;
@@ -19,7 +20,7 @@ interface VerseDisplayProps {
   onClick: (verseNumber: number) => void;
   isHighlighted: boolean;
   isPlaying: boolean;
-  hasNote: boolean; // New prop to indicate if note/tags exist
+  // hasNote: boolean; // Prop is now derived internally or via checkNoteExists
 }
 
 export function VerseDisplay({
@@ -28,13 +29,23 @@ export function VerseDisplay({
     onClick,
     isHighlighted,
     isPlaying,
-    hasNote, // Destructure new prop
+    // hasNote, // No longer passed as prop
 }: VerseDisplayProps) {
   // --- State ---
   const [isBookmarked, setIsBookmarked] = useState(false); // Example state for bookmark
   const [synth, setSynth] = useState<SpeechSynthesis | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [verseHasNoteOrTag, setVerseHasNoteOrTag] = useState(false); // Local state for indicator
   const { toast } = useToast();
+
+   // --- Check for notes/tags ---
+   useEffect(() => {
+      // Check note status when component mounts or verse number changes
+      const check = checkNoteExists(verse.verseNumber);
+      // console.log(`Verse ${verse.verseNumber} has note/tag: ${check}`);
+      setVerseHasNoteOrTag(check);
+   }, [verse.verseNumber]); // Re-check if the verse prop itself changes (which implies number change)
+
 
    // --- Speech Synthesis Setup ---
    useEffect(() => {
@@ -170,8 +181,8 @@ export function VerseDisplay({
                  )}>
                     {verseReferenceDisplay}
                 </span>
-                 {/* Note Indicator */}
-                 {hasNote && (
+                 {/* Note Indicator - Uses local state */}
+                 {verseHasNoteOrTag && (
                     <FileText className="h-3 w-3 text-primary absolute -top-1 -right-1 opacity-80" />
                  )}
             </div>
@@ -195,7 +206,7 @@ export function VerseDisplay({
                   >
                     {displayArabicText}
                      {/* Inline Verse Number for Arabic */}
-                     <span className="verse-number-inline text-muted-foreground/70" dir="ltr">
+                     <span className="verse-number-inline" dir="ltr">
                        {verseNumberFormatted}
                      </span>
                   </p>
@@ -213,7 +224,7 @@ export function VerseDisplay({
                   >
                      {displayEnglishTranslation}
                       {/* Inline Verse Number for Translation */}
-                     <span className="verse-number-inline text-muted-foreground/70" dir="ltr">
+                     <span className="verse-number-inline" dir="ltr">
                         {verseNumberFormatted}
                      </span>
                   </p>
