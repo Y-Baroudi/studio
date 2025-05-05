@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -82,7 +81,7 @@ export function ReaderView() {
   const isProgrammaticScroll = useRef<boolean>(false);
   const programmaticScrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null); // Ref for the audio element in Controls
+  const audioRef = useRef<HTMLAudioElement>(null); // Ref for the audio element
 
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
     threshold: 0.1,
@@ -385,13 +384,16 @@ export function ReaderView() {
         setSelectedReciter(reciterId);
         setPlayingVerseNumber(null); // Stop playback
         setIsRepeatingVerse(null); // Stop repeating
-        const audioElement = audioRef.current; // Access audio element via ref from Controls
+        const audioElement = audioRef.current; // Access audio element via ref
         if (audioElement && !audioElement.paused) {
            audioElement.pause();
         }
         // Reload current surah data with new reciter
         if (currentSurahNumber) {
-            loadVerses(currentSurahNumber, 1, true); // Reload surah with new audio URLs
+            loadVerses(currentSurahNumber, 1, true).then(() => {
+                 // Refocus after reload
+                 setTimeout(() => scrollToVerse(currentAbsoluteVerse, 'instant'), 150);
+            });
         }
     }
   };
@@ -479,7 +481,7 @@ export function ReaderView() {
       if (verseNumber !== currentAbsoluteVerse) {
           setCurrentAbsoluteVerse(verseNumber);
           // Optionally stop audio if a different verse is clicked while playing
-          const audioElement = audioRef.current; // Access audio element via ref from Controls
+          const audioElement = audioRef.current; // Access audio element via ref
           if (audioElement && !audioElement.paused && playingVerseNumber !== verseNumber) {
               console.log(`Verse clicked (${verseNumber}), pausing current audio.`);
               audioElement.pause();
@@ -567,9 +569,11 @@ export function ReaderView() {
              }, 50); // Small delay
         } else {
             // If not repeating, move focus to the next verse (handled by Controls component)
-            console.log("Audio ended naturally (not repeating), Controls will handle next focus.");
+            console.log("Audio ended naturally (not repeating), triggering next focus.");
+            handleNextVerseFocus(); // Automatically move focus when not repeating
         }
-   }, [playingVerseNumber, isRepeatingVerse, currentAbsoluteVerse]); // Add dependencies
+   }, [playingVerseNumber, isRepeatingVerse, currentAbsoluteVerse, handleNextVerseFocus]); // Add dependencies
+
 
    const handleAudioError = (errorMsg: string) => {
         console.error("Received audio error:", errorMsg);
@@ -639,7 +643,9 @@ export function ReaderView() {
 
 
   // Find verse data for the *currently focused* verse to pass to controls/sidebars
-  const currentVerseDataForControls = displayedVerses.find(v => v.verseNumber === currentAbsoluteVerse);
+  const currentVerseData = displayedVerses.find(v => v.verseNumber === currentAbsoluteVerse);
+  const currentAudioUrl = currentVerseData?.audioUrl ?? null;
+
 
   const isAnythingLoading = isLoadingMeta || isLoadingReciters || isLoadingTranslations; // Removed isLoadingVerses as it's handled differently
   const isDisplayLoading = isLoadingMeta || (isLoadingVerses && displayedVerses.length === 0 && !error); // Show loading only when surah is actively loading
@@ -656,6 +662,9 @@ export function ReaderView() {
 
   return (
     <div className="flex flex-col h-screen bg-background" dir="ltr">
+        {/* Audio element is now hidden but controlled via ref */}
+        <audio ref={audioRef} preload="metadata" />
+
         <Header
            quranMeta={quranMeta}
            navigateToVerse={navigateToVerse}
@@ -777,11 +786,10 @@ export function ReaderView() {
                                 <VerseDisplay
                                     verse={verse}
                                     isHighlighted={verse.verseNumber === currentAbsoluteVerse}
-                                    isPlaying={verse.verseNumber === playingVerseNumber} // Simplified playing check
+                                    isPlaying={verse.verseNumber === playingVerseNumber} // Pass playing state
                                     onContextMenu={handleVerseContextMenu}
                                     onClick={handleVerseClick}
                                     onRepeatVerse={() => handleRepeatVerseToggle(verse.verseNumber, isRepeatingVerse !== verse.verseNumber)} // Pass simple toggle
-                                    // Removed hasNote prop - VerseDisplay now checks internally
                                     isRepeating={isRepeatingVerse === verse.verseNumber} // Pass repeat state for visual indication
                                 />
                             </div>
@@ -807,7 +815,7 @@ export function ReaderView() {
          <Controls
            audioRef={audioRef} // Pass the audio ref to Controls
            verseNumber={currentAbsoluteVerse}
-           audioUrl={currentVerseDataForControls?.audioUrl ?? null} // Use focused verse data
+           audioUrl={currentAudioUrl} // Pass the correct audio URL
            reciters={reciters}
            selectedReciter={selectedReciter}
            onNextVerse={handleNextVerseFocus}
