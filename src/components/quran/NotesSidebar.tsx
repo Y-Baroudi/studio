@@ -344,24 +344,20 @@ export function NotesSidebar({
           </div>
         </ScrollArea>
 
-        {/* Footer with Actions - Reordered and aligned */}
-        <SheetFooter className="p-6 pt-4 border-t flex justify-between items-center"> {/* Use justify-between */}
-             {/* Delete Button */}
-             {hasExistingNoteData && (
-                 <Button
-                     variant="destructive"
-                     onClick={handleDeleteNote}
-                     disabled={isSaving || isLoadingData || !currentNote} // Disable if no text note exists
-                     size="sm"
-                     aria-label="Delete Note Text"
-                 >
-                     <Trash2 className="mr-1 h-4 w-4" /> Delete
-                 </Button>
-             )}
-            {/* Add a spacer div if delete button isn't shown to push save/cancel right */}
-             {!hasExistingNoteData && <div className="w-0"></div>}
+        {/* Footer with Actions - Aligned */}
+        <SheetFooter className="p-6 pt-4 border-t flex justify-between items-center">
+             {/* Delete Button - Placed on the left */}
+             <Button
+                 variant="destructive"
+                 onClick={handleDeleteNote}
+                 disabled={isSaving || isLoadingData || !currentNote} // Disable if no existing note
+                 size="sm"
+                 aria-label="Delete Note"
+             >
+                 <Trash2 className="mr-1 h-4 w-4" /> Delete
+             </Button>
 
-             {/* Save and Cancel Buttons Group */}
+             {/* Save and Cancel Buttons Group - Placed on the right */}
             <div className="flex space-x-2">
                 <SheetClose asChild>
                      <Button variant="outline" disabled={isSaving} size="sm">Cancel</Button>
@@ -370,7 +366,7 @@ export function NotesSidebar({
                      {isSaving ? (
                        <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </>
                      ) : (
-                       <> <Save className="mr-2 h-4 w-4" /> Save Note </>
+                       <> <Save className="mr-2 h-4 w-4" /> Save </> // Changed text to "Save"
                      )}
                 </Button>
             </div>
@@ -383,4 +379,3 @@ export function NotesSidebar({
 // Helper to check if a note *object* exists OR concepts are tagged
 // Moved to notes.ts and imported
 import { checkNoteExists } from '@/services/notes';
-
