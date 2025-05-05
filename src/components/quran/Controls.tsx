@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent, SyntheticEvent, RefObject } from 'react'; // Added RefObject
@@ -430,31 +431,39 @@ export function Controls({
     <Card className="shadow-lg rounded-lg overflow-hidden sticky bottom-4 left-0 right-0 w-full max-w-4xl mx-auto z-10 backdrop-blur-sm bg-background/80 dark:bg-background/70 border">
       <CardContent className="p-3 flex flex-col gap-3">
         {/* Row 1: Navigation & Reciter */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full flex-wrap">
-           {/* Jump To (Left side on larger screens) */}
-           <div className="flex items-center gap-2 flex-wrap justify-start w-full sm:w-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+           {/* Jump To & Reciter (Flex container) */}
+           <div className="flex items-center gap-2 flex-wrap justify-start w-full">
+                {/* Jump to Juz */}
                 <Select onValueChange={handleJuzSelect} disabled={navDisabled}>
-                   <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Juz"> <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Juz" /> </SelectTrigger>
+                   <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Juz">
+                      <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Jump to Juz" />
+                   </SelectTrigger>
                    <SelectContent> <SelectGroup> <SelectLabel>Juz</SelectLabel> {Object.entries(JUZ_STARTS).map(([juz, startVerse]) => ( <SelectItem key={juz} value={juz}> Juz {juz} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
                 </Select>
+                {/* Jump to Page */}
                 <Select onValueChange={handlePageSelect} disabled={navDisabled}>
-                   <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Page"> <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" /> <SelectValue placeholder="Jump to Page" /> </SelectTrigger>
+                   <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Page">
+                      <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Jump to Page" />
+                   </SelectTrigger>
                    <SelectContent> <SelectGroup> <SelectLabel>Page (Mushaf)</SelectLabel> {Object.entries(PAGE_STARTS).map(([page, startVerse]) => ( <SelectItem key={page} value={page}> Page {page} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
                 </Select>
-                {/* Reciter Selection Moved Here */}
+                {/* Reciter Selection */}
                  <DropdownMenu>
                    <DropdownMenuTrigger asChild>
                      <Button
                        variant="ghost"
                        size="sm"
-                       className="flex items-center gap-1.5 px-2 h-9 text-sm w-full sm:w-auto flex-grow sm:flex-grow-0" // Full width on small screens
+                       className="flex items-center gap-1.5 px-2 h-9 text-sm flex-grow sm:flex-grow-0" // Flex-grow for smaller screens
                        disabled={isLoadingReciters || reciters.length === 0 || navDisabled}
                        aria-label="Select Reciter"
                      >
                        {isLoadingReciters ? (
                          <> <Loader2 className="h-4 w-4 animate-spin" /> Loading... </>
                        ) : (
-                         <> <MicVocal className="h-4 w-4 text-muted-foreground"/> <span className="truncate max-w-[120px]">{selectedReciterName}</span> <ChevronDown className="h-4 w-4 opacity-50 ml-auto sm:ml-1"/> </> // Truncate text
+                         <> <MicVocal className="h-4 w-4 text-muted-foreground"/> <span className="truncate max-w-[120px] sm:max-w-[150px]">{selectedReciterName}</span> <ChevronDown className="h-4 w-4 opacity-50 ml-auto sm:ml-1"/> </> // Adjust max-width
                        )}
                      </Button>
                    </DropdownMenuTrigger>
