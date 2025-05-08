@@ -82,7 +82,7 @@ export const aiProviderManager = {
     } as AIProviderConfig, // Added type assertion
     gemini: {
       name: "Gemini (Google)",
-      // Endpoint needs model name, will be constructed in getEndpoint
+      // Base endpoint, model and action appended later
       endpoint: "https://generativelanguage.googleapis.com/v1beta/models",
       latestModel: "gemini-1.5-pro",
       alternativeModels: ["gemini-1.0-pro"],
@@ -110,21 +110,25 @@ export const aiProviderManager = {
             parts: [{ text: prompt }]
         });
 
-        return {
+        // System instructions should be handled at the top level for Gemini 1.5+
+        const requestBody: Record<string, any> = {
           contents,
-          // Include system instruction if model supports it (e.g., Gemini 1.5)
-          ...(systemPrompt && model.startsWith("gemini-1.5") && {
-              systemInstruction: {
-                  // Note: role might need to be adjusted based on exact API spec for systemInstruction
-                  role: "system", // Or maybe "user"? Check Gemini docs for systemInstruction format
-                  parts: [{ text: systemPrompt }]
-              }
-          }),
           generationConfig: {
             maxOutputTokens: options.maxTokens || 4000,
             temperature: options.temperature || 0.7
           }
         };
+
+        // Include system instruction if model supports it (e.g., Gemini 1.5) and prompt provided
+        if (systemPrompt && model.includes("gemini-1.5")) { // Check model name for 1.5 capability
+            requestBody.systemInstruction = {
+                 // Gemini system instruction uses 'user' role within the object
+                 role: "user", // This seems odd but matches Gemini examples
+                 parts: [{ text: systemPrompt }]
+            };
+        }
+
+        return requestBody;
       },
       // For Gemini API, construct endpoint with model and append key as query parameter
       getEndpoint: (baseEndpoint: string, apiKey: string, model: string) => {
@@ -149,11 +153,21 @@ export const aiProviderManager = {
        return false;
     }
 
-    this.activeProvider = provider;
-    this.apiKeys[provider] = this.encryptKey(apiKey); // Store encrypted key
+    // Store encrypted key immediately
+    this.apiKeys[provider] = this.encryptKey(apiKey);
     localStorage.setItem(`ai_key_${provider}`, this.encryptKey(apiKey)); // Persist encrypted key
+
+    // Check if the provider being initialized is the current active one
+    // If not, switch to it before testing connection
+    if (this.activeProvider !== provider) {
+        console.log(`Initializing ${provider}, setting as active.`);
+        this.activeProvider = provider;
+        localStorage.setItem('ai_active_provider', provider); // Persist active provider choice
+    }
+
     console.log(`AI Provider initialized: ${provider}`);
-    return await this.testConnection(provider); // Test connection after setting key
+    // Test connection AFTER setting the key and potentially switching
+    return await this.testConnection(provider);
   },
 
   // Load keys from localStorage on startup (call from client-side)
@@ -175,7 +189,8 @@ export const aiProviderManager = {
          if (firstProviderWithKey) {
              this.activeProvider = firstProviderWithKey;
          } else {
-             this.activeProvider = 'claude'; // Default if no keys loaded
+             // If no keys loaded at all, keep the default but it won't work
+             this.activeProvider = 'claude';
          }
      }
      console.log("AI Keys loaded from storage. Active provider:", this.activeProvider);
@@ -191,7 +206,7 @@ export const aiProviderManager = {
 
     if (!this.apiKeys[provider]) {
       console.warn(`No API key set for provider ${provider}. Cannot switch.`);
-      // Consider prompting for key here via a UI callback
+      // Let the UI handle prompting for the key
       return false;
     }
 
@@ -245,7 +260,7 @@ export const aiProviderManager = {
     try {
       console.log(`Testing connection to ${testProvider}...`);
       const response = await this.sendMessage(
-        "Test connection",
+        "Test connection", // Simple prompt
         [], // No context
         "You are a connection testing bot. Respond only with the exact text 'Connection successful.' if you receive this message.", // System prompt
         { provider: testProvider, maxTokens: 50 } // Options object, limit tokens
@@ -365,7 +380,7 @@ export const aiProviderManager = {
                 };
             }
             // Claude's response is in response.content[0].text
-            if (!response.content || !Array.isArray(response.content) || response.content.length === 0 || !response.content[0].text) {
+            if (!response.content || !Array.isArray(response.content) || response.content.length === 0 || typeof response.content[0].text !== 'string') { // Added type check
                  console.warn("Unexpected Claude response format:", response);
                  return { error: true, message: "Invalid response format from Claude." };
             }
@@ -395,7 +410,7 @@ export const aiProviderManager = {
              }
              const candidate = response.candidates[0];
              // Ensure content and parts exist before accessing text
-             if (!candidate.content?.parts?.[0]?.text) {
+             if (!candidate.content?.parts?.[0]?.text || typeof candidate.content.parts[0].text !== 'string') { // Added type check
                   console.warn("Unexpected Gemini response format (missing text):", response);
                   // Check finishReason
                   if (candidate.finishReason && candidate.finishReason !== "STOP") {
@@ -406,7 +421,7 @@ export const aiProviderManager = {
 
             return {
                 content: candidate.content.parts[0].text,
-                model: modelUsed || 'gemini', // Model name might not be directly in candidate, use the requested one
+                model: modelUsed || 'gemini-pro', // Model name might not be directly in candidate, use the requested one or default
                 provider: 'gemini'
             };
         }
@@ -448,16 +463,8 @@ async function exampleChat() {
         if (!aiProviderManager.apiKeys[aiProviderManager.activeProvider]) {
             alert(`API key for ${aiProviderManager.activeProvider} needed. Please configure it.`);
             // Potentially trigger a UI element to ask for the key
-            const key = prompt(`Enter ${aiProviderManager.activeProvider} API Key:`);
-             if (key) {
-                const initSuccess = await aiProviderManager.init(aiProviderManager.activeProvider, key);
-                if (!initSuccess) {
-                    alert(`Failed to initialize ${aiProviderManager.activeProvider} API.`);
-                    return;
-                }
-             } else {
-                 return;
-             }
+            // Example: apiKeyManager.promptForKey(aiProviderManager.activeProvider);
+            return; // Stop if no key
         }
 
 

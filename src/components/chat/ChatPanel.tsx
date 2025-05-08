@@ -57,7 +57,8 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       scholarPersonaManager.loadPersonas(); // Ensure personas are loaded
       const persona = scholarPersonaManager.getActivePersona();
       setActivePersona(persona);
-      setSelectedProvider(aiProviderManager.activeProvider); // Sync provider select with manager
+      // Sync selectedProvider state with the actual active provider from the manager
+      setSelectedProvider(aiProviderManager.activeProvider);
       const history = getConversationHistory(conversationId);
       setMessages(history);
       scrollToBottom();
@@ -66,6 +67,12 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       // setMessages([]);
     }
   }, [isOpen, conversationId]);
+
+  // Keep selectedProvider synced with aiProviderManager's activeProvider
+  useEffect(() => {
+      setSelectedProvider(aiProviderManager.activeProvider);
+  }, [aiProviderManager.activeProvider]);
+
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -105,6 +112,7 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
          if (connected) {
              aiProviderManager.switchProvider(providerId); // Switch the active provider in the manager
              toast({ title: "AI Provider Switched", description: `Now using ${providerConfig.name}.` });
+             // No need to setSelectedProvider here, useEffect handles sync
          } else {
               toast({
                  title: "Connection Failed",
@@ -123,10 +131,13 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
     const message = inputValue.trim();
     if (message === '' || isLoading || !activePersona) return;
 
+    const currentActiveProvider = aiProviderManager.activeProvider; // Use the manager's active provider
+
     // Ensure active provider has a key before sending
-     if (!aiProviderManager.apiKeys[selectedProvider]) {
-         toast({ title: "API Key Required", description: `Please add your API key for ${aiProviderManager.providers[selectedProvider as keyof typeof aiProviderManager.providers]?.name} before sending messages.`, variant: "destructive" });
-         setProviderNeedsKey(selectedProvider);
+     if (!aiProviderManager.apiKeys[currentActiveProvider]) {
+         const providerName = aiProviderManager.providers[currentActiveProvider as keyof typeof aiProviderManager.providers]?.name || currentActiveProvider;
+         toast({ title: "API Key Required", description: `Please add your API key for ${providerName} before sending messages.`, variant: "destructive" });
+         setProviderNeedsKey(currentActiveProvider);
          setIsApiKeyManagerOpen(true);
          return;
      }
@@ -151,23 +162,24 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
 
 
     try {
-        // Use the *selected* provider from the dropdown for the request
+        // Use the *current active* provider from the manager for the request
       const response: NormalizedAIResponse = await scholarPersonaManager.getResponse(
         message,
         verseContext,
         historyContext, // Pass filtered history
-        selectedProvider // Pass the currently selected provider
+        // currentActiveProvider // Pass the currently active provider - getResponse uses manager's active provider
       );
 
       if (response.error) {
           // Handle specific case where API key might be invalid
-          if (response.message?.toLowerCase().includes('invalid api key') || response.message?.toLowerCase().includes('authentication error')) {
+          if (response.message?.toLowerCase().includes('invalid api key') || response.message?.toLowerCase().includes('authentication error') || response.message?.toLowerCase().includes('api key not valid')) {
+               const providerName = aiProviderManager.providers[currentActiveProvider as keyof typeof aiProviderManager.providers]?.name || currentActiveProvider;
                toast({
                  title: "Authentication Failed",
-                 description: `Invalid API Key for ${aiProviderManager.providers[selectedProvider as keyof typeof aiProviderManager.providers]?.name}. Please check and update your key.`,
+                 description: `Invalid API Key for ${providerName}. Please check and update your key.`,
                  variant: "destructive",
                });
-               setProviderNeedsKey(selectedProvider);
+               setProviderNeedsKey(currentActiveProvider);
                setIsApiKeyManagerOpen(true);
           } else {
               throw new Error(response.message || 'Failed to get AI response');
@@ -207,27 +219,20 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
   };
 
   const handleApiKeyUpdate = () => {
-       // After keys are updated, re-test connection for the provider that needed the key
-       const providerToTest = providerNeedsKey || aiProviderManager.activeProvider;
-       if (providerToTest && aiProviderManager.apiKeys[providerToTest]) {
-           aiProviderManager.testConnection(providerToTest)
-            .then(connected => {
-                if (connected) {
-                    toast({ title: "API Key Verified", description: `Connected to ${aiProviderManager.providers[providerToTest as keyof typeof aiProviderManager.providers]?.name}.` });
-                    // If the key was for the selected provider, make it active now
-                    if (providerToTest === selectedProvider) {
-                        aiProviderManager.switchProvider(providerToTest);
-                    }
-                    setProviderNeedsKey(null); // Clear the flag
-                } else {
-                     toast({ title: "Connection Failed", description: `Could not verify API key for ${aiProviderManager.providers[providerToTest as keyof typeof aiProviderManager.providers]?.name}.`, variant: 'destructive'});
-                     // Keep the API key manager open if the test fails? Or let the user close it.
-                }
-            });
-       } else {
-            // This case should ideally not happen if ApiKeyManager enforces saving
-            console.warn("API Key update callback triggered, but no key found for", providerToTest);
+       // This function is called when the ApiKeyManager *successfully* saves and verifies a key.
+       // The manager itself now handles switching the active provider upon success.
+       // We just need to clear the flag indicating a key was needed.
+       const providerThatWasUpdated = providerNeedsKey; // Store it before clearing
+       setProviderNeedsKey(null); // Clear the flag
+       setIsApiKeyManagerOpen(false); // Close the manager
+
+       // Optionally, re-sync the UI select dropdown (though the useEffect should handle this)
+       if (providerThatWasUpdated) {
+            setSelectedProvider(aiProviderManager.activeProvider);
        }
+
+       // Maybe trigger a resend if the original action was sending a message? (More complex UI flow)
+       console.log(`API Key updated and verified for ${providerThatWasUpdated}. Active provider is now ${aiProviderManager.activeProvider}`);
   };
 
    const handleOpenPersonaEditor = () => {
@@ -261,10 +266,10 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
                  <SheetTitle className="text-base font-semibold">Chat</SheetTitle> // Fallback title
              )}
             <div className="flex items-center gap-1">
-               {/* Provider Selector */}
+               {/* Provider Selector - reflects manager's active provider */}
                <Select
-                  value={selectedProvider}
-                  onValueChange={handleProviderChange}
+                  value={selectedProvider} // Use state synced with manager
+                  onValueChange={handleProviderChange} // Handle selection attempts
                   disabled={isLoading} // Disable while sending/testing
                 >
                  <SelectTrigger className="h-8 text-xs w-auto focus:ring-0 focus:ring-offset-0" aria-label="Select AI Provider">
@@ -383,9 +388,10 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       {/* Open manager only if providerNeedsKey is set */}
       <ApiKeyManager
         isOpen={isApiKeyManagerOpen && !!providerNeedsKey}
-        onOpenChange={setIsApiKeyManagerOpen}
+        // Ensure manager closes when explicitly told or when no provider needs key
+        onOpenChange={(open) => setIsApiKeyManagerOpen(open && !!providerNeedsKey)}
         provider={providerNeedsKey || ''} // Pass the provider needing the key
-        onKeysUpdated={handleApiKeyUpdate}
+        onKeysUpdated={handleApiKeyUpdate} // Call handler on successful update
       />
     </>
   );
