@@ -1,4 +1,4 @@
-
+// src/components/quran/VerseDisplay.tsx
 import React, { useState, useEffect } from 'react';
 import type { Verse } from '@/services/alquran-cloud';
 import { Separator } from '@/components/ui/separator';
@@ -12,7 +12,7 @@ import {
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { useToast } from '@/hooks/use-toast';
-import { checkNoteExists } from '@/services/notes'; // Import function to check if notes or tags exist
+// Removed import of checkNoteExists - status will be passed as prop
 
 interface VerseDisplayProps {
   verse: Verse;
@@ -21,6 +21,7 @@ interface VerseDisplayProps {
   isHighlighted: boolean;
   isPlaying: boolean; // Indicates if audio for *this* verse is actively playing
   isRepeating: boolean; // Indicates if repeat is active for *this* verse
+  hasNoteOrTag: boolean; // NEW PROP: Indicates if a note or concept tag exists for this verse
   // Add callback for repeating a verse
   onRepeatVerse?: () => void; // Simplified toggle handler
 }
@@ -32,37 +33,27 @@ export function VerseDisplay({
     isHighlighted,
     isPlaying,
     isRepeating, // Receive repeat state
+    hasNoteOrTag, // Receive note/tag status as prop
     onRepeatVerse, // Add the new prop
-    // hasNote, // No longer passed as prop
 }: VerseDisplayProps) {
   // --- State ---
   const [isBookmarked, setIsBookmarked] = useState(false); // Example state for bookmark
-  // const [synth, setSynth] = useState<SpeechSynthesis | null>(null); // Removed synth state
-  // const [isSpeaking, setIsSpeaking] = useState(false); // Removed speaking state
-  const [verseHasNoteOrTag, setVerseHasNoteOrTag] = useState(false); // Local state for indicator
   const { toast } = useToast();
 
-   // --- Check for notes/tags ---
-   useEffect(() => {
-      // Check note status when component mounts or verse number changes
-      const check = checkNoteExists(verse.verseNumber);
-      // console.log(`Verse ${verse.verseNumber} has note/tag: ${check}`);
-      setVerseHasNoteOrTag(check);
-   }, [verse.verseNumber]); // Re-check if the verse prop itself changes (which implies number change)
-
+   // Note: No need for local state or useEffect to check notes, rely on `hasNoteOrTag` prop
 
    // --- Speech Synthesis Removed ---
 
 
   // --- Verse Number Formatting ---
   const verseReferenceDisplay = `${verse.surah?.number ?? '?'}:${verse.ayahNumberInSurah ?? '?'}`;
-  // Removed parentheses from inline display to match screenshot
-  const verseNumberFormatted = `${verseReferenceDisplay}`; // Format for inline display
+  // Inline verse number format
+   const verseNumberFormatted = `(${verseReferenceDisplay})`; // Format for inline display with parentheses
 
   // --- Context Menu Action Handlers ---
   const handleAddNote = () => {
     console.log(`Add/View Note clicked for verse ${verse.verseNumber}`);
-    onContextMenu(verse.verseNumber);
+    onContextMenu(verse.verseNumber); // Trigger parent's context menu handler (opens NotesSidebar)
   };
 
   const handleTagVerse = () => {
@@ -111,7 +102,7 @@ export function VerseDisplay({
     const handleRepeatVerseClick = () => {
         if (onRepeatVerse) {
             onRepeatVerse(); // Call the parent's toggle handler
-            toast({ title: isRepeating ? "Repeat Off" : "Repeat Verse", description: `${isRepeating ? 'Stopped repeating' : 'Repeating'} verse ${verseReferenceDisplay}.` });
+            // Toast is handled in the parent (ReaderView) for consistency
         } else {
             console.warn("onRepeatVerse handler not provided to VerseDisplay.");
              toast({ title: "Repeat Error", description: "Cannot repeat verse.", variant: "destructive" });
@@ -156,11 +147,11 @@ export function VerseDisplay({
                     {verseReferenceDisplay}
                     {/* Repeating indicator inside badge */}
                     {isRepeating && <Repeat1 className="ml-1.5 h-3 w-3 text-primary-foreground/80" />}
+                     {/* Note Indicator - Uses prop */}
+                     {hasNoteOrTag && (
+                        <FileText className="note-indicator" />
+                    )}
                 </span>
-                 {/* Note Indicator - Uses local state */}
-                 {verseHasNoteOrTag && (
-                    <FileText className="h-3 w-3 text-primary absolute -top-1 -right-1 opacity-80" />
-                 )}
             </div>
 
 
@@ -228,10 +219,9 @@ export function VerseDisplay({
           <span>{isBookmarked ? 'Remove Bookmark' : 'Bookmark Verse'}</span>
         </ContextMenuItem>
          <ContextMenuSeparator />
-         {/* Removed Speak Translation */}
          {/* Add Repeat Verse Option */}
           <ContextMenuItem onClick={handleRepeatVerseClick} disabled={!onRepeatVerse}>
-           <Repeat1 className="mr-2 h-4 w-4" /> {/* Use Repeat1 icon */}
+           <Repeat1 className={cn("mr-2 h-4 w-4", isRepeating && "text-primary")} /> {/* Use Repeat1 icon, highlight if repeating */}
            <span>{isRepeating ? "Stop Repeating" : "Repeat Verse"}</span>
          </ContextMenuItem>
       </ContextMenuContent>

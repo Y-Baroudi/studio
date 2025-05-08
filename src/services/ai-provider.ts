@@ -1,5 +1,5 @@
 // src/services/ai-provider.ts
-'use client'; // Indicate client-side logic due to localStorage/btoa/atob usage
+'use client'; // Indicate client-side logic due to localStorage usage
 
 /**
  * @fileoverview Manages interactions with different AI providers (Claude, Gemini).
@@ -52,7 +52,7 @@ export const aiProviderManager = {
       name: "Claude (Anthropic)",
       endpoint: "https://api.anthropic.com/v1/messages",
       apiVersion: "2023-06-01",
-      latestModel: "claude-3-5-sonnet-20240620", // Latest as of May 2025
+      latestModel: "claude-3-5-sonnet-20240620", // Latest as of June 2024
       alternativeModels: [
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
@@ -63,17 +63,22 @@ export const aiProviderManager = {
         'anthropic-version': '2023-06-01', // Use the specific version
         'x-api-key': apiKey
       }),
-      prepareRequest: (model: string, prompt: string, context: MessageContext[], systemPrompt: string | null, options: AIRequestOptions) => ({
-        model: model,
-        max_tokens: options.maxTokens || 4000,
-        // Claude uses 'system' parameter directly, not in messages array
-        system: systemPrompt || undefined, // Add system prompt here if provided
-        messages: [
-          // ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []), // Remove system prompt from messages for Claude v1 API
-          ...context.filter(msg => msg.role === 'user' || msg.role === 'assistant'), // Only include user/assistant messages
-          { role: "user", content: prompt }
-        ]
-      })
+      prepareRequest: (model: string, prompt: string, context: MessageContext[], systemPrompt: string | null, options: AIRequestOptions) => {
+        // Ensure context messages have valid roles
+        const validContext = context.filter(msg => msg.role === 'user' || msg.role === 'assistant');
+
+        return {
+            model: model,
+            max_tokens: options.maxTokens || 4000,
+            // Claude uses 'system' parameter directly
+            system: systemPrompt || undefined,
+            messages: [
+                 // Messages array should alternate user/assistant roles
+                ...validContext,
+                { role: "user", content: prompt }
+            ]
+        };
+      }
     } as AIProviderConfig, // Added type assertion
     gemini: {
       name: "Gemini (Google)",
@@ -88,39 +93,30 @@ export const aiProviderManager = {
         // Combine context and new prompt into Gemini format
         const contents = [];
 
-        // Gemini API uses a different structure, often less explicit about system prompts
-        // We can prepend the system prompt to the first user message or handle it if the model supports specific instructions
-        let currentPrompt = prompt;
-        if (systemPrompt && context.length === 0) {
-            // If no context, prepend system prompt to the user prompt for Gemini
-            // This is a common workaround, actual support varies by model version
-             contents.push({ role: "user", parts: [{ text: systemPrompt + "\n\n" + prompt }] });
-        } else {
-             // Process context and the final prompt
-            for (const msg of context) {
-                 // Gemini uses 'model' for assistant role
-                if (msg.role === 'user' || msg.role === 'assistant') {
-                     contents.push({
-                        role: msg.role === "assistant" ? "model" : "user",
-                        parts: [{ text: msg.content }]
-                     });
-                }
-                 // Ignore 'system' messages in context for Gemini's format here
+        // Process context and the final prompt
+        for (const msg of context) {
+            // Gemini uses 'model' for assistant role
+            if (msg.role === 'user' || msg.role === 'assistant') {
+                 contents.push({
+                    role: msg.role === "assistant" ? "model" : "user",
+                    parts: [{ text: msg.content }]
+                 });
             }
-             // Add current user prompt
-            contents.push({
-                role: "user",
-                parts: [{ text: currentPrompt }]
-            });
+            // Handle system messages in context if needed, e.g., prepend to next user message
         }
-
+         // Add current user prompt
+        contents.push({
+            role: "user",
+            parts: [{ text: prompt }]
+        });
 
         return {
           contents,
           // Include system instruction if model supports it (e.g., Gemini 1.5)
           ...(systemPrompt && model.startsWith("gemini-1.5") && {
               systemInstruction: {
-                  role: "system", // Assuming 'system' role is accepted by 1.5 API
+                  // Note: role might need to be adjusted based on exact API spec for systemInstruction
+                  role: "system", // Or maybe "user"? Check Gemini docs for systemInstruction format
                   parts: [{ text: systemPrompt }]
               }
           }),
@@ -140,9 +136,9 @@ export const aiProviderManager = {
   },
 
   activeProvider: 'claude', // Default provider
-  apiKeys: {} as Record<string, string>, // Store encrypted keys
+  apiKeys: {} as Record<string, string>, // Store encrypted keys (client-side only)
 
-  // Initialize AI provider
+  // Initialize AI provider (call this from client-side component)
   init: async function(provider: string, apiKey: string): Promise<boolean> {
     if (!this.providers[provider as keyof typeof this.providers]) {
       console.error(`Provider ${provider} not supported`);
@@ -154,15 +150,40 @@ export const aiProviderManager = {
     }
 
     this.activeProvider = provider;
-    this.apiKeys[provider] = this.encryptKey(apiKey);
+    this.apiKeys[provider] = this.encryptKey(apiKey); // Store encrypted key
+    localStorage.setItem(`ai_key_${provider}`, this.encryptKey(apiKey)); // Persist encrypted key
     console.log(`AI Provider initialized: ${provider}`);
-    // Test connection might be too slow for init, consider doing it separately
-    // return await this.testConnection(provider);
-    return true; // Assume success if key is stored
+    return await this.testConnection(provider); // Test connection after setting key
+  },
+
+  // Load keys from localStorage on startup (call from client-side)
+  loadKeysFromStorage: function() {
+     if (typeof window === 'undefined') return;
+     Object.keys(this.providers).forEach(provider => {
+        const storedKey = localStorage.getItem(`ai_key_${provider}`);
+        if (storedKey) {
+            this.apiKeys[provider] = storedKey; // Load encrypted key
+        }
+     });
+     // Optionally set active provider based on storage or default
+     const storedActive = localStorage.getItem('ai_active_provider');
+     if (storedActive && this.providers[storedActive as keyof typeof this.providers] && this.apiKeys[storedActive]) {
+         this.activeProvider = storedActive;
+     } else if (!this.apiKeys[this.activeProvider]) {
+         // Fallback if default provider has no key
+         const firstProviderWithKey = Object.keys(this.apiKeys)[0];
+         if (firstProviderWithKey) {
+             this.activeProvider = firstProviderWithKey;
+         } else {
+             this.activeProvider = 'claude'; // Default if no keys loaded
+         }
+     }
+     console.log("AI Keys loaded from storage. Active provider:", this.activeProvider);
   },
 
   // Switch active provider
   switchProvider: function(provider: string): boolean {
+     if (typeof window === 'undefined') return false;
     if (!this.providers[provider as keyof typeof this.providers]) {
       console.error(`Provider ${provider} not supported`);
       return false;
@@ -170,10 +191,12 @@ export const aiProviderManager = {
 
     if (!this.apiKeys[provider]) {
       console.warn(`No API key set for provider ${provider}. Cannot switch.`);
+      // Consider prompting for key here via a UI callback
       return false;
     }
 
     this.activeProvider = provider;
+    localStorage.setItem('ai_active_provider', provider); // Persist active provider choice
     console.log(`Switched active AI provider to: ${provider}`);
     return true;
   },
@@ -182,9 +205,11 @@ export const aiProviderManager = {
   encryptKey: function(key: string): string {
     if (typeof window !== 'undefined' && typeof btoa === 'function') {
        try {
-        return btoa(key); // Simple base64 encoding - client-side only
+        // Basic shift cipher + Base64 for obscurity (NOT real security)
+        const shifted = key.split('').map(char => String.fromCharCode(char.charCodeAt(0) + 3)).join('');
+        return btoa(shifted);
        } catch (e) {
-         console.error("Error during btoa:", e);
+         console.error("Error during key encryption:", e);
          return ""; // Handle potential errors
        }
     }
@@ -195,9 +220,11 @@ export const aiProviderManager = {
   decryptKey: function(encryptedKey: string): string {
      if (typeof window !== 'undefined' && typeof atob === 'function') {
         try {
-         return atob(encryptedKey); // Simple base64 decoding - client-side only
+            // Basic shift cipher + Base64 for obscurity (NOT real security)
+            const base64Decoded = atob(encryptedKey);
+            return base64Decoded.split('').map(char => String.fromCharCode(char.charCodeAt(0) - 3)).join('');
         } catch (e) {
-         console.error("Error during atob:", e);
+         console.error("Error during key decryption:", e);
           return ""; // Handle potential errors
         }
      }
@@ -209,7 +236,8 @@ export const aiProviderManager = {
     const testProvider = provider || this.activeProvider;
      if (typeof window === 'undefined') return false; // Cannot test on server
 
-    if (!this.apiKeys[testProvider]) {
+    const encryptedApiKey = this.apiKeys[testProvider];
+    if (!encryptedApiKey) {
         console.warn(`No API key available for ${testProvider}, cannot test connection.`);
         return false;
     }
@@ -219,13 +247,13 @@ export const aiProviderManager = {
       const response = await this.sendMessage(
         "Test connection",
         [], // No context
-        "This is a test message. Please respond with 'Connection successful.'", // System prompt
+        "You are a connection testing bot. Respond only with the exact text 'Connection successful.' if you receive this message.", // System prompt
         { provider: testProvider, maxTokens: 50 } // Options object, limit tokens
       );
 
-      // Check for successful response (adjust based on normalized format)
+      // Check for successful response
       console.log(`${testProvider} test response:`, response);
-      const success = response && !response.error && response.content?.includes('Connection successful');
+      const success = response && !response.error && response.content?.trim() === 'Connection successful.';
       console.log(`${testProvider} connection test ${success ? 'successful' : 'failed'}`);
       return success;
     } catch (error) {
@@ -253,7 +281,7 @@ export const aiProviderManager = {
 
     const encryptedApiKey = this.apiKeys[provider];
     if (!encryptedApiKey) {
-        return { error: true, message: `No API key found for ${provider}` };
+        return { error: true, message: `API key not configured for ${provider}. Please add it in settings.` };
     }
     const apiKey = this.decryptKey(encryptedApiKey);
      if (!apiKey) { // Check if decryption failed
@@ -289,7 +317,21 @@ export const aiProviderManager = {
 
       if (!response.ok) {
           console.error(`API Error from ${provider} (${response.status}): ${responseBodyText}`);
-          return { error: true, message: `API request failed with status ${response.status}. ${responseBodyText}` };
+          // Try parsing error messages from known structures
+          let errorDetail = `API request failed with status ${response.status}.`;
+          try {
+              const errorJson = JSON.parse(responseBodyText);
+              if (provider === 'claude' && errorJson.error?.message) {
+                  errorDetail = errorJson.error.message;
+              } else if (provider === 'gemini' && errorJson.error?.message) {
+                  errorDetail = errorJson.error.message;
+              } else {
+                   errorDetail += ` Response: ${responseBodyText}`;
+              }
+          } catch {
+              errorDetail += ` Response: ${responseBodyText}`;
+          }
+          return { error: true, message: errorDetail };
       }
 
       let result;
@@ -301,7 +343,7 @@ export const aiProviderManager = {
           return { error: true, message: `Invalid JSON response received from ${provider}.` };
       }
 
-      console.log(`${provider} API Response JSON:`, result); // Debug log of parsed JSON
+      // console.log(`${provider} API Response JSON:`, result); // Debug log of parsed JSON
 
       // Transform response to standardized format
       return this.normalizeResponse(result, provider, model); // Pass model for normalization context
@@ -330,7 +372,7 @@ export const aiProviderManager = {
 
             return {
                 content: response.content[0].text,
-                model: response.model,
+                model: response.model || modelUsed || 'claude',
                 provider: 'claude'
             };
         }
@@ -400,25 +442,28 @@ export const aiProviderManager = {
 /*
 async function exampleChat() {
     if (typeof window !== 'undefined') { // Ensure running client-side
-        // Initialize (replace with actual key retrieval mechanism)
-        const claudeKey = prompt("Enter Claude API Key:");
-        if (claudeKey) {
-            const initSuccess = await aiProviderManager.init('claude', claudeKey);
-            if (!initSuccess) {
-                alert("Failed to initialize Claude API.");
-                return;
-            }
-            // Optionally test connection after init
-             await aiProviderManager.testConnection('claude');
+        aiProviderManager.loadKeysFromStorage(); // Load keys on app start
 
-        } else {
-            alert("Claude API Key required.");
-            return;
+        // Check if a key exists for the active provider
+        if (!aiProviderManager.apiKeys[aiProviderManager.activeProvider]) {
+            alert(`API key for ${aiProviderManager.activeProvider} needed. Please configure it.`);
+            // Potentially trigger a UI element to ask for the key
+            const key = prompt(`Enter ${aiProviderManager.activeProvider} API Key:`);
+             if (key) {
+                const initSuccess = await aiProviderManager.init(aiProviderManager.activeProvider, key);
+                if (!initSuccess) {
+                    alert(`Failed to initialize ${aiProviderManager.activeProvider} API.`);
+                    return;
+                }
+             } else {
+                 return;
+             }
         }
+
 
         // Send a message
         try {
-            console.log("Sending message to AI...");
+            console.log(`Sending message to ${aiProviderManager.activeProvider}...`);
             const response = await aiProviderManager.sendMessage(
                 "Explain the concept of 'Tawhid' in Islam.",
                 [], // No prior context
@@ -429,7 +474,7 @@ async function exampleChat() {
                 alert(`Error: ${response.message}`);
             } else {
                 console.log("AI Response:", response.content);
-                alert(`Claude says: ${response.content?.substring(0, 100)}...`);
+                alert(`${aiProviderManager.activeProvider} says: ${response.content?.substring(0, 100)}...`);
             }
         } catch (error) {
              const errorMessage = error instanceof Error ? error.message : String(error);
@@ -441,5 +486,3 @@ async function exampleChat() {
 
 // exampleChat(); // Don't run automatically, just for illustration
 */
-
-    

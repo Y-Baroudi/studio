@@ -1,10 +1,11 @@
+// src/components/quran/ReaderView.tsx
 'use client';
 
 import type { ChangeEvent } from 'react';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Verse, Reciter, QuranMeta, Translation, SurahMeta } from '@/services/alquran-cloud';
 import {
-  getVerse,
+  getVerse, // Keep getVerse for potential single-verse use cases if needed
   getReciters,
   getQuranMeta,
   getTranslations,
@@ -17,10 +18,11 @@ import { VerseDisplay } from './VerseDisplay';
 import { Controls } from './Controls';
 import { NotesSidebar } from './NotesSidebar';
 import { SettingsPanel } from './SettingsPanel';
+import { ChatPanel } from '@/components/chat/ChatPanel'; // Import ChatPanel
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Added Notebook icon
+import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook, MessageSquare } from 'lucide-react'; // Added Notebook, MessageSquare icons
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -70,6 +72,7 @@ export function ReaderView() {
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] = useState(false);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false); // State for ChatPanel
 
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -474,7 +477,7 @@ export function ReaderView() {
   const handleVerseContextMenu = (verseNumber: number) => {
     console.log(`Context menu triggered for verse ${verseNumber}`);
     setCurrentAbsoluteVerse(verseNumber); // Set focus immediately
-    setIsNotesSidebarOpen(true);
+    setIsNotesSidebarOpen(true); // Open Notes sidebar on context menu trigger
   };
 
   const handleVerseClick = (verseNumber: number) => {
@@ -489,8 +492,9 @@ export function ReaderView() {
               setIsRepeatingVerse(null); // Stop repeating if another verse is clicked
           }
       } else {
-         // If clicking the currently focused verse, maybe open notes?
-         setIsNotesSidebarOpen(true);
+         // If clicking the currently focused verse, open the Chat panel
+         console.log(`Current verse (${verseNumber}) clicked, opening chat.`);
+         setIsChatPanelOpen(true);
       }
   };
 
@@ -524,6 +528,7 @@ export function ReaderView() {
       }
   };
   const toggleSettingsPanel = () => setIsSettingsPanelOpen(prev => !prev);
+  const toggleChatPanel = () => setIsChatPanelOpen(prev => !prev); // Function to toggle chat panel
 
    const handleAudioPlay = () => {
       console.log("handleAudioPlay called, verse:", currentAbsoluteVerse);
@@ -646,6 +651,14 @@ export function ReaderView() {
   const currentVerseData = displayedVerses.find(v => v.verseNumber === currentAbsoluteVerse);
   const currentAudioUrl = currentVerseData?.audioUrl ?? null;
 
+  // Prepare context for ChatPanel
+  const chatVerseContext = currentVerseData ? {
+      surah: currentVerseData.surah?.number ?? 0,
+      verse: currentVerseData.ayahNumberInSurah ?? 0,
+      arabicText: currentVerseData.arabicText ?? '',
+      translation: currentVerseData.englishTranslation ?? ''
+  } : null;
+
 
   const isAnythingLoading = isLoadingMeta || isLoadingReciters || isLoadingTranslations; // Removed isLoadingVerses as it's handled differently
   const isDisplayLoading = isLoadingMeta || (isLoadingVerses && displayedVerses.length === 0 && !error); // Show loading only when surah is actively loading
@@ -683,8 +696,8 @@ export function ReaderView() {
                             <h2 className="text-lg md:text-xl font-semibold text-foreground truncate">
                                 {currentSurahMetaData.englishName}
                             </h2>
-                            <p className="text-xs md:text-sm text-muted-foreground truncate">
-                                {currentSurahMetaData.englishNameTranslation} ({currentSurahMetaData.numberOfAyahs} Ayahs)
+                            <p className="text-[0.6rem] md:text-xs italic text-muted-foreground mt-0.5">
+                                {currentSurahMetaData.revelationType} ({currentSurahMetaData.numberOfAyahs} Ayahs)
                             </p>
                         </div>
                         {/* Right Side: Arabic Info & Number */}
@@ -697,9 +710,10 @@ export function ReaderView() {
                                     {currentSurahMetaData.number}
                                 </span>
                             </div>
-                            <p className="text-[0.6rem] md:text-xs italic text-muted-foreground mt-0.5">
+                            {/* Moved revelation type to left side */}
+                            {/* <p className="text-[0.6rem] md:text-xs italic text-muted-foreground mt-0.5">
                                 {currentSurahMetaData.revelationType}
-                            </p>
+                            </p> */}
                         </div>
                     </div>
                 ) : (
@@ -791,6 +805,7 @@ export function ReaderView() {
                                     onClick={handleVerseClick}
                                     onRepeatVerse={() => handleRepeatVerseToggle(verse.verseNumber, isRepeatingVerse !== verse.verseNumber)} // Pass simple toggle
                                     isRepeating={isRepeatingVerse === verse.verseNumber} // Pass repeat state for visual indication
+                                    hasNoteOrTag={versesWithNotes.has(verse.verseNumber)} // Pass note status
                                 />
                             </div>
                         ))}
@@ -842,6 +857,44 @@ export function ReaderView() {
          />
        </div>
 
+        {/* Floating Action Buttons */}
+        <div className="fixed bottom-24 right-4 z-20 flex flex-col gap-3">
+             <TooltipProvider>
+                 {/* Chat Button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                     <Button
+                       variant="default" // Use primary color
+                       size="icon"
+                       className="rounded-full shadow-lg w-14 h-14"
+                       onClick={toggleChatPanel}
+                       aria-label="Open AI Chat"
+                     >
+                       <MessageSquare className="h-6 w-6" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent side="left"><p>Ask Abul'fath</p></TooltipContent>
+                 </Tooltip>
+
+                  {/* Settings Button */}
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <Button
+                       variant="secondary" // Use secondary color
+                       size="icon"
+                       className="rounded-full shadow-lg w-14 h-14"
+                       onClick={toggleSettingsPanel}
+                       aria-label="Open Settings"
+                     >
+                       <Settings className="h-6 w-6" />
+                     </Button>
+                   </TooltipTrigger>
+                   <TooltipContent side="left"><p>Display Settings</p></TooltipContent>
+                 </Tooltip>
+             </TooltipProvider>
+         </div>
+
+
        {/* Notes Sidebar */}
        <NotesSidebar
            currentAbsoluteVerseNumber={currentAbsoluteVerse}
@@ -868,6 +921,14 @@ export function ReaderView() {
         onTranslationChange={handleTranslationChange}
         isLoading={isLoadingTranslations || isLoadingMeta}
       />
+
+        {/* Chat Panel */}
+        <ChatPanel
+            isOpen={isChatPanelOpen}
+            onOpenChange={setIsChatPanelOpen}
+            verseContext={chatVerseContext}
+        />
+
     </div>
   );
 }

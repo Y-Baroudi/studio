@@ -1,7 +1,7 @@
 // src/services/persona-manager.ts
 'use client'; // Indicate client-side logic due to localStorage usage
 
-import { aiProviderManager } from './ai-provider'; // Assuming aiProviderManager is in the same directory or adjust path
+import { aiProviderManager, type MessageContext, type NormalizedAIResponse } from './ai-provider'; // Import AI manager
 
 /**
  * @fileoverview Manages different AI personas, focusing on Abul'fath persona.
@@ -20,6 +20,7 @@ interface PersonaSettings {
   arabicScript: boolean;
   formatCitations: boolean;
   conceptTagging: boolean;
+  preferredModel?: string; // Optional: model preference for this persona
 }
 
 export interface Persona {
@@ -41,10 +42,11 @@ interface VerseContext {
     translation: string;
 }
 
-interface ConversationMessage {
-    role: 'user' | 'assistant' | 'system'; // Use roles expected by AI provider
-    content: string;
-}
+// Use MessageContext from ai-provider.ts
+// export interface ConversationMessage {
+//     role: 'user' | 'assistant' | 'system'; // Use roles expected by AI provider
+//     content: string;
+// }
 
 
 // Abul'fath Persona Configuration System
@@ -75,33 +77,38 @@ export const scholarPersonaManager = {
 When using Arabic Islamic terminology, always present it in three forms: English transliteration, Arabic script, and English translation where needed. Format Arabic terms as follows: English transliteration followed by Arabic original in parentheses, e.g., "tawakkul (توكّل)".
 
 Provide proper sourcing for all Islamic teachings:
-- For Quranic references: Cite specific verses with preceding and following surahs
-- For hadiths: Provide complete references including collection name, number, and narrator
-- For scholarly opinions: Cite specific scholars, works, and relevant sections
+- For Quranic references: Cite specific verses with preceding and following surahs (e.g., Al-Baqarah 2:255)
+- For hadiths: Provide complete references including collection name, book/chapter (if applicable), hadith number, and narrator (e.g., Sahih al-Bukhari 1)
+- For scholarly opinions: Cite specific scholars, works, and relevant sections/page numbers (e.g., Imam al-Ghazali, Ihya Ulum al-Din, Book 3).
 
 Focus on these five areas:
-1. Strengthening Core Islamic Practices with Intellectual Depth
-2. Family-Centered Faith Revival
-3. Cultural Integration with Critical Discernment
-4. Practical Faith Application with Realistic Implementation
-5. Building Intellectual-Spiritual Bridges`,
+1. Strengthening Core Islamic Practices with Intellectual Depth: Explain the wisdom and significance behind practices.
+2. Family-Centered Faith Revival: Offer guidance on involving family in the spiritual journey.
+3. Cultural Integration with Critical Discernment: Advise on balancing cultural background with Islamic principles.
+4. Practical Faith Application with Realistic Implementation: Provide actionable steps suitable for a busy life.
+5. Building Intellectual-Spiritual Bridges: Connect Islamic teachings to broader intellectual concepts when appropriate.
+
+Be empathetic, patient, and non-judgmental in your tone. Tailor your advice to Y's specific background and context.`,
 
             // Core concepts can be edited
             concepts: {
                 "wip": { // Use lowercase consistent IDs
                     name: "Water in Palm",
                     description: "Balance of structure without rigidity, like holding water in an open palm",
-                    relatedVerses: ["2:143", "55:7-9", "4:171"]
+                    relatedVerses: ["2:143", "55:7-9", "4:171"],
+                    lastModified: new Date()
                 },
                 "fof": { // Use lowercase consistent IDs
                     name: "Faith over Fear",
                     description: "Choosing action based on faith rather than reaction based on fear",
-                    relatedVerses: ["3:173", "9:51", "65:3"]
+                    relatedVerses: ["3:173", "9:51", "65:3"],
+                    lastModified: new Date()
                 },
                 "dt": { // Use lowercase consistent IDs
                     name: "Divine Triangle",
                     description: "The relationship between Allah's self-sufficiency, human purpose, and trials/punishment",
-                    relatedVerses: ["51:56-57", "67:2", "2:155-157"]
+                    relatedVerses: ["51:56-57", "67:2", "2:155-157"],
+                    lastModified: new Date()
                 }
             },
 
@@ -111,6 +118,7 @@ Focus on these five areas:
                 arabicScript: true,
                 formatCitations: true,
                 conceptTagging: true
+                // preferredModel: 'claude-3-sonnet-20240229' // Example preference
             }
         };
     }
@@ -135,11 +143,13 @@ Focus on these five areas:
          Object.keys(parsed).forEach(key => {
              parsed[key].created = new Date(parsed[key].created);
              parsed[key].lastModified = new Date(parsed[key].lastModified);
-             Object.keys(parsed[key].concepts).forEach(conceptKey => {
-                 if (parsed[key].concepts[conceptKey].lastModified) {
-                     parsed[key].concepts[conceptKey].lastModified = new Date(parsed[key].concepts[conceptKey].lastModified);
-                 }
-             });
+             if (parsed[key].concepts) {
+                Object.keys(parsed[key].concepts).forEach(conceptKey => {
+                    if (parsed[key].concepts[conceptKey].lastModified) {
+                        parsed[key].concepts[conceptKey].lastModified = new Date(parsed[key].concepts[conceptKey].lastModified);
+                    }
+                });
+             }
          });
         this.personas = parsed;
       } else {
@@ -159,7 +169,7 @@ Focus on these five areas:
       } else {
         // No personas available, create default (should be covered by init above)
         console.log("No personas available after loading, re-initializing.");
-        this.init();
+        this.init(); // Re-initialize if empty
       }
       console.log(`Personas loaded. Active ID: ${this.activePersonaId}`);
 
@@ -198,6 +208,11 @@ Focus on these five areas:
     return this.personas[this.activePersonaId];
   },
 
+  // Get all personas
+  getAllPersonas: function(): Persona[] {
+      return Object.values(this.personas);
+  },
+
   // Set active persona
   setActivePersona: function(personaId: string): boolean {
     if (this.personas[personaId]) {
@@ -216,7 +231,7 @@ Focus on these five areas:
         console.error("Cannot create persona: Name and systemPrompt are required.");
         return null;
     }
-    const id = 'persona_' + Date.now();
+    const id = 'persona_' + Date.now(); // Simple ID generation
 
     this.personas[id] = {
       id,
@@ -241,14 +256,14 @@ Focus on these five areas:
   },
 
   // Update existing persona
-  updatePersona: function(personaId: string, updates: Partial<Persona>): boolean {
+  updatePersona: function(personaId: string, updates: Partial<Omit<Persona, 'id' | 'created'>>): boolean {
     if (!this.personas[personaId]) {
         console.warn(`Cannot update persona: ID ${personaId} not found.`);
         return false;
     }
 
-    // Ensure non-updatable fields are not changed
-    const { id, created, ...validUpdates } = updates;
+    // Ensure non-updatable fields are not changed accidentally
+    const { id, created, ...validUpdates } = updates as any; // Type assertion to bypass strict checking
 
     // Update fields
     Object.assign(this.personas[personaId], {
@@ -272,11 +287,17 @@ Focus on these five areas:
         return false;
     }
 
+     // Ensure concepts object exists
+     if (!this.personas[personaId].concepts) {
+         this.personas[personaId].concepts = {};
+     }
+
     this.personas[personaId].concepts[conceptId] = {
       ...conceptData,
       lastModified: new Date()
     };
 
+    this.personas[personaId].lastModified = new Date(); // Update persona timestamp
     this.savePersonas();
     console.log(`Updated concept ${conceptId} for persona ${personaId}`);
     return true;
@@ -284,7 +305,7 @@ Focus on these five areas:
 
   // Remove concept from a persona
   removeConcept: function(personaId: string, conceptId: string): boolean {
-    if (!this.personas[personaId] || !this.personas[personaId].concepts[conceptId]) {
+    if (!this.personas[personaId] || !this.personas[personaId].concepts?.[conceptId]) {
       console.warn(`Cannot remove concept: Persona ID ${personaId} or Concept ID ${conceptId} not found.`);
       return false;
     }
@@ -307,21 +328,14 @@ Focus on these five areas:
         return false; // Prevent deleting the last one
     }
 
-
     delete this.personas[personaId];
     console.log(`Deleted persona: ${personaId}`);
 
     // If deleted the active persona, switch to another
     if (this.activePersonaId === personaId) {
       const remainingIds = Object.keys(this.personas);
-      if (remainingIds.length > 0) {
-        this.activePersonaId = remainingIds[0];
-        console.log(`Active persona switched to: ${this.activePersonaId}`);
-      } else {
-        // This case should ideally not be reached due to the check above
-        console.error("No personas left after deletion, this shouldn't happen.");
-        this.activePersonaId = null; // Or re-initialize
-      }
+      this.activePersonaId = remainingIds[0] ?? null; // Switch to first remaining or null
+       console.log(`Active persona switched to: ${this.activePersonaId}`);
     }
 
     this.savePersonas();
@@ -329,7 +343,11 @@ Focus on these five areas:
   },
 
   // Get a response from the active persona using the AI Provider Manager
-  getResponse: async function(message: string, verseContext: VerseContext | null = null, conversationHistory: ConversationMessage[] = []) {
+  getResponse: async function(
+      message: string,
+      verseContext: VerseContext | null = null,
+      conversationHistory: MessageContext[] = []
+  ): Promise<NormalizedAIResponse> { // Use NormalizedAIResponse type
     const activePersona = this.getActivePersona();
     if (!activePersona) {
       return { error: true, message: 'No active persona available' };
@@ -339,7 +357,8 @@ Focus on these five areas:
     let contextualizedMessage = message;
 
     if (verseContext) {
-      contextualizedMessage = `[Regarding Quranic verse ${verseContext.surah}:${verseContext.verse}]\nArabic: "${verseContext.arabicText}"\nTranslation: "${verseContext.translation}"\n\nUser Query: ${message}`;
+        // Format context clearly
+      contextualizedMessage = `Regarding Quran verse ${verseContext.surah}:${verseContext.verse}:\nArabic Text: "${verseContext.arabicText}"\nTranslation: "${verseContext.translation}"\n\nUser's Question: ${message}`;
     }
 
     // Ensure conversation history roles match what the AI provider expects (user/assistant)
@@ -351,12 +370,12 @@ Focus on these five areas:
         const response = await aiProviderManager.sendMessage(
             contextualizedMessage,
             providerHistory, // Pass prepared history
-            activePersona.systemPrompt // Pass system prompt
+            activePersona.systemPrompt, // Pass system prompt
             // Add other options like model if needed from persona settings:
-            // { model: activePersona.settings.preferredModel || aiProviderManager.providers[aiProviderManager.activeProvider]?.latestModel }
+            { model: activePersona.settings.preferredModel }
         );
 
-        console.log("AI Response Received:", response);
+        console.log("AI Response Received (Persona Manager):", response);
         return response;
 
     } catch (error) {
@@ -369,6 +388,6 @@ Focus on these five areas:
 // Initialize the manager on load (client-side)
 if (typeof window !== 'undefined') {
     scholarPersonaManager.loadPersonas();
+    // Make sure aiProviderManager keys are also loaded
+    aiProviderManager.loadKeysFromStorage();
 }
-
-    
