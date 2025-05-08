@@ -20,7 +20,7 @@ interface AIProviderConfig {
     systemPrompt: string | null,
     options: AIRequestOptions
   ) => Record<string, any>;
-  getEndpoint?: (endpoint: string, apiKey: string) => string; // Optional for providers needing key in URL
+  getEndpoint?: (endpoint: string, apiKey: string, model: string) => string; // Optional for providers needing key in URL, added model
 }
 
 interface AIRequestOptions {
@@ -31,12 +31,13 @@ interface AIRequestOptions {
   // Add other provider-specific options if needed
 }
 
-interface MessageContext {
-  role: 'user' | 'assistant' | 'system'; // Adjust roles based on API needs
+// Use roles consistent with Claude and OpenAI 'user', 'assistant', 'system'
+export interface MessageContext {
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
-interface NormalizedAIResponse {
+export interface NormalizedAIResponse {
   content?: string;
   model?: string;
   provider?: string;
@@ -65,16 +66,19 @@ export const aiProviderManager = {
       prepareRequest: (model: string, prompt: string, context: MessageContext[], systemPrompt: string | null, options: AIRequestOptions) => ({
         model: model,
         max_tokens: options.maxTokens || 4000,
+        // Claude uses 'system' parameter directly, not in messages array
+        system: systemPrompt || undefined, // Add system prompt here if provided
         messages: [
-          ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-          ...context, // Ensure context roles match API (user/assistant)
+          // ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []), // Remove system prompt from messages for Claude v1 API
+          ...context.filter(msg => msg.role === 'user' || msg.role === 'assistant'), // Only include user/assistant messages
           { role: "user", content: prompt }
         ]
       })
     } as AIProviderConfig, // Added type assertion
     gemini: {
       name: "Gemini (Google)",
-      endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", // Correct model endpoint
+      // Endpoint needs model name, will be constructed in getEndpoint
+      endpoint: "https://generativelanguage.googleapis.com/v1beta/models",
       latestModel: "gemini-1.5-pro",
       alternativeModels: ["gemini-1.0-pro"],
       headers: (apiKey: string) => ({ // API key is usually passed in URL for Gemini
@@ -85,42 +89,51 @@ export const aiProviderManager = {
         const contents = [];
 
         // Gemini API uses a different structure, often less explicit about system prompts
-        // This might need adjustment based on specific Gemini model requirements
-        if (systemPrompt) {
-          // Add system prompt as the first user message or specific system instruction if supported
-           contents.push({
-             role: "user", // Gemini might treat initial user message as system context
-             parts: [{ text: systemPrompt }]
-           });
+        // We can prepend the system prompt to the first user message or handle it if the model supports specific instructions
+        let currentPrompt = prompt;
+        if (systemPrompt && context.length === 0) {
+            // If no context, prepend system prompt to the user prompt for Gemini
+            // This is a common workaround, actual support varies by model version
+             contents.push({ role: "user", parts: [{ text: systemPrompt + "\n\n" + prompt }] });
+        } else {
+             // Process context and the final prompt
+            for (const msg of context) {
+                 // Gemini uses 'model' for assistant role
+                if (msg.role === 'user' || msg.role === 'assistant') {
+                     contents.push({
+                        role: msg.role === "assistant" ? "model" : "user",
+                        parts: [{ text: msg.content }]
+                     });
+                }
+                 // Ignore 'system' messages in context for Gemini's format here
+            }
+             // Add current user prompt
+            contents.push({
+                role: "user",
+                parts: [{ text: currentPrompt }]
+            });
         }
 
-        // Format context as conversation
-        for (const msg of context) {
-          contents.push({
-            // Gemini uses 'model' for assistant role
-            role: msg.role === "assistant" ? "model" : "user",
-            parts: [{ text: msg.content }]
-          });
-        }
-
-        // Add current prompt
-        contents.push({
-          role: "user",
-          parts: [{ text: prompt }]
-        });
 
         return {
           contents,
+          // Include system instruction if model supports it (e.g., Gemini 1.5)
+          ...(systemPrompt && model.startsWith("gemini-1.5") && {
+              systemInstruction: {
+                  role: "system", // Assuming 'system' role is accepted by 1.5 API
+                  parts: [{ text: systemPrompt }]
+              }
+          }),
           generationConfig: {
             maxOutputTokens: options.maxTokens || 4000,
             temperature: options.temperature || 0.7
           }
         };
       },
-      // For Gemini API, append key as query parameter
-      getEndpoint: (endpoint: string, apiKey: string) => {
-        // Adjust endpoint based on model if necessary, e.g., /v1beta/models/{model}:generateContent
-         const effectiveEndpoint = endpoint.includes(':generateContent') ? endpoint : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`; // Fallback logic
+      // For Gemini API, construct endpoint with model and append key as query parameter
+      getEndpoint: (baseEndpoint: string, apiKey: string, model: string) => {
+         // Use the provided model in the endpoint path
+         const effectiveEndpoint = `${baseEndpoint}/${model}:generateContent`;
          return `${effectiveEndpoint}?key=${apiKey}`;
       }
     } as AIProviderConfig // Added type assertion
@@ -142,7 +155,10 @@ export const aiProviderManager = {
 
     this.activeProvider = provider;
     this.apiKeys[provider] = this.encryptKey(apiKey);
-    return await this.testConnection(provider); // Ensure testConnection is awaited
+    console.log(`AI Provider initialized: ${provider}`);
+    // Test connection might be too slow for init, consider doing it separately
+    // return await this.testConnection(provider);
+    return true; // Assume success if key is stored
   },
 
   // Switch active provider
@@ -199,18 +215,21 @@ export const aiProviderManager = {
     }
 
     try {
+      console.log(`Testing connection to ${testProvider}...`);
       const response = await this.sendMessage(
         "Test connection",
-        [],
+        [], // No context
         "This is a test message. Please respond with 'Connection successful.'", // System prompt
-        { provider: testProvider } // Options object
+        { provider: testProvider, maxTokens: 50 } // Options object, limit tokens
       );
 
       // Check for successful response (adjust based on normalized format)
       console.log(`${testProvider} test response:`, response);
-      return response && !response.error && response.content?.includes('Connection successful');
+      const success = response && !response.error && response.content?.includes('Connection successful');
+      console.log(`${testProvider} connection test ${success ? 'successful' : 'failed'}`);
+      return success;
     } catch (error) {
-      console.error(`${testProvider} API connection failed:`, error);
+      console.error(`${testProvider} API connection failed during test:`, error);
       return false;
     }
   },
@@ -254,7 +273,7 @@ export const aiProviderManager = {
 
       // Get endpoint (some providers need API key in URL)
       const endpoint = providerConfig.getEndpoint
-        ? providerConfig.getEndpoint(providerConfig.endpoint, apiKey)
+        ? providerConfig.getEndpoint(providerConfig.endpoint, apiKey, model) // Pass model
         : providerConfig.endpoint;
 
       console.log(`Sending request to ${provider} (${model}) at ${endpoint}`); // Debug log
@@ -266,17 +285,26 @@ export const aiProviderManager = {
         body: JSON.stringify(body)
       });
 
+      const responseBodyText = await response.text(); // Read body once
+
       if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(`API Error from ${provider} (${response.status}): ${errorBody}`);
-          return { error: true, message: `API request failed with status ${response.status}. ${errorBody}` };
+          console.error(`API Error from ${provider} (${response.status}): ${responseBodyText}`);
+          return { error: true, message: `API request failed with status ${response.status}. ${responseBodyText}` };
       }
 
-      const result = await response.json();
-      console.log(`${provider} API Response:`, result); // Debug log
+      let result;
+      try {
+          result = JSON.parse(responseBodyText); // Parse the text body
+      } catch (parseError) {
+          console.error(`Failed to parse JSON response from ${provider}:`, parseError);
+          console.error("Raw response body:", responseBodyText);
+          return { error: true, message: `Invalid JSON response received from ${provider}.` };
+      }
+
+      console.log(`${provider} API Response JSON:`, result); // Debug log of parsed JSON
 
       // Transform response to standardized format
-      return this.normalizeResponse(result, provider);
+      return this.normalizeResponse(result, provider, model); // Pass model for normalization context
     } catch (error) {
       console.error(`Error sending message to ${provider}:`, error);
       return { error: true, message: `Network or processing error: ${error instanceof Error ? error.message : String(error)}` };
@@ -284,59 +312,61 @@ export const aiProviderManager = {
   },
 
   // Normalize responses from different providers to a standard format
-  normalizeResponse: function(response: any, provider: string): NormalizedAIResponse {
+  normalizeResponse: function(response: any, provider: string, modelUsed?: string): NormalizedAIResponse {
     try {
         if (provider === 'claude') {
-        // Claude response format
-        if (response.error) {
-            return {
-            error: true,
-            message: response.error.message || 'Unknown Claude API error'
-            };
-        }
-        if (!response.content || !Array.isArray(response.content) || response.content.length === 0 || !response.content[0].text) {
-             console.warn("Unexpected Claude response format:", response);
-             return { error: true, message: "Invalid response format from Claude." };
-        }
+            // Claude response format (v1 Messages API)
+            if (response.error) {
+                return {
+                error: true,
+                message: response.error.message || 'Unknown Claude API error'
+                };
+            }
+            // Claude's response is in response.content[0].text
+            if (!response.content || !Array.isArray(response.content) || response.content.length === 0 || !response.content[0].text) {
+                 console.warn("Unexpected Claude response format:", response);
+                 return { error: true, message: "Invalid response format from Claude." };
+            }
 
-        return {
-            content: response.content[0].text,
-            model: response.model,
-            provider: 'claude'
-        };
+            return {
+                content: response.content[0].text,
+                model: response.model,
+                provider: 'claude'
+            };
         }
         else if (provider === 'gemini') {
-        // Gemini response format
-        if (response.error) {
-            return {
-            error: true,
-            message: response.error.message || 'Unknown Gemini API error'
-            };
-        }
-         // Check candidates structure carefully
-         if (!response.candidates || !Array.isArray(response.candidates) || response.candidates.length === 0) {
-             console.warn("No candidates found in Gemini response:", response);
-             // Check for promptFeedback for blockage reasons
-             if (response.promptFeedback?.blockReason) {
-                 return { error: true, message: `Content blocked by Gemini: ${response.promptFeedback.blockReason}` };
+            // Gemini response format
+            if (response.error) {
+                return {
+                error: true,
+                message: response.error.message || 'Unknown Gemini API error'
+                };
+            }
+             // Check candidates structure carefully
+             if (!response.candidates || !Array.isArray(response.candidates) || response.candidates.length === 0) {
+                 console.warn("No candidates found in Gemini response:", response);
+                 // Check for promptFeedback for blockage reasons
+                 if (response.promptFeedback?.blockReason) {
+                     return { error: true, message: `Content blocked by Gemini: ${response.promptFeedback.blockReason}` };
+                 }
+                 return { error: true, message: "No candidates in response from Gemini." };
              }
-             return { error: true, message: "No candidates in response from Gemini." };
-         }
-         const candidate = response.candidates[0];
-         if (!candidate.content?.parts?.[0]?.text) {
-              console.warn("Unexpected Gemini response format (missing text):", response);
-              // Check finishReason
-              if (candidate.finishReason && candidate.finishReason !== "STOP") {
-                 return { error: true, message: `Gemini generation finished unexpectedly: ${candidate.finishReason}` };
-              }
-              return { error: true, message: "Invalid response format from Gemini (missing text)." };
-         }
+             const candidate = response.candidates[0];
+             // Ensure content and parts exist before accessing text
+             if (!candidate.content?.parts?.[0]?.text) {
+                  console.warn("Unexpected Gemini response format (missing text):", response);
+                  // Check finishReason
+                  if (candidate.finishReason && candidate.finishReason !== "STOP") {
+                     return { error: true, message: `Gemini generation finished unexpectedly: ${candidate.finishReason}` };
+                  }
+                  return { error: true, message: "Invalid response format from Gemini (missing text)." };
+             }
 
-        return {
-            content: candidate.content.parts[0].text,
-            // model: candidate.modelName, // Model name might not be directly in candidate
-            provider: 'gemini'
-        };
+            return {
+                content: candidate.content.parts[0].text,
+                model: modelUsed || 'gemini', // Model name might not be directly in candidate, use the requested one
+                provider: 'gemini'
+            };
         }
     } catch (e) {
          console.error(`Error normalizing response for ${provider}:`, e);
@@ -378,6 +408,9 @@ async function exampleChat() {
                 alert("Failed to initialize Claude API.");
                 return;
             }
+            // Optionally test connection after init
+             await aiProviderManager.testConnection('claude');
+
         } else {
             alert("Claude API Key required.");
             return;
@@ -385,6 +418,7 @@ async function exampleChat() {
 
         // Send a message
         try {
+            console.log("Sending message to AI...");
             const response = await aiProviderManager.sendMessage(
                 "Explain the concept of 'Tawhid' in Islam.",
                 [], // No prior context
@@ -398,10 +432,14 @@ async function exampleChat() {
                 alert(`Claude says: ${response.content?.substring(0, 100)}...`);
             }
         } catch (error) {
-            alert(`An error occurred: ${error}`);
+             const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error("Error during sendMessage:", errorMessage);
+            alert(`An error occurred: ${errorMessage}`);
         }
     }
 }
 
 // exampleChat(); // Don't run automatically, just for illustration
 */
+
+    
