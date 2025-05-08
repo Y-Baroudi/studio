@@ -303,8 +303,10 @@ export const aiProviderManager = {
         return { error: true, message: `Failed to decrypt API key for ${provider}` };
      }
 
+    let endpoint: string | undefined = undefined; // Define endpoint variable here to be accessible in catch block
+    const model = options.model || providerConfig.latestModel; // Define model here
+
     try {
-      const model = options.model || providerConfig.latestModel;
       const headers = providerConfig.headers(apiKey);
       const body = providerConfig.prepareRequest(
         model,
@@ -315,12 +317,16 @@ export const aiProviderManager = {
       );
 
       // Get endpoint (some providers need API key in URL)
-      const endpoint = providerConfig.getEndpoint
+      endpoint = providerConfig.getEndpoint
         ? providerConfig.getEndpoint(providerConfig.endpoint, apiKey, model) // Pass model
         : providerConfig.endpoint;
 
-      console.log(`Sending request to ${provider} (${model}) at ${endpoint}`); // Debug log
-      // console.log("Request Body:", JSON.stringify(body, null, 2)); // Be careful logging sensitive data
+      // --- Add Logging ---
+      console.log(`Sending request to ${provider} (${model})`);
+      console.log(`Endpoint: ${endpoint}`);
+      // console.log("Headers:", headers); // Avoid logging key
+      // console.log("Request Body:", JSON.stringify(body, null, 2));
+      // --- End Logging ---
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -364,7 +370,15 @@ export const aiProviderManager = {
       return this.normalizeResponse(result, provider, model); // Pass model for normalization context
     } catch (error) {
       console.error(`Error sending message to ${provider}:`, error);
-      return { error: true, message: `Network or processing error: ${error instanceof Error ? error.message : String(error)}` };
+      // Add more detail to the error message if possible
+      let detailedErrorMessage = `Network error or processing error while contacting ${provider}.`;
+      if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
+          detailedErrorMessage = `Failed to fetch from ${provider}. Check network connectivity, CORS policy, or the endpoint URL (${endpoint || 'N/A'}).`; // Include endpoint if available
+      } else if (error instanceof Error) {
+          detailedErrorMessage = `Error during ${provider} request: ${error.message}`;
+      }
+      console.error("Detailed fetch error context:", { provider, endpoint: endpoint || 'N/A', model, systemPromptProvided: !!systemPrompt }); // Log context including endpoint
+      return { error: true, message: detailedErrorMessage }; // Return the more detailed message
     }
   },
 
@@ -493,3 +507,4 @@ async function exampleChat() {
 
 // exampleChat(); // Don't run automatically, just for illustration
 */
+
