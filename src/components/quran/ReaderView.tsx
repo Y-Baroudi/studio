@@ -1,4 +1,3 @@
-
 // src/components/quran/ReaderView.tsx
 'use client';
 
@@ -32,6 +31,7 @@ import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { checkNoteExists } from '@/services/notes'; // Import checkNoteExists
+import ContinuousScrollService from '@/services/continuousScrollService'; // Import the new service
 
 // Default values
 const DEFAULT_VERSE_NUMBER = 1;
@@ -42,7 +42,7 @@ const DEFAULT_ARABIC_FONT_SIZE = 24;
 const DEFAULT_LINE_HEIGHT = 1.8;
 const DEFAULT_TRANSLATION_LINE_HEIGHT = 1.6;
 const SWIPE_THRESHOLD = 50;
-const VERSES_TO_LOAD_AT_ONCE = 10; // Load fewer verses for surah data
+// const VERSES_TO_LOAD_AT_ONCE = 10; // No longer used with full surah load
 const BISMILLAH_TEXT = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 const MAX_ABSOLUTE_VERSE_NUMBER = 6236; // Defined constant
 
@@ -55,7 +55,7 @@ export function ReaderView() {
 
   const [currentAbsoluteVerse, setCurrentAbsoluteVerse] = useState<number>(DEFAULT_VERSE_NUMBER);
   const [currentSurahNumber, setCurrentSurahNumber] = useState<number | null>(null);
-  const [displayedVerses, setDisplayedVerses] = useState<Verse[]>([]);
+  const [displayedVerses, setDisplayedVerses] = useState<Verse[]>([]); // Holds verses for the currently loaded *surah*
   const [playingVerseNumber, setPlayingVerseNumber] = useState<number | null>(null);
   const [versesWithNotes, setVersesWithNotes] = useState<Set<number>>(new Set()); // Track verses with notes/tags
   const [isRepeatingVerse, setIsRepeatingVerse] = useState<number | null>(null); // State for repeating verse
@@ -68,8 +68,8 @@ export function ReaderView() {
   const [isLoadingMeta, setIsLoadingMeta] = useState<boolean>(true);
   const [isLoadingReciters, setIsLoadingReciters] = useState<boolean>(true);
   const [isLoadingTranslations, setIsLoadingTranslations] = useState<boolean>(true);
-  const [isLoadingVerses, setIsLoadingVerses] = useState<boolean>(false);
-  const [canLoadMore, setCanLoadMore] = useState<boolean>(false); // Kept for potential future use, but not used with full surah load
+  const [isLoadingVerses, setIsLoadingVerses] = useState<boolean>(false); // Specific to loading the *current* surah
+  // const [canLoadMore, setCanLoadMore] = useState<boolean>(false); // No longer used
   const [error, setError] = useState<string | null>(null);
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] = useState(false);
@@ -89,9 +89,23 @@ export function ReaderView() {
   const audioRef = useRef<HTMLAudioElement>(null); // Ref for the audio element
   const lastAttemptedSurahLoad = useRef<number | null>(null); // Track last attempt
 
+  // Instantiate the scroll service (state managed within ReaderView for now)
+  const scrollService = useRef<ContinuousScrollService | null>(null);
+
+  // Initialize scroll service when metadata is available
+  useEffect(() => {
+    if (quranMeta && !scrollService.current) {
+        scrollService.current = new ContinuousScrollService(quranMeta);
+        // TODO: Potentially call scrollService.current.loadInitialSurahs here
+        // or manage initial loading directly within ReaderView's loadVerses logic.
+    } else if (quranMeta && scrollService.current) {
+         scrollService.current.updateMeta(quranMeta); // Update meta if it changes
+    }
+  }, [quranMeta]);
+
+
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
     threshold: 0.1,
-    // root: scrollContainerRef.current, // Removed as it causes issues when ref is null initially
     rootMargin: '0px 0px 200px 0px', // Load when 200px from bottom
   });
 
@@ -157,7 +171,13 @@ export function ReaderView() {
 
       if (metaResult.status === 'fulfilled') {
         const meta = metaResult.value;
-        setQuranMeta(meta);
+        setQuranMeta(meta); // Update state
+        // Initialize scroll service with metadata
+        if (!scrollService.current) {
+            scrollService.current = new ContinuousScrollService(meta);
+        } else {
+             scrollService.current.updateMeta(meta);
+        }
         const initialLocation = absoluteVerseToSurahAyah(DEFAULT_VERSE_NUMBER, meta);
         if (initialLocation) {
           setCurrentSurahNumber(initialLocation.surahNumber);
@@ -245,73 +265,52 @@ export function ReaderView() {
         return;
      }
 
-     console.log(`loadVerses called: Surah ${surahNum}, Attempt ${attempt}, Replace: ${replace}`);
+     // Use scroll service to load data if available
+     if (scrollService.current) {
+         const loadedData = await scrollService.current.loadSurah(
+             surahNum,
+             selectedTranslation,
+             selectedReciter
+         );
+         if (loadedData) {
+             setDisplayedVerses(loadedData);
+         } else {
+             setError(`Failed to load Surah ${surahNum} via scroll service.`);
+             setDisplayedVerses([]);
+         }
+         return; // Exit after using scroll service
+     }
+
+     // Fallback to direct loading if scroll service isn't ready (shouldn't happen often)
+     console.warn("Scroll service not ready, loading verses directly in ReaderView.");
      setIsLoadingVerses(true);
      if (replace) {
-        setError(null); // Clear errors when initiating a new load
+        setError(null);
         verseRefs.current.clear();
-        setDisplayedVerses([]); // Clear immediately on replace
-     }
-     lastAttemptedSurahLoad.current = surahNum; // Track the surah we're trying to load
-
-     const surahMeta = quranMeta.surahs.references.find(s => s.number === surahNum);
-     if (!surahMeta) {
-        console.error(`Metadata for Surah ${surahNum} not found.`);
-        setError(`Metadata for Surah ${surahNum} not found.`);
-        setIsLoadingVerses(false);
-        setCanLoadMore(false);
         setDisplayedVerses([]);
-        return;
      }
+     lastAttemptedSurahLoad.current = surahNum;
 
      try {
-        // Use a timeout for the API call
-        const fetchTimeout = 5000; // 5 seconds timeout
-        const surahDataPromise = getSurahData(surahNum, selectedTranslation, selectedReciter, quranMeta);
+        const surahVerses = await getSurahData(surahNum, selectedTranslation, selectedReciter, quranMeta);
 
-        const timeoutPromise = new Promise<null>((_, reject) =>
-           setTimeout(() => reject(new Error(`Fetch timeout for Surah ${surahNum}`)), fetchTimeout)
-        );
-
-        // Race the fetch against the timeout
-        const surahVerses = await Promise.race([surahDataPromise, timeoutPromise]);
-
-         if (surahVerses && surahVerses.length > 0) {
-             console.log(`Loaded ${surahVerses.length} verses for Surah ${surahNum}.`);
-             setDisplayedVerses(surahVerses);
-             setCanLoadMore(false); // Whole surah is loaded
-             setError(null); // Clear any previous error on success
-         } else {
-             // Handle cases where getSurahData returned null or empty array (potentially due to fallback logic or API issues)
-             console.error(`getSurahData returned null or empty for Surah ${surahNum}.`);
-              // Do not throw an error here if fallback data was successfully processed in getSurahData
-             if (!surahVerses) { // Only throw if getSurahData explicitly returned null (indicating error even with fallback)
-                throw new Error(`Failed to fetch or process data for Surah ${surahNum}.`);
-             } else if (surahVerses.length === 0) {
-                 // This case might mean the surah legitimately has 0 verses (impossible) or data processing failed badly
-                 throw new Error(`Processed 0 verses for Surah ${surahNum}.`);
-             }
-         }
-     } catch (err) {
-         console.error(`Error loading surah data for Surah ${surahNum}:`, err);
-         // If error occurred for the surah we are currently trying to load
-         if (lastAttemptedSurahLoad.current === surahNum) {
-            setError(`Failed to load Surah ${surahNum}. ${err instanceof Error ? err.message : ''}. Please check your connection or try again.`);
-            setCanLoadMore(false);
-            setDisplayedVerses([]); // Clear verses on error
-         } else {
-             console.warn(`Ignoring error for Surah ${surahNum} as a newer load attempt (${lastAttemptedSurahLoad.current}) is in progress.`);
-         }
-     } finally {
-        // Only set loading false if this was the last attempted load
-        if (lastAttemptedSurahLoad.current === surahNum) {
-            setIsLoadingVerses(false);
-            console.log(`Finished loading attempt for Surah ${surahNum}.`);
+        if (surahVerses && surahVerses.length > 0) {
+            setDisplayedVerses(surahVerses);
+            setError(null);
         } else {
-             console.log(`Loading state not updated for Surah ${surahNum} as a newer load (${lastAttemptedSurahLoad.current}) is active.`);
+            throw new Error(`Failed to fetch or process data for Surah ${surahNum}.`);
+        }
+     } catch (err) {
+        if (lastAttemptedSurahLoad.current === surahNum) {
+           setError(`Failed to load Surah ${surahNum}. ${err instanceof Error ? err.message : ''}.`);
+           setDisplayedVerses([]);
+        }
+     } finally {
+        if (lastAttemptedSurahLoad.current === surahNum) {
+           setIsLoadingVerses(false);
         }
      }
-   }, [quranMeta, selectedTranslation, selectedReciter, isLoadingVerses, isLoadingMeta]);
+   }, [quranMeta, selectedTranslation, selectedReciter, isLoadingVerses, isLoadingMeta]); // Keep dependencies
 
    // Effect to load verses when surah changes or initial load is ready
    useEffect(() => {
@@ -320,19 +319,30 @@ export function ReaderView() {
      if (canLoadInitial) {
        console.log(`Initial load triggered for Surah ${currentSurahNumber}`);
        loadVerses(currentSurahNumber, 1, true);
-     } else {
-        if (displayedVerses.length === 0 && !isLoadingVerses && !isLoadingMeta && !isLoadingReciters && !isLoadingTranslations && !error) {
-             // console.log(`Initial load condition not met: quranMeta=${!!quranMeta}, selectedTranslation=${!!selectedTranslation}, currentSurahNumber=${currentSurahNumber}, isLoadingVerses=${isLoadingVerses}, isLoadingMeta=${isLoadingMeta}, error=${!!error}`); // Less verbose
-        } else if (error && currentSurahNumber !== null) {
-            // Attempt reload if there was an error for the current surah and we are not loading
-             // console.log(`Error detected for Surah ${currentSurahNumber}. Consider adding a retry button.`);
-        }
      }
    }, [quranMeta, selectedTranslation, currentSurahNumber, isLoadingVerses, isLoadingMeta, isLoadingReciters, isLoadingTranslations, error, loadVerses, displayedVerses.length]);
 
 
-   // Removed the infinite scroll effect based on useInView as we load the whole surah now
-   // useEffect(() => { ... loadMoreInView logic ... }, [...]);
+   // TODO: Implement scroll listener using scrollContainerRef and loadMoreRef
+   // This would trigger loading the *next* surah when nearing the end.
+   // Example structure:
+   // useEffect(() => {
+   //   if (loadMoreInView && !isLoadingVerses && currentSurahNumber && currentSurahNumber < 114) {
+   //     const nextSurah = currentSurahNumber + 1;
+   //     if (scrollService.current && !scrollService.current.isSurahLoaded(nextSurah)) {
+   //        console.log(`Scroll trigger: Loading next surah ${nextSurah}`);
+   //        scrollService.current.loadSurah(nextSurah, selectedTranslation, selectedReciter)
+   //         .then(newVerses => {
+   //            if (newVerses) {
+   //                // Here, you'd need logic to APPEND verses if implementing
+   //                // infinite scroll *within* ReaderView, or manage separate
+   //                // loaded surah states. For now, full surah load is simpler.
+   //                // setDisplayedVerses(prev => [...prev, ...newVerses]); // Example append
+   //            }
+   //         });
+   //     }
+   //   }
+   // }, [loadMoreInView, isLoadingVerses, currentSurahNumber, selectedTranslation, selectedReciter]);
 
 
    const scrollToVerse = useCallback((absoluteVerseNum: number, behavior: ScrollBehavior = 'smooth') => {
@@ -877,12 +887,12 @@ export function ReaderView() {
                             </div>
                         ))}
 
-                        {/* End of Surah Marker (No Load More needed) */}
+                        {/* End of Surah Marker - Ref for Intersection Observer */}
                          <div ref={loadMoreRef} className={cn(
                             "flex justify-center items-center py-6 text-center min-h-[60px]",
                             (isDisplayLoading || displayError || displayedVerses.length === 0) && "hidden" // Hide if loading/error/empty
                             )}>
-                             {!isLoadingVerses && !canLoadMore && !isDisplayLoading && !displayError && displayedVerses.length > 0 && (
+                             {!isLoadingVerses && !isDisplayLoading && !displayError && displayedVerses.length > 0 && (
                                 <div className="text-center text-muted-foreground text-sm italic">End of Surah</div>
                             )}
                          </div>
