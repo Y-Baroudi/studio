@@ -370,15 +370,13 @@ export const aiProviderManager = {
       return this.normalizeResponse(result, provider, model); // Pass model for normalization context
     } catch (error) {
       console.error(`Error sending message to ${provider}:`, error);
-      // Add more detail to the error message if possible
-      let detailedErrorMessage = `Network error or processing error while contacting ${provider}.`;
-      if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
-          detailedErrorMessage = `Failed to fetch from ${provider}. Check network connectivity, CORS policy, or the endpoint URL (${endpoint || 'N/A'}).`; // Include endpoint if available
-      } else if (error instanceof Error) {
-          detailedErrorMessage = `Error during ${provider} request: ${error.message}`;
+      // Provide more context in the error message
+      let detailedErrorMessage = `Failed to fetch. Check network connection, CORS settings, or API endpoint.`;
+      if (error instanceof Error) {
+        detailedErrorMessage += ` Details: ${error.message}`;
       }
-      console.error("Detailed fetch error context:", { provider, endpoint: endpoint || 'N/A', model, systemPromptProvided: !!systemPrompt }); // Log context including endpoint
-      return { error: true, message: detailedErrorMessage }; // Return the more detailed message
+      console.error(`Attempted Endpoint: ${endpoint || 'N/A'}`); // Log the endpoint URL attempted
+      return { error: true, message: detailedErrorMessage };
     }
   },
 
