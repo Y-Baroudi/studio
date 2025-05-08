@@ -44,6 +44,7 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
   const [selectedProvider, setSelectedProvider] = useState<string>(aiProviderManager.activeProvider);
   const [isPersonaEditorOpen, setIsPersonaEditorOpen] = useState(false);
   const [isApiKeyManagerOpen, setIsApiKeyManagerOpen] = useState(false);
+  const [providerNeedsKey, setProviderNeedsKey] = useState<string | null>(null); // Track provider needing key
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -52,9 +53,11 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
   // Load persona and history when panel opens or context changes
   useEffect(() => {
     if (isOpen) {
+      aiProviderManager.loadKeysFromStorage(); // Ensure keys are loaded
+      scholarPersonaManager.loadPersonas(); // Ensure personas are loaded
       const persona = scholarPersonaManager.getActivePersona();
       setActivePersona(persona);
-      setSelectedProvider(aiProviderManager.activeProvider); // Sync provider select
+      setSelectedProvider(aiProviderManager.activeProvider); // Sync provider select with manager
       const history = getConversationHistory(conversationId);
       setMessages(history);
       scrollToBottom();
@@ -73,39 +76,61 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleProviderChange = async (provider: string) => {
-    setSelectedProvider(provider);
-    if (!aiProviderManager.apiKeys[provider]) {
-        toast({
-            title: "API Key Required",
-            description: `Please enter your API key for ${aiProviderManager.providers[provider]?.name}.`,
-            variant: "destructive",
-        });
-        setIsApiKeyManagerOpen(true); // Open API key manager
-        return false; // Prevent switching provider until key is set
-    } else {
-        // Test connection before switching
-        const connected = await aiProviderManager.testConnection(provider);
-        if (connected) {
-            aiProviderManager.switchProvider(provider);
-            toast({ title: "AI Provider Switched", description: `Now using ${aiProviderManager.providers[provider]?.name}.` });
-            return true;
-        } else {
-             toast({
-                title: "Connection Failed",
-                description: `Could not connect to ${aiProviderManager.providers[provider]?.name}. Please check your API key and network.`,
-                variant: "destructive",
-             });
-             setSelectedProvider(aiProviderManager.activeProvider); // Revert selection
-             setIsApiKeyManagerOpen(true); // Prompt for key again
-             return false;
-        }
-    }
+  const handleProviderChange = async (providerId: string) => {
+     const providerConfig = aiProviderManager.providers[providerId as keyof typeof aiProviderManager.providers];
+     if (!providerConfig) {
+         toast({ title: "Error", description: "Invalid AI provider selected.", variant: "destructive" });
+         return;
+     }
+
+     setSelectedProvider(providerId); // Update UI immediately
+
+     // Check if key exists for the selected provider
+     if (!aiProviderManager.apiKeys[providerId]) {
+         toast({
+             title: "API Key Required",
+             description: `Please enter your API key for ${providerConfig.name}.`,
+             variant: "default", // Less aggressive than destructive
+         });
+         setProviderNeedsKey(providerId); // Set the provider needing the key
+         setIsApiKeyManagerOpen(true); // Open API key manager
+         // Don't switch the actual active provider in the manager yet
+         return; // Stop processing until key is provided
+     } else {
+         // Key exists, attempt to switch and test connection
+         setIsLoading(true); // Show loading indicator during switch/test
+         const connected = await aiProviderManager.testConnection(providerId);
+         setIsLoading(false);
+
+         if (connected) {
+             aiProviderManager.switchProvider(providerId); // Switch the active provider in the manager
+             toast({ title: "AI Provider Switched", description: `Now using ${providerConfig.name}.` });
+         } else {
+              toast({
+                 title: "Connection Failed",
+                 description: `Could not connect to ${providerConfig.name}. Please check your API key and network.`,
+                 variant: "destructive",
+              });
+              setSelectedProvider(aiProviderManager.activeProvider); // Revert UI selection to the currently working provider
+              setProviderNeedsKey(providerId); // Prompt for key again
+              setIsApiKeyManagerOpen(true);
+         }
+     }
   };
+
 
   const handleSendMessage = async () => {
     const message = inputValue.trim();
     if (message === '' || isLoading || !activePersona) return;
+
+    // Ensure active provider has a key before sending
+     if (!aiProviderManager.apiKeys[selectedProvider]) {
+         toast({ title: "API Key Required", description: `Please add your API key for ${aiProviderManager.providers[selectedProvider as keyof typeof aiProviderManager.providers]?.name} before sending messages.`, variant: "destructive" });
+         setProviderNeedsKey(selectedProvider);
+         setIsApiKeyManagerOpen(true);
+         return;
+     }
+
 
     setInputValue(''); // Clear input immediately
 
@@ -126,27 +151,39 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
 
 
     try {
+        // Use the *selected* provider from the dropdown for the request
       const response: NormalizedAIResponse = await scholarPersonaManager.getResponse(
         message,
         verseContext,
-        historyContext // Pass filtered history
+        historyContext, // Pass filtered history
+        selectedProvider // Pass the currently selected provider
       );
 
       if (response.error) {
-        throw new Error(response.message || 'Failed to get AI response');
-      }
-
-      const assistantMessage: HistoryMessage = {
-        role: 'assistant',
-        content: response.content || 'No response content.',
-        timestamp: new Date().toISOString(),
-        id: `msg_${Date.now()}_ai`,
-        metadata: { provider: response.provider, model: response.model }
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // Save updated conversation history
-      saveConversationHistory(conversationId, [...messages, userMessage, assistantMessage]);
+          // Handle specific case where API key might be invalid
+          if (response.message?.toLowerCase().includes('invalid api key') || response.message?.toLowerCase().includes('authentication error')) {
+               toast({
+                 title: "Authentication Failed",
+                 description: `Invalid API Key for ${aiProviderManager.providers[selectedProvider as keyof typeof aiProviderManager.providers]?.name}. Please check and update your key.`,
+                 variant: "destructive",
+               });
+               setProviderNeedsKey(selectedProvider);
+               setIsApiKeyManagerOpen(true);
+          } else {
+              throw new Error(response.message || 'Failed to get AI response');
+          }
+      } else {
+            const assistantMessage: HistoryMessage = {
+                role: 'assistant',
+                content: response.content || 'No response content.',
+                timestamp: new Date().toISOString(),
+                id: `msg_${Date.now()}_ai`,
+                metadata: { provider: response.provider, model: response.model }
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+            // Save updated conversation history (including user + assistant message)
+            saveConversationHistory(conversationId, [...messages, userMessage, assistantMessage]);
+       }
 
     } catch (error) {
       console.error('Error getting response:', error);
@@ -163,23 +200,43 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
             id: `msg_${Date.now()}_err`,
             metadata: { error: true }
        }]);
+       // Remove user message if AI fails completely? Maybe not, keep context.
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleApiKeyUpdate = () => {
-      // Reload providers or re-test connection after keys are updated
-      setSelectedProvider(aiProviderManager.activeProvider); // Re-sync dropdown
-      aiProviderManager.testConnection(aiProviderManager.activeProvider)
-        .then(connected => {
-            if (connected) {
-                toast({ title: "API Key Verified", description: `Connected to ${aiProviderManager.providers[aiProviderManager.activeProvider]?.name}.` });
-            } else {
-                 toast({ title: "Connection Failed", description: `Could not verify API key for ${aiProviderManager.providers[aiProviderManager.activeProvider]?.name}.`, variant: 'destructive'});
-            }
-        });
+       // After keys are updated, re-test connection for the provider that needed the key
+       const providerToTest = providerNeedsKey || aiProviderManager.activeProvider;
+       if (providerToTest && aiProviderManager.apiKeys[providerToTest]) {
+           aiProviderManager.testConnection(providerToTest)
+            .then(connected => {
+                if (connected) {
+                    toast({ title: "API Key Verified", description: `Connected to ${aiProviderManager.providers[providerToTest as keyof typeof aiProviderManager.providers]?.name}.` });
+                    // If the key was for the selected provider, make it active now
+                    if (providerToTest === selectedProvider) {
+                        aiProviderManager.switchProvider(providerToTest);
+                    }
+                    setProviderNeedsKey(null); // Clear the flag
+                } else {
+                     toast({ title: "Connection Failed", description: `Could not verify API key for ${aiProviderManager.providers[providerToTest as keyof typeof aiProviderManager.providers]?.name}.`, variant: 'destructive'});
+                     // Keep the API key manager open if the test fails? Or let the user close it.
+                }
+            });
+       } else {
+            // This case should ideally not happen if ApiKeyManager enforces saving
+            console.warn("API Key update callback triggered, but no key found for", providerToTest);
+       }
   };
+
+   const handleOpenPersonaEditor = () => {
+        if (activePersona) {
+             setIsPersonaEditorOpen(true);
+        } else {
+             toast({title: "No Active Persona", description: "Cannot edit persona.", variant: "destructive"});
+        }
+   };
 
 
   return (
@@ -187,7 +244,7 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
         <SheetContent className="sm:max-w-md w-[90vw] flex flex-col p-0" side="right">
           <SheetHeader className="p-4 border-b flex flex-row justify-between items-center">
-             {activePersona && (
+             {activePersona ? (
                  <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                         {/* Placeholder avatar */}
@@ -196,30 +253,44 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
                    <div className="flex flex-col">
                      <SheetTitle className="text-base font-semibold">{activePersona.name}</SheetTitle>
                      {/* <span className="text-xs text-muted-foreground font-amiri">{activePersona.nameArabic}</span> */}
-                     <SheetDescription className="text-xs">{activePersona.description}</SheetDescription>
+                      {/* Ensure description exists before showing */}
+                     {activePersona.description && <SheetDescription className="text-xs">{activePersona.description}</SheetDescription>}
                    </div>
                  </div>
+             ) : (
+                 <SheetTitle className="text-base font-semibold">Chat</SheetTitle> // Fallback title
              )}
             <div className="flex items-center gap-1">
                {/* Provider Selector */}
-               <Select value={selectedProvider} onValueChange={handleProviderChange}>
-                 <SelectTrigger className="h-8 text-xs w-auto focus:ring-0 focus:ring-offset-0">
+               <Select
+                  value={selectedProvider}
+                  onValueChange={handleProviderChange}
+                  disabled={isLoading} // Disable while sending/testing
+                >
+                 <SelectTrigger className="h-8 text-xs w-auto focus:ring-0 focus:ring-offset-0" aria-label="Select AI Provider">
                    <SelectValue placeholder="Select Provider" />
                  </SelectTrigger>
                  <SelectContent>
-                   {Object.entries(aiProviderManager.providers).map(([key, provider]) => (
-                     <SelectItem key={key} value={key} className="text-xs">
-                       {provider.name}
-                     </SelectItem>
-                   ))}
+                    {Object.entries(aiProviderManager.providers).map(([key, providerInfo]) => (
+                        <SelectItem key={key} value={key} className="text-xs">
+                        {providerInfo.name}
+                        </SelectItem>
+                    ))}
                  </SelectContent>
                </Select>
               {/* Edit Persona Button */}
-               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsPersonaEditorOpen(true)} aria-label="Edit Persona">
+               <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleOpenPersonaEditor}
+                  aria-label="Edit Persona"
+                  disabled={!activePersona || isLoading} // Disable if no persona or loading
+                >
                  <Settings className="h-4 w-4" />
                </Button>
                <SheetClose asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Close Chat">
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Close Chat" disabled={isLoading}>
                    <X className="h-4 w-4" />
                  </Button>
                </SheetClose>
@@ -237,21 +308,23 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
                 </div>
               )}
               {/* Chat Messages */}
-              {messages.map((msg, index) => (
+              {messages.map((msg) => (
                 <div
-                  key={msg.id || index} // Use unique ID if available
+                  key={msg.id} // Use unique ID
                   className={cn(
                     "p-3 rounded-lg max-w-[85%] break-words",
                     msg.role === 'user' ? 'bg-primary text-primary-foreground self-end' : 'bg-muted text-muted-foreground self-start',
-                    isLoading && msg.role === 'assistant' && index === messages.length - 1 && 'opacity-70 animate-pulse' // Basic loading indicator
+                    isLoading && msg.metadata?.isLoadingPlaceholder && 'opacity-70 animate-pulse' // Updated loading check
                   )}
+                  id={msg.id} // Ensure ID is set for potential replacement
                 >
+                   {/* Use pre-wrap to preserve formatting */}
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   {/* Optional: Display timestamp or metadata */}
-                   {msg.metadata && (
+                   {msg.metadata && !msg.metadata.isLoadingPlaceholder && (
                         <p className="text-xs mt-1 opacity-60">
                             {msg.metadata.error ? 'Error' :
-                             `via ${msg.metadata.provider || '?'} (${msg.metadata.model || '?'})`
+                             `via ${aiProviderManager.providers[msg.metadata.provider as keyof typeof aiProviderManager.providers]?.name || '?'} (${msg.metadata.model || '?'})`
                             }
                         </p>
                    )}
@@ -268,7 +341,7 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
                 id="user-message"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Ask about this verse..."
+                placeholder={verseContext ? `Ask ${activePersona?.name || 'AI'} about this verse...` : `Chat with ${activePersona?.name || 'AI'}...`}
                 className="flex-1 resize-none text-sm"
                 rows={1} // Start with 1 row, potentially expandable
                 onKeyDown={(e) => {
@@ -277,17 +350,18 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
                     handleSendMessage();
                   }
                 }}
-                disabled={isLoading}
+                disabled={isLoading || !activePersona} // Disable if loading or no active persona
+                aria-label="Chat message input"
               />
               <Button
                 id="send-message"
                 onClick={handleSendMessage}
-                disabled={isLoading || inputValue.trim() === ''}
+                disabled={isLoading || inputValue.trim() === '' || !activePersona}
                 size="icon"
                 className="w-10 h-10"
+                aria-label="Send message"
               >
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                 <span className="sr-only">Send message</span>
               </Button>
             </div>
           </SheetFooter>
@@ -295,22 +369,46 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       </Sheet>
 
       {/* Persona Editor Modal/Sheet */}
-      {activePersona && (
-        <PersonaEditor
-            isOpen={isPersonaEditorOpen}
-            onOpenChange={setIsPersonaEditorOpen}
-            personaId={activePersona.id}
-            onPersonaUpdate={() => setActivePersona(scholarPersonaManager.getActivePersona())} // Refresh active persona on update
-        />
-      )}
+       {/* Pass activePersonaId only if it's not null */}
+       {activePersona?.id && (
+          <PersonaEditor
+             isOpen={isPersonaEditorOpen}
+             onOpenChange={setIsPersonaEditorOpen}
+             personaId={activePersona.id}
+             onPersonaUpdate={() => setActivePersona(scholarPersonaManager.getActivePersona())} // Refresh active persona on update
+          />
+       )}
 
       {/* API Key Manager Modal/Sheet */}
+      {/* Open manager only if providerNeedsKey is set */}
       <ApiKeyManager
-        isOpen={isApiKeyManagerOpen}
+        isOpen={isApiKeyManagerOpen && !!providerNeedsKey}
         onOpenChange={setIsApiKeyManagerOpen}
-        provider={selectedProvider} // Pass the provider needing the key
+        provider={providerNeedsKey || ''} // Pass the provider needing the key
         onKeysUpdated={handleApiKeyUpdate}
       />
     </>
   );
 }
+
+// Function to simulate adding a loading message and returning its ID
+function addLoadingMessage(role: 'assistant' | 'user' = 'assistant'): string {
+    const loadingId = `msg_${Date.now()}_loading`;
+    // Simulate adding the message to the state (replace with actual state update)
+    // setMessages(prev => [...prev, { role, content: "Thinking...", id: loadingId, timestamp: new Date().toISOString(), metadata: { isLoadingPlaceholder: true } }]);
+    console.log("Simulating add loading message with ID:", loadingId);
+    return loadingId;
+}
+
+// Function to simulate replacing a message by ID (replace with actual state update)
+function replaceLoadingMessage(id: string, newContent: string, role: 'assistant' | 'user' = 'assistant', metadata?: Record<string, any>): void {
+    // Simulate replacing the message in the state
+    // setMessages(prev => prev.map(msg => msg.id === id ? { ...msg, content: newContent, metadata: { ...metadata, isLoadingPlaceholder: false } } : msg));
+     console.log(`Simulating replace message ${id} with: ${newContent}`);
+}
+
+// Mock function to get conversation history (replace with actual implementation)
+// function getConversationHistory(id: string): HistoryMessage[] { return []; }
+
+// Mock function to save conversation history (replace with actual implementation)
+// function saveConversationHistory(id: string, history: HistoryMessage[]): void {}

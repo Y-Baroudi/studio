@@ -20,6 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import { scholarPersonaManager, type Persona } from '@/services/persona-manager';
 import { Loader2, Save, Plus, Trash2, Edit2 } from 'lucide-react';
 import { ConceptEditor } from './ConceptEditor'; // Assuming ConceptEditor exists
+import { Badge } from '@/components/ui/badge'; // Import Badge for concept display
+import { cn } from '@/lib/utils';
 
 interface PersonaEditorProps {
   isOpen: boolean;
@@ -41,9 +43,12 @@ export function PersonaEditor({ isOpen, onOpenChange, personaId, onPersonaUpdate
   const loadPersonaData = useCallback(() => {
     if (isEditing && personaId) {
       setIsLoading(true);
+      // Ensure personas are loaded before accessing
+      scholarPersonaManager.loadPersonas(); // Load from storage if not already loaded
       const loadedPersona = scholarPersonaManager.personas[personaId];
       if (loadedPersona) {
-        setPersona(JSON.parse(JSON.stringify(loadedPersona))); // Deep copy to avoid modifying original state
+        // Deep copy to avoid modifying original state unintentionally
+        setPersona(JSON.parse(JSON.stringify(loadedPersona)));
       } else {
         toast({ title: "Error", description: `Persona with ID ${personaId} not found.`, variant: "destructive" });
         onOpenChange(false); // Close if persona not found
@@ -76,7 +81,7 @@ export function PersonaEditor({ isOpen, onOpenChange, personaId, onPersonaUpdate
     }
   }, [isOpen, loadPersonaData]);
 
-  const handleInputChange = (field: keyof Persona, value: any) => {
+  const handleInputChange = (field: keyof Omit<Persona, 'id' | 'created' | 'lastModified' | 'concepts' | 'settings'>, value: string) => {
     setPersona(prev => ({ ...prev, [field]: value }));
   };
 
@@ -98,21 +103,26 @@ export function PersonaEditor({ isOpen, onOpenChange, personaId, onPersonaUpdate
     }
     setIsSaving(true);
     let success = false;
+    let finalPersonaId = personaId; // Keep track of the ID
 
     if (isEditing && personaId) {
-      success = scholarPersonaManager.updatePersona(personaId, persona);
+       // For editing, pass only the updatable fields
+       const { id, created, lastModified, ...updateData } = persona;
+      success = scholarPersonaManager.updatePersona(personaId, updateData);
     } else {
+        // For creation, pass necessary initial fields
       const newId = scholarPersonaManager.createPersona(
-        persona.name,
+        persona.name!, // Name is required
         persona.nameArabic || '',
         persona.description || '',
-        persona.systemPrompt
+        persona.systemPrompt! // Prompt is required
       );
       if (newId) {
+          finalPersonaId = newId; // Store the new ID
           // If creating, update concepts and settings separately after creation
           if (persona.concepts) {
-              Object.entries(persona.concepts).forEach(([id, conceptData]) => {
-                  scholarPersonaManager.updateConcept(newId, id, conceptData);
+              Object.entries(persona.concepts).forEach(([conceptId, conceptData]) => {
+                  scholarPersonaManager.updateConcept(newId, conceptId, conceptData);
               });
           }
           if (persona.settings) {
@@ -133,23 +143,36 @@ export function PersonaEditor({ isOpen, onOpenChange, personaId, onPersonaUpdate
   };
 
   const handleOpenConceptEditor = (conceptId: string | null = null) => {
+      // Ensure we have a valid persona ID before opening the concept editor
+       if (!personaId && !isEditing) {
+            toast({ title: "Save Required", description: "Please save the new persona before adding concepts.", variant: "default" });
+            return; // Don't open if creating new and not saved yet
+       }
       setEditingConceptId(conceptId);
       setIsConceptEditorOpen(true);
   };
 
   const handleConceptUpdate = () => {
-      // Reload persona data to reflect concept changes
+      // Reload persona data to reflect concept changes AFTER the concept editor closes and saves
       loadPersonaData();
+      setIsConceptEditorOpen(false); // Ensure editor is closed
   };
 
-  const handleDeleteConcept = (conceptId: string) => {
-      if (!personaId || !persona.concepts?.[conceptId]) return;
+  const handleDeleteConcept = (conceptIdToDelete: string) => {
+      const currentPersonaId = personaId || persona.id; // Use existing ID or ID from state if creating
+      const conceptToDelete = persona.concepts?.[conceptIdToDelete];
 
-      if (window.confirm(`Are you sure you want to delete the concept "${persona.concepts[conceptId].name}"?`)) {
-          const success = scholarPersonaManager.removeConcept(personaId, conceptId);
+       if (!currentPersonaId || !conceptToDelete) {
+            console.error("Cannot delete concept: Persona ID or concept data missing.", {currentPersonaId, conceptIdToDelete, conceptToDelete});
+            toast({ title: "Error", description: "Could not find concept data to delete.", variant: "destructive" });
+            return;
+       }
+
+      if (window.confirm(`Are you sure you want to delete the concept "${conceptToDelete.name}"?`)) {
+          const success = scholarPersonaManager.removeConcept(currentPersonaId, conceptIdToDelete);
           if (success) {
-              toast({ title: "Concept Deleted", description: `Concept "${persona.concepts[conceptId].name}" removed.` });
-              loadPersonaData(); // Refresh the list
+              toast({ title: "Concept Deleted", description: `Concept "${conceptToDelete.name}" removed.` });
+              loadPersonaData(); // Refresh the list immediately
           } else {
               toast({ title: "Error", description: "Failed to delete concept.", variant: "destructive" });
           }
@@ -174,20 +197,21 @@ export function PersonaEditor({ isOpen, onOpenChange, personaId, onPersonaUpdate
           ) : (
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="grid gap-4 py-4">
+                {/* Persona Details Inputs */}
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="persona-name-input" className="text-right">Name</Label>
+                  <Label htmlFor="persona-name-input" className="text-right">Name*</Label>
                   <Input id="persona-name-input" value={persona.name || ''} onChange={(e) => handleInputChange('name', e.target.value)} className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="persona-arabic-input" className="text-right">Arabic Name</Label>
-                  <Input id="persona-arabic-input" value={persona.nameArabic || ''} onChange={(e) => handleInputChange('nameArabic', e.target.value)} className="col-span-3" />
+                  <Input id="persona-arabic-input" value={persona.nameArabic || ''} onChange={(e) => handleInputChange('nameArabic', e.target.value)} className="col-span-3 font-amiri" />
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
                    <Label htmlFor="persona-desc-input" className="text-right">Description</Label>
                    <Input id="persona-desc-input" value={persona.description || ''} onChange={(e) => handleInputChange('description', e.target.value)} className="col-span-3" />
                  </div>
                 <div className="grid grid-cols-4 items-start gap-4">
-                  <Label htmlFor="system-prompt-input" className="text-right pt-2">Instructions</Label>
+                  <Label htmlFor="system-prompt-input" className="text-right pt-2">Instructions*</Label>
                   <Textarea
                     id="system-prompt-input"
                     value={persona.systemPrompt || ''}
@@ -196,33 +220,60 @@ export function PersonaEditor({ isOpen, onOpenChange, personaId, onPersonaUpdate
                     placeholder="Enter the system prompt (instructions) for the AI..."
                   />
                 </div>
-                 <div className="col-span-4">
-                      <h4 className="font-medium mb-2">Concepts</h4>
-                      <div className="space-y-2 rounded-md border p-4">
+
+                 {/* Concepts Section */}
+                 <div className="col-span-4 mt-4">
+                      <h4 className="font-medium mb-2 text-base">Concepts</h4>
+                      <div className="space-y-2 rounded-md border p-4 bg-muted/30">
+                         {/* List Existing Concepts */}
                           {Object.entries(persona.concepts || {}).map(([id, concept]) => (
-                             <div key={id} className="flex items-center justify-between p-2 rounded bg-muted/50">
-                               <div>
-                                  <p className="text-sm font-medium">{concept.name}</p>
-                                  <p className="text-xs text-muted-foreground truncate max-w-xs">{concept.description}</p>
+                             <div key={id} className="flex items-center justify-between p-2 rounded bg-background shadow-sm">
+                               <div className="flex-1 overflow-hidden mr-2">
+                                  <p className="text-sm font-medium truncate" title={concept.name}>{concept.name}</p>
+                                  <p className="text-xs text-muted-foreground truncate" title={concept.description}>{concept.description}</p>
+                                   {/* Display related verses as badges */}
+                                   {concept.relatedVerses && concept.relatedVerses.length > 0 && (
+                                        <div className="mt-1.5 flex flex-wrap gap-1">
+                                            {concept.relatedVerses.map(verseRef => (
+                                                <Badge key={verseRef} variant="secondary" className="text-xs px-1.5 py-0.5">{verseRef}</Badge>
+                                            ))}
+                                        </div>
+                                   )}
                                </div>
-                               <div className='flex gap-1'>
-                                    <Button variant="ghost" size="icon" className='h-7 w-7' onClick={() => handleOpenConceptEditor(id)}>
+                               <div className='flex gap-1 flex-shrink-0'>
+                                    <Button variant="ghost" size="icon" className='h-7 w-7' onClick={() => handleOpenConceptEditor(id)} aria-label={`Edit concept ${concept.name}`}>
                                         <Edit2 className="h-4 w-4" />
-                                        <span className="sr-only">Edit Concept</span>
                                     </Button>
-                                     <Button variant="ghost" size="icon" className='h-7 w-7 text-destructive hover:text-destructive' onClick={() => handleDeleteConcept(id)}>
+                                     <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className='h-7 w-7 text-destructive hover:text-destructive'
+                                        onClick={() => handleDeleteConcept(id)} // Pass the correct concept ID
+                                        aria-label={`Delete concept ${concept.name}`}
+                                        disabled={isSaving} // Disable while saving persona
+                                      >
                                         <Trash2 className="h-4 w-4" />
-                                         <span className="sr-only">Delete Concept</span>
                                     </Button>
                                </div>
                              </div>
                           ))}
+                          {/* Empty State */}
                           {Object.keys(persona.concepts || {}).length === 0 && (
                               <p className="text-sm text-muted-foreground text-center py-4">No concepts added yet.</p>
                           )}
-                         <Button variant="outline" size="sm" onClick={() => handleOpenConceptEditor(null)} className="mt-2">
+                         {/* Add Concept Button */}
+                         <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleOpenConceptEditor(null)}
+                             className="mt-4 w-full sm:w-auto" // Full width on small screens
+                             disabled={isSaving || (!isEditing && !personaId)} // Disable if saving OR if creating new and not saved yet
+                            >
                             <Plus className="mr-2 h-4 w-4" /> Add Concept
                          </Button>
+                          {(!isEditing && !personaId) && (
+                              <p className="text-xs text-muted-foreground mt-1 text-center sm:text-left">Save the persona first to add concepts.</p>
+                          )}
                       </div>
                  </div>
               </div>
@@ -242,13 +293,14 @@ export function PersonaEditor({ isOpen, onOpenChange, personaId, onPersonaUpdate
       </Dialog>
 
       {/* Concept Editor Modal */}
-       {personaId && ( // Only render ConceptEditor if a persona exists (editing or newly created)
+       {/* Render ConceptEditor only if the main editor is open and we have a persona ID (either editing or just created) */}
+       {(isOpen && (personaId || persona.id)) && (
           <ConceptEditor
               isOpen={isConceptEditorOpen}
               onOpenChange={setIsConceptEditorOpen}
-              personaId={personaId}
+              personaId={personaId!} // Use non-null assertion as we check condition above
               conceptId={editingConceptId} // Pass null for new concept
-              onConceptUpdate={handleConceptUpdate}
+              onConceptUpdate={handleConceptUpdate} // Refresh persona data when concept is saved/updated
           />
        )}
     </>
