@@ -115,8 +115,9 @@ export function Controls({
     }
     setPlaybackError(null); // Clear previous errors
 
-    if (isLoading || isAudioLoading || !audioUrl) {
-        console.warn("Play/Pause blocked:", { isLoading, isAudioLoading, audioUrl: !!audioUrl });
+    // Use audioActionDisabled logic for checks
+    if (isLoading || isAudioLoading || !audioUrl || playbackError) {
+        console.warn("Play/Pause blocked:", { isLoading, isAudioLoading, audioUrl: !!audioUrl, hasError: !!playbackError });
         if (!audioUrl && !isLoading && !isAudioLoading) {
             const msg = "Audio not available for this verse or reciter.";
             console.log(msg);
@@ -126,6 +127,8 @@ export function Controls({
             console.log("Audio is still loading, cannot play yet.");
         } else if (isLoading) {
             console.log("App data is loading, cannot play yet.");
+        } else if (playbackError) {
+            console.log("Playback error exists, cannot play yet.", playbackError);
         }
         return;
     }
@@ -172,7 +175,7 @@ export function Controls({
             });
     }
   }, [
-    isPlaying, isLoading, audioUrl, isAudioLoading, onError, audioRef,
+    isPlaying, isLoading, audioUrl, isAudioLoading, playbackError, onError, audioRef,
     updatePlayingVerse, isRepeatingVerse, onRepeatVerseToggle, verseNumber
   ]);
 
@@ -223,7 +226,7 @@ export function Controls({
         console.log("Audio 'play' event triggered.");
         setIsPlaying(true);
         setIsAudioLoading(false);
-        setPlaybackError(null);
+        setPlaybackError(null); // Clear error on successful play
         onPlay(); // Notify parent
     };
     const handlePause = () => {
@@ -243,7 +246,7 @@ export function Controls({
         const target = e.target as HTMLAudioElement;
         const audioError = target.error;
         console.error("Audio 'error' event triggered:", e);
-        console.error("Audio Element Error Object:", audioError);
+        console.error("Audio Element Error Object:", JSON.stringify(audioError)); // Stringify to see potential empty object
 
         let errorMsg = "An error occurred during playback.";
         if (audioError) {
@@ -255,6 +258,8 @@ export function Controls({
             default: errorMsg = `Unknown audio error (Code: ${audioError.code}).`;
             }
              errorMsg += ` URL: ${target.currentSrc || 'N/A'}`;
+        } else if (e instanceof ErrorEvent && e.message) {
+            errorMsg = `Playback error: ${e.message}`;
         } else {
              errorMsg += ` No specific error code. Event type: ${e.type}.`;
         }
@@ -363,7 +368,7 @@ export function Controls({
                 // console.log("Audio source unchanged, readyState sufficient or error exists, setting loading false.");
                 setIsAudioLoading(false);
             }
-            // Clear playback error if audioUrl is valid and was previously set
+            // Clear playback error if audioUrl is valid and was previously set AND no error exists on element
             if (audioUrl && !audioElement.error && playbackError) {
                  console.log("Clearing playback error as audio URL is now valid and no error present.");
                  setPlaybackError(null);
@@ -391,7 +396,7 @@ export function Controls({
 
 
   // --- Combined Disabled Logic ---
-  const navDisabled = isLoading;
+  const navDisabled = isLoading || !quranMeta; // Disable nav if metadata not loaded or parent says loading
   // Disable play/pause if app is loading, audio is loading, or if there's no URL or an error
   const audioActionDisabled = isLoading || isAudioLoading || !audioUrl || !!playbackError;
 
@@ -454,16 +459,22 @@ export function Controls({
                  <DropdownMenu>
                    <DropdownMenuTrigger asChild>
                      <Button
-                       variant="ghost"
-                       size="sm"
-                       className="flex items-center gap-1.5 px-2 h-9 text-sm flex-grow sm:flex-grow-0" // Flex-grow for smaller screens
+                       variant="outline" // Changed from ghost to outline
+                       size="sm" // Use sm size for consistency
+                       className="flex items-center gap-1.5 px-2 h-9 text-sm flex-grow sm:flex-grow-0 min-w-[150px] justify-between" // Added min-width and justify-between
                        disabled={isLoadingReciters || reciters.length === 0 || navDisabled}
                        aria-label="Select Reciter"
                      >
                        {isLoadingReciters ? (
-                         <> <Loader2 className="h-4 w-4 animate-spin" /> Loading... </>
+                         <> <Loader2 className="h-4 w-4 animate-spin mr-1" /> Loading... </> // Keep loader centered
                        ) : (
-                         <> <MicVocal className="h-4 w-4 text-muted-foreground"/> <span className="truncate max-w-[120px] sm:max-w-[150px]">{selectedReciterName}</span> <ChevronDown className="h-4 w-4 opacity-50 ml-auto sm:ml-1"/> </> // Adjust max-width
+                         <>
+                            <span className="flex items-center gap-1.5 truncate"> {/* Wrapper for icon and text */}
+                                <MicVocal className="h-4 w-4 text-muted-foreground flex-shrink-0"/>
+                                <span className="truncate">{selectedReciterName}</span>
+                            </span>
+                            <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0"/>
+                         </>
                        )}
                      </Button>
                    </DropdownMenuTrigger>
@@ -556,3 +567,4 @@ export function Controls({
     </Card>
   );
 }
+
