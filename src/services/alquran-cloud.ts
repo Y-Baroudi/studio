@@ -1,9 +1,11 @@
 
-
 /**
  * @fileoverview Service functions for interacting with the alquran.cloud API v1.
  * Provides functions to fetch Quran metadata, reciters, translations, and verse/surah data.
  */
+
+import type { VerseData } from '@/data/quran-fallback'; // Import fallback data type
+import { QURAN_FALLBACK_DATA } from '@/data/quran-fallback'; // Import fallback data
 
 /**
  * Represents metadata for a Surah (chapter).
@@ -300,7 +302,7 @@ export async function getVerse(
     }
 
     const result = await response.json();
-    console.log("API Response for", verseReference, editions, ":", result); // Debugging response
+    // console.log("API Response for", verseReference, editions, ":", result); // Verbose debugging
 
     // Even with 404, the body might contain data for *some* editions
     if (result.code !== 200 && response.status !== 404) {
@@ -352,9 +354,15 @@ export async function getVerse(
     if (reciterIdentifier) {
         if (audioEditionData) {
             audioUrl = audioEditionData.audio ?? null;
-            if (!audioUrl) console.warn(`Audio URL null for reciter ${reciterIdentifier} in verse ${verseReference}.`);
+            // Construct standard CDN URL as a backup if audio field is missing but edition was requested/returned
+            if (!audioUrl) {
+                 console.warn(`Audio URL null in API response for reciter ${reciterIdentifier} in verse ${verseReference}. Constructing CDN URL.`);
+                 audioUrl = `https://cdn.alquran.cloud/media/audio/ayah/${reciterIdentifier}/${absoluteVerseNumber}`;
+            }
         } else {
           console.warn(`Requested reciter edition ${reciterIdentifier} not found in response for verse ${verseReference}. Available: ${availableIdentifiers.join(', ')}`);
+           // Construct standard CDN URL as a backup if audio edition wasn't returned at all
+          audioUrl = `https://cdn.alquran.cloud/media/audio/ayah/${reciterIdentifier}/${absoluteVerseNumber}`;
         }
     }
 
@@ -420,6 +428,7 @@ export async function getTranslations(): Promise<Translation[]> {
 /**
  * Fetches all verses for a given Surah number and specified editions.
  * Primarily used for continuous scrolling where fetching individual verses would be inefficient.
+ * Handles fallback data for Surahs 113 and 114.
  *
  * @param surahNumber The number of the Surah (1-114).
  * @param translationIdentifier The identifier for the desired translation edition.
@@ -459,11 +468,20 @@ export async function getSurahData(
         const response = await fetch(apiUrl, { next: { revalidate: 86400 } }); // Cache daily
 
         if (!response.ok) {
+            // Handle specific errors for short surahs (113, 114)
+            if (surahNumber === 113 || surahNumber === 114) {
+                console.warn(`API error fetching Surah ${surahNumber} (${editions}), using fallback data.`);
+                return processFallbackData(surahNumber, translationIdentifier, reciterIdentifier, metaData);
+            }
             throw new Error(`API error fetching surah ${surahNumber} (${editions}): ${response.status} ${response.statusText}`);
         }
 
         const result = await response.json();
         if (result.code !== 200 || !result.data || !Array.isArray(result.data)) {
+            if (surahNumber === 113 || surahNumber === 114) {
+                 console.warn(`Invalid data format for Surah ${surahNumber} (${editions}), using fallback data.`);
+                 return processFallbackData(surahNumber, translationIdentifier, reciterIdentifier, metaData);
+            }
             throw new Error(`Invalid data format or non-200 code (${result.code}) received for Surah ${surahNumber} (${editions}).`);
         }
 
@@ -477,7 +495,7 @@ export async function getSurahData(
 
             editionData.ayahs.forEach((ayah: any) => {
                 const ayahNum = ayah?.numberInSurah;
-                // Fix: API response might have number instead of numberInSurah for ayah identifier
+                // API response might have number instead of numberInSurah for ayah identifier
                 const actualAyahNum = typeof ayahNum === 'number' ? ayahNum : ayah?.number;
                 if (typeof actualAyahNum !== 'number') return;
 
@@ -489,6 +507,12 @@ export async function getSurahData(
                 }
                 if (ayah.audio) {
                     audioMap[actualAyahNum][editionId] = ayah.audio;
+                } else if (reciterIdentifier && editionId === reciterIdentifier) {
+                    // Construct audio URL if API response doesn't include it
+                    const absVerse = surahAyahToAbsoluteVerse(surahNumber, actualAyahNum, metaData);
+                    if (absVerse) {
+                       audioMap[actualAyahNum][editionId] = `https://cdn.alquran.cloud/media/audio/ayah/${reciterIdentifier}/${absVerse}`;
+                    }
                 }
             });
          });
@@ -530,12 +554,67 @@ export async function getSurahData(
          // Sanity check
         if (verses.length !== targetSurahMeta.numberOfAyahs) {
              console.warn(`Mismatch in expected (${targetSurahMeta.numberOfAyahs}) and parsed (${verses.length}) verses for Surah ${surahNumber}.`);
+             // Use fallback if verse count mismatch occurs for short surahs
+             if (surahNumber === 113 || surahNumber === 114) {
+                 console.warn(`Using fallback data for Surah ${surahNumber} due to verse count mismatch.`);
+                 return processFallbackData(surahNumber, translationIdentifier, reciterIdentifier, metaData);
+             }
         }
 
         return verses;
 
     } catch (error) {
         console.error(`Failed to fetch or process data for Surah ${surahNumber} (${editions}):`, error);
-        return null;
+         // Use fallback data for Surahs 113 and 114 on any fetch error
+        if (surahNumber === 113 || surahNumber === 114) {
+            console.warn(`Using fallback data for Surah ${surahNumber} due to fetch/process error.`);
+            return processFallbackData(surahNumber, translationIdentifier, reciterIdentifier, metaData);
+        }
+        return null; // Return null for other surahs on error
     }
+}
+
+/**
+ * Processes fallback data for Surahs 113 and 114.
+ * @param surahNumber The surah number (113 or 114).
+ * @param translationIdentifier The selected translation identifier.
+ * @param reciterIdentifier The selected reciter identifier.
+ * @param metaData Quran metadata.
+ * @returns An array of Verse objects using fallback data, or null if metadata is missing.
+ */
+function processFallbackData(
+    surahNumber: 113 | 114,
+    translationIdentifier: string | null,
+    reciterIdentifier: string | null,
+    metaData: QuranMeta | null
+): Verse[] | null {
+    if (!metaData) return null;
+    const targetSurahMeta = metaData.surahs.references.find(s => s.number === surahNumber);
+    if (!targetSurahMeta) return null;
+
+    const fallback: VerseData | undefined = QURAN_FALLBACK_DATA[surahNumber];
+    if (!fallback) return null;
+
+    const verses: Verse[] = [];
+    for (const verseData of fallback.verses) {
+        const absoluteVerse = surahAyahToAbsoluteVerse(surahNumber, verseData.number, metaData);
+        if (!absoluteVerse) continue;
+
+        const verseReference = `${surahNumber}:${verseData.number}`;
+        const audioUrl = reciterIdentifier ? `https://cdn.alquran.cloud/media/audio/ayah/${reciterIdentifier}/${absoluteVerse}` : null;
+
+        // NOTE: Using hardcoded fallback translation here. Ideally, should fetch if possible.
+        const englishTranslation = verseData.translation;
+
+        verses.push({
+            verseNumber: absoluteVerse,
+            verseReference: verseReference,
+            ayahNumberInSurah: verseData.number,
+            arabicText: verseData.text,
+            englishTranslation: englishTranslation, // Use fallback translation
+            audioUrl: audioUrl,
+            surah: targetSurahMeta,
+        });
+    }
+    return verses;
 }
