@@ -2,105 +2,104 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetClose,
+} from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Tags, X } from 'lucide-react';
-import { getAllConcepts, getVersesForConcept, type Concept } from '@/services/concepts'; // Ensure types are imported
+import { getAllConcepts, getVersesForConcept, type Concept } from '@/services/concepts'; // Import concept service functions and types
+import { Loader2, X } from 'lucide-react';
 
 interface ConceptExplorerProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onVerseNavigate: (surah: number, verse: number) => void; // Callback to navigate to a verse
+  onVerseNavigate: (surah: number, verse: number) => void;
+}
+
+interface VerseReference {
+  surahNumber: number;
+  ayahNumberInSurah: number;
+  absoluteVerseNumber: number;
 }
 
 export function ConceptExplorer({ isOpen, onOpenChange, onVerseNavigate }: ConceptExplorerProps) {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null);
-  const [connectedVerses, setConnectedVerses] = useState<{ surahNumber: number; ayahNumberInSurah: number; absoluteVerseNumber: number }[]>([]);
-  const [isLoadingConcepts, setIsLoadingConcepts] = useState(false);
-  const [isLoadingVerses, setIsLoadingVerses] = useState(false);
+  const [relatedVerses, setRelatedVerses] = useState<VerseReference[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load all concepts when the explorer opens
   useEffect(() => {
     if (isOpen) {
-      setIsLoadingConcepts(true);
-      const allConcepts = getAllConcepts(); // Fetch concepts from service
-      setConcepts(allConcepts);
-      setIsLoadingConcepts(false);
-      // Reset selected concept when opening
-      setSelectedConcept(null);
-      setConnectedVerses([]);
+      setIsLoading(true);
+      // Load concepts when the explorer opens
+      const loadedConcepts = getAllConcepts();
+      setConcepts(loadedConcepts);
+      setSelectedConcept(null); // Reset selection when opening
+      setRelatedVerses([]);
+      setIsLoading(false);
     }
   }, [isOpen]);
 
-  // Load verses when a concept is selected
-  useEffect(() => {
-    if (selectedConcept) {
-      setIsLoadingVerses(true);
-      const verses = getVersesForConcept(selectedConcept.id);
-      setConnectedVerses(verses);
-      setIsLoadingVerses(false);
-    } else {
-      setConnectedVerses([]); // Clear verses if no concept is selected
-    }
-  }, [selectedConcept]);
-
   const handleConceptSelect = (concept: Concept) => {
     setSelectedConcept(concept);
+    // Fetch verses related to the selected concept
+    const verses = getVersesForConcept(concept.id);
+    setRelatedVerses(verses);
   };
 
   const handleVerseClick = (surah: number, verse: number) => {
     onVerseNavigate(surah, verse);
-    // Optionally close the explorer after navigation
-    // onOpenChange(false);
+    onOpenChange(false); // Close explorer after navigation
   };
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[90vw] sm:w-[500px] flex flex-col p-0" side="left">
+      <SheetContent className="sm:max-w-lg w-[90vw] flex flex-col p-0" side="bottom">
         <SheetHeader className="p-4 border-b flex flex-row justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Tags className="h-5 w-5 text-primary" />
-            <SheetTitle>Concept Explorer</SheetTitle>
+          <div className="flex flex-col">
+             <SheetTitle className="text-lg font-semibold">Concept Explorer</SheetTitle>
+             <SheetDescription className="text-xs">Browse concepts and related verses.</SheetDescription>
           </div>
           <SheetClose asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Close Concept Explorer">
-              <X className="h-4 w-4" />
-            </Button>
+             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Close Concept Explorer">
+               <X className="h-4 w-4" />
+             </Button>
           </SheetClose>
         </SheetHeader>
 
-        <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
-          {/* Concept List (Left Pane or Top on Mobile) */}
-          <ScrollArea className="p-4 border-b md:border-r md:border-b-0 md:w-1/3 h-1/3 md:h-full">
-            <h4 className="text-sm font-medium mb-3 text-muted-foreground">Available Concepts</h4>
-            {isLoadingConcepts ? (
-              <div className="flex justify-center items-center h-20">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Panel: Concept List */}
+          <ScrollArea className="w-1/3 border-r p-4 overflow-y-auto">
+            <h4 className="text-sm font-medium mb-3 text-muted-foreground">Concepts</h4>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-32">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : concepts.length === 0 ? (
-               <p className="text-xs text-muted-foreground text-center">No concepts found.</p>
+              <p className="text-xs text-muted-foreground text-center">No concepts found.</p>
             ) : (
               <div className="space-y-2">
-                {concepts.map(concept => (
+                {concepts.map((concept) => (
                   <Button
                     key={concept.id}
-                    variant={selectedConcept?.id === concept.id ? "secondary" : "ghost"}
+                    variant={selectedConcept?.id === concept.id ? 'secondary' : 'ghost'}
                     size="sm"
-                    className="w-full justify-start h-auto py-1.5 px-2 text-left"
+                    className="w-full justify-start text-left h-auto py-1.5 px-2"
                     onClick={() => handleConceptSelect(concept)}
                   >
-                     <div className='flex items-center gap-2 w-full'>
-                        <span
-                            className="h-3 w-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: concept.color }}
-                            aria-hidden="true"
-                         />
-                        <span className="flex-grow truncate text-xs">{concept.name}</span>
-                         <Badge variant="outline" className='text-xs px-1 py-0'>{getVersesForConcept(concept.id).length}</Badge>
+                    <div className='flex items-center gap-2'>
+                         <span
+                             className="inline-block h-3 w-3 rounded-full flex-shrink-0"
+                             style={{ backgroundColor: concept.color || '#ccc' }}
+                             title={concept.name}
+                         ></span>
+                         <span className="text-sm truncate">{concept.name}</span>
                      </div>
                   </Button>
                 ))}
@@ -108,50 +107,41 @@ export function ConceptExplorer({ isOpen, onOpenChange, onVerseNavigate }: Conce
             )}
           </ScrollArea>
 
-          {/* Concept Details & Verses (Right Pane or Bottom on Mobile) */}
-          <ScrollArea className="flex-grow p-4 md:w-2/3">
+          {/* Right Panel: Concept Details and Verses */}
+          <ScrollArea className="w-2/3 p-4 overflow-y-auto">
             {selectedConcept ? (
               <>
-                <div className="mb-4">
-                     <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                         <span
-                            className="h-4 w-4 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: selectedConcept.color }}
-                             aria-hidden="true"
-                         />
-                        {selectedConcept.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{selectedConcept.description}</p>
+                <div className='flex items-center gap-2 mb-1'>
+                   <span
+                       className="inline-block h-4 w-4 rounded-full flex-shrink-0"
+                       style={{ backgroundColor: selectedConcept.color || '#ccc' }}
+                   ></span>
+                   <h3 className="text-base font-semibold">{selectedConcept.name}</h3>
                 </div>
+                <p className="text-sm text-muted-foreground mb-4">{selectedConcept.description}</p>
 
-                <h4 className="text-sm font-medium mb-3 text-muted-foreground">Connected Verses</h4>
-                {isLoadingVerses ? (
-                  <div className="flex justify-center items-center h-20">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : connectedVerses.length === 0 ? (
-                   <p className="text-xs text-muted-foreground">No verses are currently connected to this concept.</p>
+                <h4 className="text-sm font-medium mb-3 text-muted-foreground">Connected Verses ({relatedVerses.length})</h4>
+                {relatedVerses.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No verses connected to this concept yet.</p>
                 ) : (
                   <div className="space-y-2">
-                    {connectedVerses.map(verse => (
-                      <Card
-                        key={`${verse.surahNumber}:${verse.ayahNumberInSurah}`}
-                        className="cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => handleVerseClick(verse.surahNumber, verse.ayahNumberInSurah)}
+                    {relatedVerses.map((verseRef) => (
+                      <Button
+                        key={`${verseRef.surahNumber}:${verseRef.ayahNumberInSurah}`}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left h-auto py-1.5 px-2 text-xs"
+                        onClick={() => handleVerseClick(verseRef.surahNumber, verseRef.ayahNumberInSurah)}
                       >
-                        <CardContent className="p-3 text-xs">
-                          <span className="font-medium">Verse {verse.surahNumber}:{verse.ayahNumberInSurah}</span>
-                          {/* Optional: Add a snippet of the verse text here if fetched */}
-                          {/* <p className="text-muted-foreground line-clamp-1 mt-1">Snippet...</p> */}
-                        </CardContent>
-                      </Card>
+                        Surah {verseRef.surahNumber}, Verse {verseRef.ayahNumberInSurah}
+                      </Button>
                     ))}
                   </div>
                 )}
               </>
             ) : (
-              <div className="flex justify-center items-center h-full text-muted-foreground text-sm">
-                Select a concept to see details and connected verses.
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-muted-foreground">Select a concept to see details.</p>
               </div>
             )}
           </ScrollArea>
