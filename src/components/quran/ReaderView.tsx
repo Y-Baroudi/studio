@@ -7,18 +7,18 @@ import {
   fetchTranslations,
   fetchQuranMeta,
   fetchSurahData,
-  VerseData,
-  Translation,
-  Reciter,
-  SurahMeta,
-  QuranMeta,
+  type VerseData,
+  type Translation,
+  type Reciter,
+  type SurahMeta,
+  type QuranMeta,
 } from '@/services/alquran-cloud';
 import { VerseDisplay } from '@/components/quran/VerseDisplay';
 import { Controls } from '@/components/quran/Controls';
 import { SurahList } from '@/components/quran/SurahList';
-import { SettingsPanel } from '@/components/quran/SettingsPanel';
+import { SettingsPanel } from '@/components/quran/SettingsPanel'; // Corrected import path
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import {
   Settings,
   ChevronDown,
@@ -36,8 +36,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { JUZ_STARTS, PAGE_STARTS, getSurahAndVerseFromAbsolute } from '@/data/quranMappings';
-import { saveNote, getNoteForVerse, checkNoteExists } from '@/services/notes';
-import { getAllConcepts, getConceptsForVerse, tagVerseWithConcepts, untagVerseConcepts } from '@/services/concepts';
+import { saveNote, getNoteForVerse, checkNoteExists, deleteNoteForVerse as serviceDeleteNote } from '@/services/notes';
+import { getAllConcepts, getConceptsForVerse, tagVerseWithConcepts, untagVerseConcepts as serviceUntagVerseConcepts } from '@/services/concepts';
 import { NotesSidebar } from '@/components/quran/NotesSidebar';
 import { ConceptExplorer } from '@/components/quran/ConceptExplorer';
 import { ChatPanel } from '@/components/chat/ChatPanel';
@@ -45,15 +45,14 @@ import { ChatPanel } from '@/components/chat/ChatPanel';
 
 // Default values
 const DEFAULT_SURAH_NUMBER = 1;
-const VERSES_TO_LOAD_AT_ONCE = 20; // Number of verses to fetch/render at a time
+const VERSES_TO_LOAD_AT_ONCE = 20;
 
-// Component State Interface
 interface ReaderViewState {
   quranMeta: QuranMeta | null;
-  surahData: Map<number, SurahMeta>; // Cache for surah metadata
+  surahData: Map<number, SurahMeta>;
   displayedVerses: VerseData[];
   currentSurahNumber: number;
-  currentVerseNumber: number; // Highlighted/selected verse number within the current surah
+  currentVerseNumber: number;
   reciters: Reciter[];
   selectedReciter: string;
   translations: Translation[];
@@ -61,26 +60,26 @@ interface ReaderViewState {
   fontSize: number;
   arabicFontSize: number;
   lineHeight: number;
-  isLoading: boolean; // Loading entire surah
-  isDisplayLoading: boolean; // Loading next batch of verses
+  isLoading: boolean;
+  isDisplayLoading: boolean;
   displayError: string | null;
   isSurahListOpen: boolean;
   isSettingsOpen: boolean;
   isNotesSidebarOpen: boolean;
-  isConceptExplorerOpen: boolean; // State for concept explorer visibility
-  isChatPanelOpen: boolean; // State for chat panel visibility
-  noteTakingVerse: { surah: number; verse: number } | null; // Verse for which notes are being taken
-  currentPlayingVerse: { surah: number; verse: number } | null; // Tracks which verse is playing audio
-  activeVerseForChat: VerseData | null; // Verse context for chat panel
+  isConceptExplorerOpen: boolean;
+  isChatPanelOpen: boolean;
+  noteTakingVerse: { surah: number; verse: number } | null;
+  currentPlayingVerse: { surah: number; verse: number } | null;
+  activeVerseForChat: VerseData | null;
 }
 
-// Helper to calculate absolute verse number
 const calculateAbsoluteVerseNumber = (surahNumber: number, verseNumberInSurah: number, quranMeta: QuranMeta | null): number | null => {
     if (!quranMeta || !quranMeta.surahs || quranMeta.surahs.length === 0) return null;
     let absoluteVerse = 0;
     for (let i = 0; i < surahNumber - 1; i++) {
-        if (!quranMeta.surahs[i]) return null; // Safety check
-        absoluteVerse += quranMeta.surahs[i].numberOfAyahs;
+        const surahInfo = quranMeta.surahs[i];
+        if (!surahInfo) return null;
+        absoluteVerse += surahInfo.numberOfAyahs;
     }
     return absoluteVerse + verseNumberInSurah;
 };
@@ -98,8 +97,8 @@ export function ReaderView() {
     translations: [],
     selectedTranslation: 'en.clearquran',
     fontSize: 16,
-    arabicFontSize: 24,
-    lineHeight: 1.8,
+    arabicFontSize: 28, // Increased default Arabic font size
+    lineHeight: 1.8, // Default line height for Arabic
     isLoading: true,
     isDisplayLoading: false,
     displayError: null,
@@ -117,9 +116,12 @@ export function ReaderView() {
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const surahLoadingRef = useRef(false);
   const verseLoadingRef = useRef(false);
+  const mainScrollContainerRef = useRef<HTMLDivElement>(null);
+
 
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
       threshold: 0.1,
+      root: mainScrollContainerRef.current, // Use main scroll container as root
   });
 
   const fetchInitialData = useCallback(async () => {
@@ -157,7 +159,7 @@ export function ReaderView() {
         variant: "destructive",
       });
     }
-  }, [toast]); // Removed loadSurah from dependency array as it depends on state updated within fetchInitialData
+  }, [toast]);
 
   const loadSurah = useCallback(async (surahNumber: number, overwrite = false) => {
       if (surahLoadingRef.current && !overwrite) {
@@ -173,9 +175,16 @@ export function ReaderView() {
 
       try {
           const data = await fetchSurahData(surahNumber, state.selectedTranslation);
+          const surahMetaFromData = data.meta || state.quranMeta?.surahs.find(s => s.number === surahNumber);
+
+          if (!surahMetaFromData) {
+            throw new Error(`Metadata not found for Surah ${surahNumber}`);
+          }
+
+
           setState(prev => ({
               ...prev,
-              surahData: prev.surahData.set(surahNumber, data.meta),
+              surahData: prev.surahData.set(surahNumber, surahMetaFromData),
               displayedVerses: overwrite ? data.verses.slice(0, VERSES_TO_LOAD_AT_ONCE) : [...prev.displayedVerses, ...data.verses],
               currentSurahNumber: surahNumber,
           }));
@@ -199,7 +208,7 @@ export function ReaderView() {
           setState(prev => ({ ...prev, isLoading: false }));
            surahLoadingRef.current = false;
       }
-  }, [state.selectedTranslation, toast]);
+  }, [state.selectedTranslation, toast, state.quranMeta]);
 
   const loadMoreVerses = useCallback(async () => {
       if (verseLoadingRef.current || state.isLoading || state.isDisplayLoading) return;
@@ -245,7 +254,7 @@ export function ReaderView() {
 
 
   const handleSurahChange = (surahNumber: number) => {
-      if (surahNumber === state.currentSurahNumber && !state.isLoading) { // Prevent reload if already loading or same surah
+      if (surahNumber === state.currentSurahNumber && !state.isLoading) {
            setState(prev => ({ ...prev, isSurahListOpen: false }));
           return;
       }
@@ -257,10 +266,10 @@ export function ReaderView() {
        setState(prev => ({
            ...prev,
            currentVerseNumber: verse,
-           ...(options.highlightOnly ? {} : { currentPlayingVerse: null }) // Reset audio if not highlight only
+           ...(options.highlightOnly ? {} : { currentPlayingVerse: null })
        }));
 
-       if (options.highlightOnly) return; // Skip scrolling if only highlighting
+       if (options.highlightOnly && !state.currentPlayingVerse) return;
 
        const targetVerseElement = document.querySelector(`.verse-container[data-surah="${surah}"][data-verse="${verse}"]`);
        if (targetVerseElement && scrollViewportRef.current) {
@@ -269,15 +278,14 @@ export function ReaderView() {
             const viewportRect = scrollViewportRef.current.getBoundingClientRect();
 
             let scrollTop;
-            if (options.center) {
+            if (options.center || (state.currentPlayingVerse && state.currentPlayingVerse.surah === surah && state.currentPlayingVerse.verse === verse)) {
                 scrollTop = scrollViewportRef.current.scrollTop + verseRect.top - viewportRect.top - (viewportRect.height / 2) + (verseRect.height / 2) - headerHeight;
             } else {
-                // Scroll just enough to bring it into view, considering the fixed header
                 const offset = verseRect.top - viewportRect.top - headerHeight;
-                if (offset < 0 || verseRect.bottom > viewportRect.bottom) { // If not fully visible
+                if (offset < 0 || verseRect.bottom > viewportRect.bottom) {
                      scrollTop = scrollViewportRef.current.scrollTop + offset;
                 } else {
-                    return; // Already visible, no scroll needed
+                    return;
                 }
             }
 
@@ -288,11 +296,9 @@ export function ReaderView() {
        } else {
             if (surah !== state.currentSurahNumber) {
                 handleSurahChange(surah);
-                // Defer scrolling until surah loaded, via useEffect perhaps or a callback mechanism
-                // For now, it will scroll to top of new surah, then user can click verse.
             }
        }
-   }, [state.currentSurahNumber, handleSurahChange]);
+   }, [state.currentSurahNumber, state.currentPlayingVerse]);
 
 
   const handleReciterChange = (identifier: string) => {
@@ -300,7 +306,7 @@ export function ReaderView() {
      const audioEl = document.getElementById('quran-audio-player') as HTMLAudioElement | null;
      if (audioEl) {
          audioEl.pause();
-         audioEl.src = ''; // Clear src to stop current audio
+         audioEl.src = '';
          audioEl.currentTime = 0;
      }
   };
@@ -320,13 +326,13 @@ export function ReaderView() {
   };
 
    const handleFontSizeChange = (newSize: number) => {
-       setState(prev => ({ ...prev, fontSize: Math.max(10, Math.min(32, newSize)) }));
+       setState(prev => ({ ...prev, fontSize: Math.max(10, Math.min(48, newSize)) }));
    };
    const handleArabicFontSizeChange = (newSize: number) => {
-       setState(prev => ({ ...prev, arabicFontSize: Math.max(16, Math.min(48, newSize)) }));
+       setState(prev => ({ ...prev, arabicFontSize: Math.max(16, Math.min(60, newSize)) }));
    };
    const handleLineHeightChange = (newSize: number) => {
-       setState(prev => ({ ...prev, lineHeight: Math.max(1.2, Math.min(2.5, newSize)) }));
+       setState(prev => ({ ...prev, lineHeight: Math.max(1.2, Math.min(3.0, newSize)) }));
    };
 
     const toggleNotesSidebar = (surah?: number, verse?: number) => {
@@ -385,12 +391,50 @@ export function ReaderView() {
          setState(prev => ({
              ...prev,
              currentPlayingVerse: isPlaying ? { surah, verse } : null,
-             currentVerseNumber: verse,
+             currentVerseNumber: verse, // Update current verse on play/pause
          }));
          if (isPlaying) {
              handleVerseSelectAndScroll(surah, verse, { highlightOnly: false, center: true });
          }
      }, [handleVerseSelectAndScroll]);
+
+    const handleNoteSave = (surah: number, verse: number, text: string, tags: string[]) => {
+        const absVerseNum = calculateAbsoluteVerseNumber(surah, verse, state.quranMeta);
+        if (absVerseNum === null) {
+            toast({ title: "Error", description: "Could not save note. Invalid verse reference.", variant: "destructive"});
+            return;
+        }
+        saveNote(absVerseNum, surah, verse, text, tags);
+        if (tags.length > 0) {
+            tagVerseWithConcepts(surah, verse, absVerseNum, tags);
+        }
+        setState(prev => ({...prev})); // Force re-render to update note indicators
+        toast({ title: "Note Saved", description: `Note for ${surah}:${verse} saved.`});
+    };
+
+    const handleNoteDelete = (surah: number, verse: number) => {
+        const absVerseNum = calculateAbsoluteVerseNumber(surah, verse, state.quranMeta);
+        if (absVerseNum === null) {
+            toast({ title: "Error", description: "Could not delete note. Invalid verse reference.", variant: "destructive"});
+            return;
+        }
+        serviceDeleteNote(absVerseNum);
+        // Optionally untag concepts if they were tied to the note, or handle separately.
+        // For now, concepts are independent of notes, so no untagging here.
+        setState(prev => ({...prev})); // Force re-render
+        toast({ title: "Note Deleted", description: `Note for ${surah}:${verse} deleted.`});
+    };
+
+    const handleConceptUntag = (surah: number, verse: number, conceptId: string) => {
+        const absVerseNum = calculateAbsoluteVerseNumber(surah, verse, state.quranMeta);
+         if (absVerseNum === null) {
+            toast({ title: "Error", description: "Could not untag concept. Invalid verse reference.", variant: "destructive"});
+            return;
+        }
+        serviceUntagVerseConcepts(surah, verse, [conceptId]); // Pass as array
+        setState(prev => ({...prev})); // Force re-render
+        toast({ title: "Concept Untagged", description: `Concept removed from ${surah}:${verse}.`});
+    };
 
 
    const absoluteVerseNum = state.quranMeta ? calculateAbsoluteVerseNumber(state.currentSurahNumber, state.currentVerseNumber, state.quranMeta) : 0;
@@ -400,13 +444,13 @@ export function ReaderView() {
 
   return (
       <TooltipProvider>
-         <div className="flex h-screen flex-col bg-background text-foreground">
+         <div className="flex h-screen flex-col bg-background text-foreground" ref={mainScrollContainerRef}>
                <header className="app-main-header sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                  <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
                    <div className="flex items-center gap-1 md:gap-4">
                        <Sheet open={state.isSurahListOpen} onOpenChange={(isOpen) => setState(prev => ({ ...prev, isSurahListOpen: isOpen }))}>
                           <SheetTrigger asChild>
-                              <Button variant="ghost" size="icon" className="shrink-0" aria-label="Toggle Surah List">
+                              <Button variant="ghost" size="icon" className="shrink-0 md:hidden" aria-label="Toggle Surah List">
                                    <Menu className="h-5 w-5" />
                               </Button>
                           </SheetTrigger>
@@ -461,16 +505,14 @@ export function ReaderView() {
                                    <SurahList
                                        surahs={state.quranMeta.surahs}
                                        currentSurah={state.currentSurahNumber}
-                                       onSurahSelect={handleSurahChange}
+                                       onSurahSelect={handleSurahChange} // This correctly calls loadSurah
                                    />
                                ) : (
                                     <div className="flex-1 flex items-center justify-center text-muted-foreground">
                                       <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading Surahs...
                                    </div>
                                )}
-                               <SheetClose asChild>
-                                    <Button variant="outline" className="m-4">Close</Button>
-                               </SheetClose>
+                                <SheetClose asChild><Button variant="outline" className="m-4">Close</Button></SheetClose>
                            </SheetContent>
                        </Sheet>
 
@@ -527,7 +569,7 @@ export function ReaderView() {
                  </div>
              </header>
 
-              <main className="flex-1 overflow-hidden flex flex-col">
+              <main className="flex-1 overflow-hidden flex flex-col relative">
                  {currentSurahMeta && (
                      <div className="surah-display-header sticky top-16 z-30 w-full border-b bg-background/80 backdrop-blur p-4 shadow-sm">
                           <div className="container flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
@@ -544,7 +586,7 @@ export function ReaderView() {
                                   </div>
                               </div>
                               <div className="text-right text-xs text-muted-foreground flex flex-col items-end mt-1 sm:mt-0">
-                                   <p>{currentSurahMeta.revelationType}</p>
+                                   <p className="italic">{currentSurahMeta.revelationType}</p>
                                    <p>{currentSurahMeta.numberOfAyahs} Ayahs</p>
                               </div>
                           </div>
@@ -574,26 +616,33 @@ export function ReaderView() {
                      )}
 
                      <div className="container py-4 px-2 sm:px-4 md:px-6">
-                          {state.displayedVerses.map((verse) => (
-                             <VerseDisplay
-                                  key={`${verse.surah}-${verse.numberInSurah}`}
-                                  verseData={verse}
-                                  fontSize={state.fontSize}
-                                  arabicFontSize={state.arabicFontSize}
-                                  lineHeight={state.lineHeight}
-                                  onVerseSelect={() => handleVerseSelectAndScroll(verse.surah, verse.numberInSurah)}
-                                  onContextMenuAction={handleContextMenuAction}
-                                  isSelected={state.currentVerseNumber === verse.numberInSurah && state.currentSurahNumber === verse.surah}
-                                  isPlaying={state.currentPlayingVerse?.surah === verse.surah && state.currentPlayingVerse?.verse === verse.numberInSurah}
-                                  noteExists={checkNoteExists(calculateAbsoluteVerseNumber(verse.surah, verse.numberInSurah, state.quranMeta) ?? 0)}
-                                  conceptIds={getConceptsForVerse(calculateAbsoluteVerseNumber(verse.surah, verse.numberInSurah, state.quranMeta) ?? 0)}
-                                  allConcepts={getAllConcepts()}
-                              />
-                         ))}
+                          {state.displayedVerses.map((verse) => {
+                            const absVerseNum = calculateAbsoluteVerseNumber(verse.surah, verse.numberInSurah, state.quranMeta);
+                            const noteExists = absVerseNum !== null && checkNoteExists(absVerseNum);
+                            const conceptIds = absVerseNum !== null ? getConceptsForVerse(absVerseNum) : [];
+
+                            return (
+                                <VerseDisplay
+                                    key={`${verse.surah}-${verse.numberInSurah}`}
+                                    verseData={verse}
+                                    fontSize={state.fontSize}
+                                    arabicFontSize={state.arabicFontSize}
+                                    lineHeight={state.lineHeight}
+                                    onVerseSelect={() => handleVerseSelectAndScroll(verse.surah, verse.numberInSurah)}
+                                    onContextMenuAction={handleContextMenuAction}
+                                    isSelected={state.currentVerseNumber === verse.numberInSurah && state.currentSurahNumber === verse.surah}
+                                    isPlaying={state.currentPlayingVerse?.surah === verse.surah && state.currentPlayingVerse?.verse === verse.numberInSurah}
+                                    noteExists={noteExists}
+                                    conceptIds={conceptIds}
+                                    allConcepts={getAllConcepts()}
+                                />
+                            );
+                          })}
+
 
                           <div ref={loadMoreRef} className={cn(
                              "flex justify-center items-center py-6 text-center min-h-[60px]",
-                             (!state.isDisplayLoading && currentSurahMeta && state.displayedVerses.length >= currentSurahMeta.numberOfAyahs) && "pb-10", // Add more padding at end of surah
+                             (!state.isDisplayLoading && currentSurahMeta && state.displayedVerses.length >= currentSurahMeta.numberOfAyahs) && "pb-10",
                              (state.isDisplayLoading || state.isLoading || state.displayError || (state.displayedVerses.length === 0 && !currentSurahMeta)) && "hidden"
                              )}>
                              {state.isDisplayLoading ? (
@@ -601,7 +650,7 @@ export function ReaderView() {
                              ) : currentSurahMeta && state.displayedVerses.length >= currentSurahMeta.numberOfAyahs ? (
                                  <span className="text-muted-foreground text-sm">End of Surah {state.currentSurahNumber}</span>
                              ) : (
-                                  null // Hide "Loading more..." text, rely on spinner or end of surah
+                                  null
                              )}
                           </div>
                      </div>
@@ -622,7 +671,7 @@ export function ReaderView() {
                       onVerseChange={(verseNum) => handleVerseSelectAndScroll(state.currentSurahNumber, verseNum)}
                       onSurahChange={handleSurahChange}
                       onPlayStateChange={handlePlayStateChange}
-                      isAudioLoading={state.isLoading} // Pass loading state
+                      isAudioLoading={state.isLoading && state.currentPlayingVerse !== null}
                   />
               </footer>
 
@@ -644,24 +693,17 @@ export function ReaderView() {
                  isOpen={state.isNotesSidebarOpen}
                  onOpenChange={toggleNotesSidebar}
                  verseRef={state.noteTakingVerse}
-                 onNoteSave={(surah, verse, text, tags) => {
-                     saveNote(calculateAbsoluteVerseNumber(surah, verse, state.quranMeta) ?? 0, surah, verse, text, tags);
-                     if (tags.length > 0) {
-                          tagVerseWithConcepts(calculateAbsoluteVerseNumber(surah, verse, state.quranMeta) ?? 0, surah, verse, tags);
-                     }
-                      setState(prev => ({...prev})); // Force re-render to update indicators
+                 onNoteSave={handleNoteSave}
+                 onNoteDelete={handleNoteDelete}
+                 onConceptUntag={handleConceptUntag}
+                 getNoteForVerse={(s, v) => {
+                     const absVerse = calculateAbsoluteVerseNumber(s, v, state.quranMeta);
+                     return absVerse !== null ? getNoteForVerse(absVerse) : null;
                  }}
-                 onNoteDelete={(surah, verse) => {
-                     // Assuming deleteNoteForVerse handles the deletion logic
-                     // And untagVerseConcepts might be needed if concepts are tied to notes
-                     setState(prev => ({...prev})); // Force re-render
+                 getConceptsForVerse={(s, v) => {
+                     const absVerse = calculateAbsoluteVerseNumber(s, v, state.quranMeta);
+                     return absVerse !== null ? getConceptsForVerse(absVerse) : [];
                  }}
-                 onConceptUntag={(surah, verse, conceptId) => {
-                     untagVerseConcepts(calculateAbsoluteVerseNumber(surah, verse, state.quranMeta) ?? 0, surah, verse, [conceptId]); // Pass array of conceptId
-                     setState(prev => ({...prev})); // Force re-render
-                 }}
-                 getNoteForVerse={(s, v) => getNoteForVerse(calculateAbsoluteVerseNumber(s, v, state.quranMeta) ?? 0)}
-                 getConceptsForVerse={(s, v) => getConceptsForVerse(calculateAbsoluteVerseNumber(s, v, state.quranMeta) ?? 0)}
                  allConcepts={getAllConcepts()}
                />
 
@@ -672,8 +714,8 @@ export function ReaderView() {
                       handleSurahChange(surah);
                       setTimeout(() => {
                           handleVerseSelectAndScroll(surah, verse, {center: true});
-                      }, 500); // Delay for surah load
-                      toggleConceptExplorer(); // Close explorer
+                      }, 500);
+                      toggleConceptExplorer();
                    }}
                 />
 
@@ -686,3 +728,5 @@ export function ReaderView() {
        </TooltipProvider>
   );
 }
+
+    
