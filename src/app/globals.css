@@ -9,7 +9,7 @@ body {
 
 @layer base {
   :root {
-    /* Light Theme - Quran Companion Palette */
+    /* Light Theme - Simplified */
     --background: 0 0% 98%; /* #FAFAFA - Soft White */
     --foreground: 240 10% 3.9%; /* Default dark gray */
     --card: 0 0% 100%; /* White cards */
@@ -20,7 +20,7 @@ body {
     --primary-foreground: 0 0% 98%; /* Soft White text on primary */
     --secondary: 0 0% 96.1%; /* Lighter gray for secondary elements */
     --secondary-foreground: 240 5.9% 10%;
-    --muted: 0 0% 90%; /* Slightly darker muted for badge background */
+    --muted: 0 0% 90%; /* Slightly darker muted */
     --muted-foreground: 240 3.8% 46.1%; /* Medium Gray */
     --accent: 0 0% 96.1%; /* Use secondary for accent */
     --accent-foreground: 240 5.9% 10%;
@@ -29,30 +29,11 @@ body {
     --border: 0 0% 87.8%; /* #E0E0E0 - Light gray border */
     --input: 0 0% 89.8%;
     --ring: 128 60% 22%; /* Forest Green for ring */
-    --chart-1: 128 60% 22%;
-    --chart-2: 128 50% 32%;
-    --chart-3: 128 40% 42%;
-    --chart-4: 128 30% 52%;
-    --chart-5: 128 20% 62%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 95%; /* Slightly off-white sidebar */
-    --sidebar-foreground: 240 10% 3.9%;
-    --sidebar-primary: 128 60% 22%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 92%; /* Slightly darker accent for sidebar */
-    --sidebar-accent-foreground: 240 10% 3.9%;
-    --sidebar-border: 0 0% 85%;
-    --sidebar-ring: 128 60% 30%;
-
-    /* Dynamic font sizes and line heights */
-    --arabic-font-size: 24px;
-    --translation-font-size: 16px;
-    --verse-line-height: 1.8;
-    --translation-line-height: 1.6;
   }
 
   .dark {
-    /* Dark Theme - Quran Companion Palette */
+     /* Dark Theme - Simplified */
     --background: 240 6% 10%; /* #1a1a1a - Very Dark Gray */
     --foreground: 0 0% 95%; /* Lighter Gray for text */
     --card: 240 6% 12%; /* Slightly lighter dark gray card */
@@ -63,7 +44,7 @@ body {
     --primary-foreground: 0 0% 98%;
     --secondary: 240 6% 15%; /* Darker Gray */
     --secondary-foreground: 0 0% 80%; /* Lighter gray */
-    --muted: 240 6% 25%; /* Darker muted for badge background */
+    --muted: 240 6% 25%; /* Darker muted */
     --muted-foreground: 0 0% 65%; /* Medium-light Gray */
     --accent: 240 6% 20%; /* Dark accent */
     --accent-foreground: 0 0% 95%;
@@ -72,26 +53,7 @@ body {
     --border: 240 6% 25%; /* #404040 - Medium Dark Gray border */
     --input: 240 6% 22%;
     --ring: 128 50% 60%; /* Brighter green ring */
-    --chart-1: 128 50% 60%;
-    --chart-2: 128 40% 50%;
-    --chart-3: 128 30% 40%;
-    --chart-4: 128 20% 30%;
-    --chart-5: 128 10% 20%;
     --radius: 0.5rem;
-    --sidebar-background: 240 6% 12%; /* Dark gray sidebar */
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 128 50% 60%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 6% 18%; /* Slightly darker accent */
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 240 6% 30%;
-    --sidebar-ring: 128 50% 70%;
-
-    /* Dynamic font sizes and line heights (dark theme) - values are same as light but can be adjusted if needed */
-    --arabic-font-size: 24px;
-    --translation-font-size: 16px;
-    --verse-line-height: 1.8;
-    --translation-line-height: 1.6;
   }
 }
 
@@ -103,182 +65,13 @@ body {
     @apply bg-background text-foreground;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
+  /* Keep basic html/body styling */
   html, body {
-    /* Prevent default browser scroll */
-    overflow: hidden;
     height: 100%;
   }
 }
 
-/* Custom Arabic Font - Uthmani (Original - Keep as fallback) */
-@font-face {
-  font-family: 'Uthmani';
-  src: url('/fonts/UthmanicHafs1Ver09.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
+/* Removed custom font definitions and verse-specific styles
+   as the new JS implementation handles this */
 
-/* Custom Arabic Font - Amiri (Preferred) */
-@font-face {
-  font-family: 'Amiri';
-  /* Assuming Amiri-Regular.ttf is placed in public/fonts */
-  src: url('/fonts/Amiri-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Placeholder for Scheherazade New if needed */
-/* @font-face {
-  font-family: 'Scheherazade New';
-  src: url('/fonts/ScheherazadeNew-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-} */
-
-
-.font-uthmani {
-  font-family: 'Uthmani', serif; /* Fallback to serif */
-}
-
-.font-amiri {
-  font-family: 'Amiri', 'Uthmani', serif; /* Use Amiri, fallback to Uthmani, then generic serif */
-}
-
-/* Define Bismillah specific class */
-.font-bismillah {
-   font-family: 'Amiri', 'Uthmani', serif; /* Use Amiri or Uthmani */
-   font-size: 1.5em; /* Example size */
-   text-align: center;
-   margin-bottom: 0.5em;
-}
-
-
-/* Text Alignment and Styling */
-@layer components {
-  /* Apply dynamic font sizes and line heights */
-  .text-arabic-display {
-    font-size: var(--arabic-font-size) !important; /* Use !important for stronger override */
-    line-height: var(--verse-line-height) !important; /* Use !important */
-    text-align: right !important; /* Use !important */
-    direction: rtl !important; /* Use !important */
-    margin-bottom: 0.5rem !important; /* Adjust spacing between arabic and translation */
-  }
-  .text-translation-display {
-    font-size: var(--translation-font-size) !important; /* Use !important */
-    line-height: var(--translation-line-height) !important; /* Use !important */
-    text-align: left !important; /* Ensure this is left-aligned! */
-    direction: ltr !important;
-  }
-
-  /* Force Right Alignment for Arabic */
-  .arabic-text, [dir="rtl"], *:lang(ar) {
-    text-align: right !important;
-    direction: rtl !important;
-  }
-
-  /* Force Left Alignment for Translation */
-  .translation-text, [dir="ltr"], *:lang(en) {
-    text-align: left !important; /* Ensure this is left-aligned! */
-    direction: ltr !important;
-  }
-
-   /* Inline Verse Number Styling */
-   .verse-number-inline {
-     @apply text-muted-foreground/70 text-xs font-normal ml-1 mr-1 align-baseline inline-block px-1; /* Smaller, grayish, inline */
-     direction: ltr; /* Ensure numbers read LTR */
-     unicode-bidi: embed; /* Needed for embedding LTR in RTL context */
-     /* font-size: 0.6em; */ /* Adjust size relative to parent if needed */
-   }
-
-   /* Verse Container Styling - Updated */
-  .verse-container {
-    @apply relative transition-colors duration-300 ease-in-out px-4; /* Ensure horizontal padding */
-    padding-left: 1rem; /* Base left padding (px-4) */
-    padding-right: 1rem; /* Add right padding (px-4) */
-    padding-top: 2.5rem; /* Add padding top for the verse number badge */
-    padding-bottom: 1rem; /* Spacing before border */
-    margin-bottom: 1rem; /* Spacing between verses */
-    border-bottom-width: 1px;
-    border-bottom-color: hsl(var(--border) / 0.3); /* Use theme border */
-    min-height: 80px; /* Ensure a minimum height to prevent extreme squashing */
-
-    /* Responsive margin adjustment */
-     @apply md:mb-4; /* Keep 1rem (mb-4) margin on medium screens and up */
-     @apply mb-2; /* Use smaller margin-bottom (0.5rem = mb-2) on smaller screens */
-  }
-
-  /* Highlight style for the currently playing verse */
-  .verse-container.playing {
-    @apply bg-primary/10 dark:bg-primary/15 rounded-md; /* Use theme primary with opacity */
-  }
-
-   /* Highlight style for the currently selected verse */
-   .verse-container.highlighted {
-      @apply bg-primary/10 dark:bg-primary/20 ring-1 ring-primary/50 rounded-md; /* Consistent background, add ring, make rounded */
-      box-shadow: 0 1px 3px 0 hsla(var(--primary) / 0.1), 0 1px 2px -1px hsla(var(--primary) / 0.1); /* Subtle shadow */
-    }
-
-   /* Verse Number Badge Positioning Container */
-   .verse-number-badge-container {
-     @apply absolute top-2 left-2 z-10; /* Position top-left, above content */
-     /* Optional: Adjust positioning further if needed */
-   }
-
-   /* Verse Number Badge Styling */
-   .verse-number-badge {
-      @apply relative inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium; /* Added relative for potential absolute children like note indicator */
-      @apply bg-muted text-muted-foreground;
-      min-width: 40px;
-      transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
-   }
-
-   /* Highlighted Verse Number Badge Styling */
-   .verse-number-badge.highlighted-badge {
-      @apply bg-primary text-primary-foreground shadow-md;
-   }
-
-    /* Note Indicator Styling (within VerseDisplay) */
-    /* Uses absolute positioning relative to the badge/badge container */
-    /* Example - applied to the icon itself: */
-    .note-indicator {
-        @apply absolute -top-1 -right-1 h-3 w-3 text-primary opacity-80;
-    }
-
-}
-
-/* Ensure sticky header has correct background in both themes */
-.sticky-header {
-    position: -webkit-sticky !important; /* For Safari */
-    position: sticky !important; /* Ensure stickiness */
-    top: 0 !important;
-    z-index: 20 !important; /* Ensure it's above most content but potentially below modals */
-    background-color: hsl(var(--background) / 0.95) !important; /* Use background color variable with opacity */
-    backdrop-filter: blur(8px) !important; /* Add blur effect */
-    -webkit-backdrop-filter: blur(8px) !important; /* Safari */
-    border-bottom: 1px solid hsl(var(--border)) !important; /* Use border variable */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important; /* Softer shadow */
-    padding: 0.75rem 1rem !important; /* Adjust padding as needed */
-    width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-.dark .sticky-header {
-    border-bottom-color: hsl(var(--border) / 0.5) !important; /* Adjust border opacity for dark */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important; /* Darker shadow for dark */
-}
-
-
-/* Styling for the scroll container */
-.reader-verses-scroll-container {
-   padding: 1rem !important; /* Add padding around the verse content */
-   -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
-   /* Removed explicit height and overflow-y - ScrollArea handles this */
-}
-
-/* Prevent padding-top on the scroll container itself (was conflicting with sticky header) */
-.scroll-area-viewport > div.reader-verses-scroll-container {
-    padding-top: 0 !important;
-}
+/* Keep base Tailwind layers */
