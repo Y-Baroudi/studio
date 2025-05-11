@@ -1,10 +1,11 @@
+
 /**
  * @fileOverview Defines the TypeScript interfaces for Firestore documents
  * used in the Qur'an Meezan application. This ensures type safety
  * when interacting with Firestore data.
  */
 
-import type { Timestamp } from 'firebase/firestore';
+import type { FieldValue, Timestamp } from 'firebase/firestore'; // Import FieldValue
 
 /**
  * Represents the structure of a document in the 'users' collection.
@@ -14,7 +15,7 @@ export interface UserDocument {
   userId: string; // Firebase Authentication User ID
   email: string;
   displayName: string;
-  createdAt: Timestamp;
+  createdAt: Timestamp | FieldValue; // Allow FieldValue for serverTimestamp
   preferredAiModel?: 'claude' | 'gemini' | string; // Allow for other models
   defaultSystemPrompt?: string;
   // Add other user-specific preferences here
@@ -38,7 +39,7 @@ export interface MessageSubDocument {
   messageId: string; // Auto-generated or specific ID
   sender: 'user' | 'ai' | string; // Or 'system' for system messages
   text: string;
-  timestamp: Timestamp;
+  timestamp: Timestamp | FieldValue;
   referencesToQuranOrDocs?: MessageReference[];
   aiModelUsed?: string; // Model used for this specific AI message
   // Optional: Add other message-specific data like attachments, processing time, etc.
@@ -55,8 +56,8 @@ export interface ConversationDocument {
   topicTags?: string[]; // Array of keywords or topics
   aiModelUsed?: string; // Default or primary AI model for the conversation
   systemPromptUsed?: string; // System prompt active for this conversation
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Timestamp | FieldValue;
+  updatedAt: Timestamp | FieldValue;
   // 'messages' will be a subcollection, not a field in this document.
   // Optional: Add other conversation-level metadata, e.g., summary, status
 }
@@ -75,14 +76,14 @@ export type ReferenceDocumentType = 'coreConcept' | 'generalContext' | 'priorCon
  */
 export interface ReferenceDocumentDocument {
   documentId: string; // Auto-generated or specific ID
-  userId: string; // User who uploaded/owns this document, or null for global docs
+  userId: string | null; // User who uploaded/owns this document, or null for global docs
   title: string;
   type: ReferenceDocumentType;
   sourcePath?: string; // e.g., Firebase Storage path like '/docs/wip.pdf', or external URL
   content?: string; // Optional: For directly storing small text content instead of a path
   summary?: string; // Optional: AI-generated or manual summary
-  createdAt: Timestamp;
-  lastUpdated: Timestamp;
+  createdAt: Timestamp | FieldValue;
+  lastUpdated: Timestamp | FieldValue;
   // Optional: Add other metadata like author, publication date, vector embeddings status
 }
 
@@ -98,8 +99,8 @@ export interface UserNoteDocument {
   linkedConversationId?: string; // Links to a ConversationDocument
   linkedDocumentId?: string; // Links to a ReferenceDocumentDocument
   conceptTags?: string[]; // Array of concept IDs or keywords
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Timestamp | FieldValue;
+  updatedAt: Timestamp | FieldValue;
   isPrivate?: boolean; // Default true
   // Optional: Add other note-specific data like color coding, attachments
 }

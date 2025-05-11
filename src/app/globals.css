@@ -9,40 +9,52 @@ body {
 
 @layer base {
   :root {
-    /* Light Theme - Quran Companion Palette */
-    --background: 0 0% 98%; /* #FAFAFA - Soft White */
-    --foreground: 240 10% 3.9%; /* Default dark gray */
-    --card: 0 0% 100%; /* White cards */
+    /* Light Theme - Qur'an Meezan Palette */
+    --background: 60 56% 91%; /* #F5F5DC - Light Beige */
+    --foreground: 240 10% 3.9%; /* Default dark gray for text */
+    
+    --card: 125 44% 95%; /* #E8F5E9 - Soft Green for cards */
     --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
+    
+    --popover: 125 44% 95%; /* Soft Green for popovers */
     --popover-foreground: 240 10% 3.9%;
-    --primary: 128 60% 22%; /* #1B5E20 - Forest Green */
+    
+    --primary: 180 100% 25%; /* #008080 - Teal for primary actions */
     --primary-foreground: 0 0% 98%; /* Soft White text on primary */
-    --secondary: 0 0% 96.1%; /* Lighter gray for secondary elements */
+    
+    --secondary: 125 30% 88%; /* Slightly darker Soft Green for secondary elements */
     --secondary-foreground: 240 5.9% 10%;
-    --muted: 0 0% 90%; /* Slightly darker muted for badge background */
+    
+    --muted: 0 0% 90%; /* Default muted */
     --muted-foreground: 240 3.8% 46.1%; /* Medium Gray */
-    --accent: 0 0% 96.1%; /* Use secondary for accent */
-    --accent-foreground: 240 5.9% 10%;
+    
+    --accent: 180 100% 25%; /* #008080 - Teal for accents */
+    --accent-foreground: 0 0% 98%; /* Soft White text on accent */
+    
     --destructive: 0 84.2% 60.2%; /* Standard destructive red */
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 87.8%; /* #E0E0E0 - Light gray border */
-    --input: 0 0% 89.8%;
-    --ring: 128 60% 22%; /* Forest Green for ring */
-    --chart-1: 128 60% 22%;
-    --chart-2: 128 50% 32%;
-    --chart-3: 128 40% 42%;
-    --chart-4: 128 30% 52%;
-    --chart-5: 128 20% 62%;
+    
+    --border: 60 30% 80%; /* Lighter Beige border */
+    --input: 60 30% 85%; /* Beige input background */
+    --ring: 180 100% 25%; /* Teal for ring */
+    
+    --chart-1: 180 100% 25%;
+    --chart-2: 180 80% 35%;
+    --chart-3: 180 60% 45%;
+    --chart-4: 180 40% 55%;
+    --chart-5: 180 20% 65%;
+    
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 95%; /* Slightly off-white sidebar */
+
+    /* Sidebar specific (can be same as main or slightly different) */
+    --sidebar-background: 60 50% 88%; /* Slightly darker Light Beige */
     --sidebar-foreground: 240 10% 3.9%;
-    --sidebar-primary: 128 60% 22%;
+    --sidebar-primary: 180 100% 25%; /* Teal */
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 92%; /* Slightly darker accent for sidebar */
+    --sidebar-accent: 125 44% 92%; /* Lighter Soft Green */
     --sidebar-accent-foreground: 240 10% 3.9%;
-    --sidebar-border: 0 0% 85%;
-    --sidebar-ring: 128 60% 30%;
+    --sidebar-border: 60 30% 75%;
+    --sidebar-ring: 180 100% 30%;
 
     /* Dynamic font sizes and line heights */
     --arabic-font-size: 24px;
@@ -52,40 +64,50 @@ body {
   }
 
   .dark {
-    /* Dark Theme - Quran Companion Palette */
-    --background: 240 6% 10%; /* #1a1a1a - Very Dark Gray */
-    --foreground: 0 0% 95%; /* Lighter Gray for text */
-    --card: 240 6% 12%; /* Slightly lighter dark gray card */
-    --card-foreground: 0 0% 95%;
-    --popover: 240 6% 8%; /* Darker popover */
-    --popover-foreground: 0 0% 95%;
-    --primary: 128 50% 50%; /* Brighter Forest Green */
+    /* Dark Theme - Qur'an Meezan Palette */
+    --background: 60 10% 15%; /* Darker, less saturated Beige for dark background */
+    --foreground: 60 30% 85%; /* Light Beige for text */
+
+    --card: 125 15% 25%; /* Darker Soft Green for cards */
+    --card-foreground: 60 30% 85%;
+    
+    --popover: 125 15% 22%; /* Darker Soft Green for popovers */
+    --popover-foreground: 60 30% 85%;
+    
+    --primary: 180 70% 50%; /* Brighter Teal for primary actions in dark mode */
     --primary-foreground: 0 0% 98%;
-    --secondary: 240 6% 15%; /* Darker Gray */
-    --secondary-foreground: 0 0% 80%; /* Lighter gray */
-    --muted: 240 6% 25%; /* Darker muted for badge background */
-    --muted-foreground: 0 0% 65%; /* Medium-light Gray */
-    --accent: 240 6% 20%; /* Dark accent */
-    --accent-foreground: 0 0% 95%;
+    
+    --secondary: 125 10% 30%; /* Darker secondary */
+    --secondary-foreground: 60 30% 80%;
+    
+    --muted: 60 10% 35%; /* Darker muted */
+    --muted-foreground: 60 20% 65%;
+    
+    --accent: 180 70% 50%; /* Brighter Teal for accents */
+    --accent-foreground: 0 0% 98%;
+    
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 25%; /* #404040 - Medium Dark Gray border */
-    --input: 240 6% 22%;
-    --ring: 128 50% 60%; /* Brighter green ring */
-    --chart-1: 128 50% 60%;
-    --chart-2: 128 40% 50%;
-    --chart-3: 128 30% 40%;
-    --chart-4: 128 20% 30%;
-    --chart-5: 128 10% 20%;
-    --radius: 0.5rem;
-    --sidebar-background: 240 6% 12%; /* Dark gray sidebar */
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 128 50% 60%;
+    
+    --border: 60 10% 30%; /* Dark Beige border */
+    --input: 60 10% 28%;  /* Dark Beige input */
+    --ring: 180 70% 60%; /* Brighter Teal ring */
+
+    --chart-1: 180 70% 50%;
+    --chart-2: 180 60% 40%;
+    --chart-3: 180 50% 30%;
+    --chart-4: 180 40% 20%;
+    --chart-5: 180 30% 10%;
+
+    /* Sidebar specific (dark) */
+    --sidebar-background: 60 10% 20%; /* Darker Beige for sidebar */
+    --sidebar-foreground: 60 30% 85%;
+    --sidebar-primary: 180 70% 55%; /* Brighter Teal */
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 6% 18%; /* Slightly darker accent */
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 240 6% 30%;
-    --sidebar-ring: 128 50% 70%;
+    --sidebar-accent: 125 15% 28%; /* Darker Soft Green */
+    --sidebar-accent-foreground: 60 30% 80%;
+    --sidebar-border: 60 10% 35%;
+    --sidebar-ring: 180 70% 65%;
 
     /* Dynamic font sizes and line heights (dark theme) - values are same as light but can be adjusted if needed */
     --arabic-font-size: 24px;

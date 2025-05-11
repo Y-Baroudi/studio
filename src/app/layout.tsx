@@ -1,22 +1,25 @@
 
 import type { Metadata, Viewport } from 'next';
-import { GeistSans, GeistMono } from 'geist/font'; // Correct import names
+import { GeistSans, GeistMono } from 'geist/font';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
+import { AppHeader } from '@/components/layout/AppHeader'; // Import AppHeader
+import { AppNav } from '@/components/layout/AppNav'; // Import AppNav
+import { cn } from '@/lib/utils';
 
-// Using Geist Sans and Mono
-const geistSans = GeistSans; // Use the correctly imported variable
-const geistMono = GeistMono; // Use the correctly imported variable
+const geistSans = GeistSans;
+const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  title: 'Quran Companion',
-  description: 'Your personal Quran reading companion.',
-  manifest: '/manifest.json', // PWA Manifest
+  title: "Qur'an Meezan", // Updated title
+  description: "Dual-core Quranic reader and AI reflection platform.", // Updated description
+  manifest: '/manifest.json',
 };
 
 export const viewport: Viewport = {
-  themeColor: '#FAFAFA', // Updated PWA theme color to soft white
+  themeColor: '#F5F5DC', // Updated to Light Beige
 };
 
 export default function RootLayout({
@@ -26,12 +29,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-       {/* Apply font variables directly to html or body */}
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased", // Use font-sans from tailwind default
-          geistSans.variable, // Add Geist Sans variable
-          geistMono.variable   // Add Geist Mono variable
+          "min-h-screen bg-background font-sans antialiased",
+          geistSans.variable,
+          geistMono.variable
         )}
       >
         <ThemeProvider
@@ -40,13 +42,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster />
+          <AuthProvider> {/* Wrap with AuthProvider */}
+            <div className="relative flex min-h-screen flex-col">
+              <AppHeader /> {/* Add AppHeader */}
+              <AppNav /> {/* Add AppNav */}
+              <main className="flex-1">{children}</main>
+            </div>
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
-
-// Helper function for conditional classes (already exists in lib/utils)
-import { cn } from '@/lib/utils';
