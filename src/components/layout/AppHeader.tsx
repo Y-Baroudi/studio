@@ -11,7 +11,7 @@ export function AppHeader() {
         <Link href="/" className="flex items-center gap-2" aria-label="Qur'an Meezan Home">
           <BookText className="h-7 w-7 text-primary" />
           <span className="text-xl font-bold">
-            Qur'an Meezan <span lang="ar" dir="rtl">(ميزان القرآن)</span>
+            Qur'an Meezan <span lang="ar" dir="rtl">(القرآن ميزان)</span>
           </span>
         </Link>
         <div className="flex items-center gap-4">
@@ -21,3 +21,4 @@ export function AppHeader() {
     </header>
   );
 }
+
