@@ -1,13 +1,25 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn, LogOut, Loader2 } from 'lucide-react';
 
 export function AuthButtons() {
   const { user, loading, loginWithGoogle, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    // Render nothing or a static placeholder on the server and initial client render
+    // to avoid hydration mismatch. A simple placeholder button can also work.
+    // Returning null is often the safest to ensure server/client match for this part of the tree.
+    return <Button variant="ghost" size="sm" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Authenticating...</Button>;
+  }
 
   if (loading) {
     return <Button variant="ghost" size="sm" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...</Button>;
