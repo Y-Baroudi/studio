@@ -15,9 +15,9 @@ export function AuthButtons() {
   }, []);
 
   if (!mounted) {
-    // Render nothing on the server and initial client render
-    // to avoid hydration mismatch.
-    return null;
+    // Render a consistent placeholder or null on the server and initial client render
+    // to avoid hydration mismatch. A disabled button indicating auth state is good.
+    return <Button variant="ghost" size="sm" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Authenticating...</Button>;
   }
 
   if (loading) {
@@ -36,7 +36,7 @@ export function AuthButtons() {
   return (
     <Button variant="outline" size="sm" onClick={loginWithGoogle}>
       <LogIn className="mr-2 h-4 w-4" />
-      Login
+      Login with Google
     </Button>
   );
 }

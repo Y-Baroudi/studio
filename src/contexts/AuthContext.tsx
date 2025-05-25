@@ -5,7 +5,7 @@ import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { ReactNode, Dispatch, SetStateAction} from 'react';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '@/lib/firebase/config';
+import { auth, db } from '@/lib/firebase/config'; // Updated path
 import type { UserDocument } from '@/types/firestore';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             userId: firebaseUser.uid,
             email: firebaseUser.email || '',
             displayName: firebaseUser.displayName || 'Anonymous User',
-            createdAt: serverTimestamp(),
+            createdAt: serverTimestamp(), // Use serverTimestamp for consistency
             preferredAiModel: 'claude', // Default
             defaultSystemPrompt: 'You are a helpful assistant for Quranic reflection...',
           };
@@ -66,6 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Auth state change will handle user profile creation/loading
     } catch (error) {
       console.error('Error during Google login:', error);
+      // You might want to show a toast to the user here
     }
   };
 
@@ -74,6 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await auth.signOut();
     } catch (error) {
       console.error('Error during logout:', error);
+      // You might want to show a toast to the user here
     }
   };
 

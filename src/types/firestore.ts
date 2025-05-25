@@ -5,7 +5,7 @@
  * when interacting with Firestore data.
  */
 
-import type { FieldValue, Timestamp } from 'firebase/firestore'; // Import FieldValue
+import type { FieldValue, Timestamp } from 'firebase/firestore'; 
 
 /**
  * Represents the structure of a document in the 'users' collection.
@@ -27,7 +27,6 @@ export interface UserDocument {
 export interface MessageReference {
   type: 'quran' | 'document' | string; // e.g., 'quran', 'referenceDocument', 'concept'
   value: string; // e.g., '2:255', 'docABC123', 'concept_wip'
-  // Optional: Add display name or snippet for quick reference in UI
   displaySnippet?: string;
 }
 
@@ -36,13 +35,12 @@ export interface MessageReference {
  * within a 'conversations' document.
  */
 export interface MessageSubDocument {
-  messageId: string; // Auto-generated or specific ID
-  sender: 'user' | 'ai' | string; // Or 'system' for system messages
+  messageId: string; 
+  sender: 'user' | 'ai' | string; 
   text: string;
   timestamp: Timestamp | FieldValue;
   referencesToQuranOrDocs?: MessageReference[];
-  aiModelUsed?: string; // Model used for this specific AI message
-  // Optional: Add other message-specific data like attachments, processing time, etc.
+  aiModelUsed?: string; 
 }
 
 /**
@@ -50,57 +48,48 @@ export interface MessageSubDocument {
  * Stores AI conversation threads.
  */
 export interface ConversationDocument {
-  conversationId: string; // Auto-generated or specific ID
-  userId: string; // Links to a UserDocument
+  conversationId: string; 
+  userId: string; 
   title: string;
-  topicTags?: string[]; // Array of keywords or topics
-  aiModelUsed?: string; // Default or primary AI model for the conversation
-  systemPromptUsed?: string; // System prompt active for this conversation
+  topicTags?: string[]; 
+  aiModelUsed?: string; 
+  systemPromptUsed?: string; 
   createdAt: Timestamp | FieldValue;
   updatedAt: Timestamp | FieldValue;
-  // 'messages' will be a subcollection, not a field in this document.
-  // Optional: Add other conversation-level metadata, e.g., summary, status
 }
 
 /**
  * Represents the types of reference documents.
- * - 'coreConcept': Key guiding principles (WIP, FoF, Divine Triangle).
- * - 'generalContext': Broader Islamic or scholarly texts.
- * - 'priorConversationSummary': Summaries of past AI conversations for context.
  */
 export type ReferenceDocumentType = 'coreConcept' | 'generalContext' | 'priorConversationSummary' | string;
 
 /**
  * Represents the structure of a document in the 'referenceDocuments' collection.
- * Stores metadata about reference documents used for RAG or user reference.
  */
 export interface ReferenceDocumentDocument {
-  documentId: string; // Auto-generated or specific ID
-  userId: string | null; // User who uploaded/owns this document, or null for global docs
+  documentId: string; 
+  userId: string | null; 
   title: string;
   type: ReferenceDocumentType;
-  sourcePath?: string; // e.g., Firebase Storage path like '/docs/wip.pdf', or external URL
-  content?: string; // Optional: For directly storing small text content instead of a path
-  summary?: string; // Optional: AI-generated or manual summary
+  sourcePath?: string; 
+  content?: string; 
+  summary?: string; 
   createdAt: Timestamp | FieldValue;
   lastUpdated: Timestamp | FieldValue;
-  // Optional: Add other metadata like author, publication date, vector embeddings status
 }
 
 /**
  * Represents the structure of a document in the 'userNotes' collection.
- * Stores personal notes linked to Quranic verses, conversations, or documents.
  */
 export interface UserNoteDocument {
-  noteId: string; // Auto-generated or specific ID
-  userId: string; // Links to a UserDocument
-  content: string; // The note content (could be plain text, markdown, or rich text JSON)
-  linkedQuranVerse?: string; // e.g., '2:153' (absolute verse number or surah:ayah)
-  linkedConversationId?: string; // Links to a ConversationDocument
-  linkedDocumentId?: string; // Links to a ReferenceDocumentDocument
-  conceptTags?: string[]; // Array of concept IDs or keywords
+  noteId: string; 
+  userId: string; 
+  content: string; 
+  linkedQuranVerse?: string; 
+  linkedConversationId?: string; 
+  linkedDocumentId?: string; 
+  conceptTags?: string[]; 
   createdAt: Timestamp | FieldValue;
   updatedAt: Timestamp | FieldValue;
-  isPrivate?: boolean; // Default true
-  // Optional: Add other note-specific data like color coding, attachments
+  isPrivate?: boolean; 
 }

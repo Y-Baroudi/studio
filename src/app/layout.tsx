@@ -4,7 +4,7 @@ import { GeistSans, GeistMono } from 'geist/font';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AppNav } from '@/components/layout/AppNav';
 import { ServiceWorkerRegistration } from '@/components/layout/ServiceWorkerRegistration';
@@ -16,7 +16,7 @@ const geistMono = GeistMono;
 export const metadata: Metadata = {
   title: "Qur'an Meezan",
   description: "Dual-core Quranic reader and AI reflection platform.",
-  manifest: '/manifest.json',
+  manifest: '/manifest.json', // For PWA
   applicationName: "Qur'an Meezan",
   appleWebAppCapable: "yes",
   appleWebAppStatusBarStyle: "default",
@@ -24,14 +24,14 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   mobileWebAppCapable: "yes",
   icons: {
-    apple: "/icons/icon-192x192.png",
+    apple: "/icons/icon-192x192.png", // Example for apple-touch-icon
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F5F5DC' },
-    { media: '(prefers-color-scheme: dark)', color: '#3A3A3A' },
+    { media: '(prefers-color-scheme: light)', color: '#F5F5DC' }, // Light Beige
+    { media: '(prefers-color-scheme: dark)', color: '#3A3A3A' }, // Darker, less saturated Beige
   ],
 };
 
@@ -42,8 +42,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      {/* The <head> tag is automatically managed by Next.js via the metadata export.
-          Do not add a <head> tag here manually. */}
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased",
@@ -57,7 +55,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
+          <AuthProvider> {/* Wrap with AuthProvider */}
             <ServiceWorkerRegistration />
             <div className="relative flex min-h-screen flex-col">
               <AppHeader />

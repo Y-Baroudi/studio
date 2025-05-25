@@ -6,15 +6,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetClose, 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import { chat, type ChatInput, type ChatOutput } from '@/ai/flows/chat-flow';
 import type { Verse } from '@/services/alquran-cloud';
 import type { MessageData } from 'genkit';
-import { Loader2, Send, CornerDownLeft, HelpCircle, MessageSquarePlus, Brain } from 'lucide-react';
+import { Loader2, Send, CornerDownLeft, HelpCircle, MessageSquarePlus, Brain, UserCircle } from 'lucide-react'; // Added UserCircle
 import { Textarea } from '@/components/ui/textarea';
-import { scholarPersonaManager } from '@/services/ai/scholarPersonaManager';
+import { scholarPersonaManager, type ScholarPersona } from '@/services/ai/scholarPersonaManager';
 import { aiProviderManager } from '@/services/ai/ai-provider';
-import { ApiKeyManager } from '@/components/chat/ApiKeyManager'; // Import ApiKeyManager
+import { ApiKeyManager } from '@/components/chat/ApiKeyManager'; 
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
@@ -31,26 +31,26 @@ interface Message {
   timestamp: Date;
 }
 
-const MAX_HISTORY_LENGTH = 20; // Keep last N messages for context
+const MAX_HISTORY_LENGTH = 20; 
 
-// Function to generate a unique key for localStorage based on context
-const getStorageKey = (verseCtx: Verse | null): string => {
+const getStorageKey = (verseCtx: Verse | null, userId: string | null): string => {
+  const userPrefix = userId ? `user_${userId}_` : '';
   if (verseCtx) {
     return verseCtx.verseNumber === 0
-      ? `chatHistory_concept_${verseCtx.surah?.englishName.replace(/\s+/g, '_')}`
-      : `chatHistory_verse_${verseCtx.verseNumber}`;
+      ? `${userPrefix}chatHistory_concept_${verseCtx.surah?.englishName.replace(/\s+/g, '_')}`
+      : `${userPrefix}chatHistory_verse_${verseCtx.verseNumber}`;
   }
-  return 'chatHistory_general';
+  return `${userPrefix}chatHistory_general`;
 };
 
 export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, loginWithGoogle } = useAuth(); // Get user and login function
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [activePersona, setActivePersona] = useState(scholarPersonaManager.getActivePersona());
+  const [activePersona, setActivePersona] = useState<ScholarPersona | null>(null);
   const [currentProvider, setCurrentProvider] = useState(aiProviderManager.activeProvider);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [providerForApiKeyModal, setProviderForApiKeyModal] = useState<string | null>(null);
@@ -64,15 +64,14 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
 
   useEffect(scrollToBottom, [messages]);
 
-  // Load persona and chat history on open or context change
   useEffect(() => {
-    if (isOpen) {
-      scholarPersonaManager.loadPersonas(); // Ensure personas are loaded
+    if (isOpen && user) { // Only load if panel is open and user is logged in
+      scholarPersonaManager.loadPersonas(); 
       const currentPersona = scholarPersonaManager.getActivePersona();
       setActivePersona(currentPersona);
-      setCurrentProvider(aiProviderManager.activeProvider); // Sync provider display
+      setCurrentProvider(aiProviderManager.activeProvider); 
 
-      const storageKey = getStorageKey(verseContext);
+      const storageKey = getStorageKey(verseContext, user.uid);
       const storedMessagesJson = localStorage.getItem(storageKey);
       const storedMessages: Message[] = storedMessagesJson ? JSON.parse(storedMessagesJson) : [];
 
@@ -92,7 +91,6 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       });
 
       if (storedMessages.length > 0) {
-        // Filter out any old system intro messages if they exist in storage
         const userAndAssistantMessages = storedMessages.filter(msg => msg.role === 'user' || msg.role === 'assistant');
         initialMessages = [...initialMessages, ...userAndAssistantMessages];
       }
@@ -100,7 +98,6 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       setMessages(initialMessages);
       setInputMessage('');
 
-      // Generate conversation starters
       if (verseContext && verseContext.surah) {
         const starters = [
           `What are the main themes of Surah ${verseContext.surah.englishName}?`,
@@ -117,23 +114,19 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
             "What are some practical ways to increase Khushu' (خشوع) in Salah (صلاة)?",
         ]);
       }
-
-
-    } else {
+    } else if (!isOpen || !user) { // Reset if panel closes or user logs out
       setMessages([]);
       setConversationStarters([]);
     }
-  }, [isOpen, verseContext]);
+  }, [isOpen, verseContext, user]); // Add user to dependency array
 
-  // Save messages to localStorage whenever they change
   useEffect(() => {
-    if (isOpen && messages.length > 0) {
-      const storageKey = getStorageKey(verseContext);
-      // Persist only user and assistant messages, system intro is dynamic
+    if (isOpen && user && messages.length > 0) { // Save only if open and user logged in
+      const storageKey = getStorageKey(verseContext, user.uid);
       const messagesToStore = messages.filter(msg => msg.role === 'user' || msg.role === 'assistant');
       localStorage.setItem(storageKey, JSON.stringify(messagesToStore));
     }
-  }, [messages, isOpen, verseContext]);
+  }, [messages, isOpen, verseContext, user]); // Add user to dependency array
 
 
   const handleSendMessage = async (messageContent?: string) => {
@@ -147,20 +140,19 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, newUserMessage]);
-    if (!messageContent) { // Clear input only if not from a starter
+    if (!messageContent) { 
         setInputMessage('');
     }
     setIsLoading(true);
 
     const conversationHistory: MessageData[] = messages
-      .filter(msg => msg.role === 'user' || msg.role === 'assistant') // only user/assistant for history
-      .slice(-MAX_HISTORY_LENGTH) // Take last N messages
+      .filter(msg => msg.role === 'user' || msg.role === 'assistant') 
+      .slice(-MAX_HISTORY_LENGTH) 
       .map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : msg.role, // Genkit uses 'model' for assistant
+        role: msg.role === 'assistant' ? 'model' : msg.role, 
         content: [{ text: msg.content }]
       }));
     
-    // Add the new user message to the history being sent
     conversationHistory.push({role: 'user', content: [{text: newUserMessage.content}]});
 
     let systemPrompt = activePersona.systemPrompt;
@@ -172,7 +164,7 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
         systemPrompt += `The user is asking about Surah ${verseContext.surah?.number}:${verseContext.ayahNumberInSurah} (${verseContext.surah?.englishName}).\nArabic Text: "${verseContext.arabicText}"\nEnglish Translation: "${verseContext.englishTranslation}".\nPlease use this verse as the primary context for your response.`;
       }
     }
-     systemPrompt += `\n\n## Persona Reminders:\n- You are ${activePersona.name} (${activePersona.nameArabic}).\n- Reference your core concepts: ${Object.values(activePersona.concepts).map(c => c.name).join(', ')} where appropriate.`;
+     systemPrompt += `\n\n## Persona Reminders:\n- You are ${activePersona.name} (${activePersona.nameArabic || ''}).\n- Reference your core concepts: ${Object.values(activePersona.concepts).map(c => c.name).join(', ')} where appropriate.`;
 
 
     try {
@@ -182,12 +174,11 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
         systemPrompt: systemPrompt,
       };
       
-      // Use aiProviderManager to send message
       const aiResponse = await aiProviderManager.sendMessage(
         chatInput.message,
-        chatInput.context as MessageData[], // Cast as MessageData[]
+        chatInput.context as MessageData[], 
         chatInput.systemPrompt,
-        { provider: currentProvider } // Specify current provider
+        { provider: currentProvider } 
       );
 
       if (aiResponse.error) {
@@ -209,7 +200,7 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        role: 'error', // Use 'error' role for styling
+        role: 'error', 
         content: errorMessageContent,
         timestamp: new Date(),
       };
@@ -237,20 +228,16 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
       return;
     }
 
-    // Check if API key exists for the new provider
     if (!aiProviderManager.apiKeys[newProvider]) {
       toast({ title: "API Key Needed", description: `Please set up the API key for ${aiProviderManager.providers[newProvider].name}.`, variant: "default" });
       setProviderForApiKeyModal(newProvider);
       setIsApiKeyModalOpen(true);
-      // Don't switch yet, wait for key setup
       return;
     }
     
-    // Attempt to switch provider
     const switched = aiProviderManager.switchProvider(newProvider);
     if (switched) {
       setCurrentProvider(newProvider);
-      // Test connection silently or provide feedback
       const connected = await aiProviderManager.testConnection(newProvider);
       if (connected) {
         toast({ title: "Provider Switched", description: `Now using ${aiProviderManager.providers[newProvider].name}.` });
@@ -265,11 +252,10 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
   };
   
   const handleApiKeySaved = (provider: string) => {
-    aiProviderManager.switchProvider(provider); // Ensure it's active
+    aiProviderManager.switchProvider(provider); 
     setCurrentProvider(provider);
     toast({ title: "API Key Saved", description: `API key for ${aiProviderManager.providers[provider].name} saved and tested.` });
   };
-
 
   if (authLoading) {
     return (
@@ -280,28 +266,33 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
           </SheetHeader>
           <div className="flex-grow flex items-center justify-center p-4">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="ml-2">Loading authentication...</p>
           </div>
         </SheetContent>
       </Sheet>
     );
   }
 
-  if (!user && !authLoading) {
+  if (!user) { // If user is not logged in
     return (
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
         <SheetContent className="sm:max-w-lg w-full flex flex-col p-0" side="right">
           <SheetHeader className="p-6 pb-4 border-b">
-            <SheetTitle>Chat with {activePersona?.name || "AI Scholar"}</SheetTitle>
+            <SheetTitle>AI Conversations</SheetTitle>
             <SheetDescription>AI-powered reflections and discussions.</SheetDescription>
           </SheetHeader>
           <div className="p-6 text-center flex-grow flex flex-col items-center justify-center">
+            <UserCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <p className="mb-4 text-muted-foreground">Please log in to use the AI chat feature.</p>
+            <Button onClick={loginWithGoogle}>
+              <LogIn className="mr-2 h-4 w-4" /> Login with Google
+            </Button>
           </div>
         </SheetContent>
       </Sheet>
     );
   }
-
+  // User is logged in, show chat panel
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -386,11 +377,11 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
                     handleSendMessage();
                   }
                 }}
-                disabled={isLoading}
+                disabled={isLoading || !user} // Disable if not logged in or loading
                 className="min-h-[40px] max-h-[120px] resize-none text-sm py-2"
                 rows={1}
               />
-              <Button onClick={() => handleSendMessage()} disabled={isLoading || !inputMessage.trim()} className="h-10 w-10 p-0">
+              <Button onClick={() => handleSendMessage()} disabled={isLoading || !inputMessage.trim() || !user} className="h-10 w-10 p-0">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 <span className="sr-only">Send</span>
               </Button>
@@ -409,4 +400,3 @@ export function ChatPanel({ isOpen, onOpenChange, verseContext }: ChatPanelProps
     </>
   );
 }
-

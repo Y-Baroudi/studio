@@ -26,7 +26,8 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 
-if (typeof window !== 'undefined') { // Ensure Firebase is initialized only on the client-side
+// Ensure Firebase is initialized only on the client-side or if API key is present
+if (typeof window !== 'undefined') { 
   if (getApps().length === 0) {
     if (firebaseConfig.apiKey) { // Only initialize if API key is present
         app = initializeApp(firebaseConfig);
@@ -34,7 +35,9 @@ if (typeof window !== 'undefined') { // Ensure Firebase is initialized only on t
         db = getFirestore(app);
     } else {
         console.error("Firebase initialization skipped due to missing API key.");
-        // You might want to set app, auth, db to null or handle this state in your app
+        // Set to late-initialized placeholders or handle error appropriately
+        // For now, we'll let them be potentially undefined if no API key,
+        // which will cause errors if Firebase is used, prompting the user to fix .env
     }
   } else {
     app = getApps()[0];
@@ -44,7 +47,8 @@ if (typeof window !== 'undefined') { // Ensure Firebase is initialized only on t
 } else {
     // Handle server-side if necessary, or leave uninitialized
     // For client-side focused Firebase usage (like in this Next.js app),
-    // this branch might not need to initialize app, auth, db.
+    // this branch might not need to initialize app, auth, db immediately.
+    // If server-side Firebase operations are needed, this would require a different setup (e.g., Admin SDK).
 }
 
 
