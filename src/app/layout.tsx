@@ -18,32 +18,25 @@ export const metadata: Metadata = {
   title: "Qur'an Meezan",
   description: "Dual-core Quranic reader and AI reflection platform.",
   manifest: '/manifest.json',
-  // PWA meta tags moved here
+  // PWA meta tags
   applicationName: "Qur'an Meezan",
   appleWebAppCapable: "yes",
-  appleWebAppStatusBarStyle: "default", // Or 'black-translucent' or 'black'
+  appleWebAppStatusBarStyle: "default",
   appleWebAppTitle: "Qur'an Meezan",
   formatDetection: { telephone: false },
   mobileWebAppCapable: "yes",
-  msapplicationTileColor: "#F5F5DC", // Light Beige
+  msapplicationTileColor: "#F5F5DC",
   msapplicationTapHighlight: "no",
   icons: {
-    apple: "/icons/icon-192x192.png", // Example for apple-touch-icon
-    // You can add other icon sizes/types here if needed, e.g.,
-    // icon: [
-    //   { url: '/icons/icon-32x32.png', sizes: '32x32', type: 'image/png' },
-    //   { url: '/icons/icon-16x16.png', sizes: '16x16', type: 'image/png' },
-    // ],
-    // shortcut: '/icons/favicon.ico', // For favicon
+    apple: "/icons/icon-192x192.png",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F5F5DC' }, // Light Beige for light theme
-    { media: '(prefers-color-scheme: dark)', color: '#3A3A3A' }, // A darker beige/gray for dark theme
+    { media: '(prefers-color-scheme: light)', color: '#F5F5DC' },
+    { media: '(prefers-color-scheme: dark)', color: '#3A3A3A' },
   ],
-  // You can add other viewport properties here, like width, initialScale, etc.
 };
 
 export default function RootLayout({
@@ -54,7 +47,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       {/*
-        The <head> tag is no longer explicitly rendered here.
         Next.js automatically generates the <head> content based on:
         1. The `metadata` and `viewport` exports from this file.
         2. Metadata exports from child layouts and pages.
