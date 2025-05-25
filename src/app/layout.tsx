@@ -23,8 +23,8 @@ export const metadata: Metadata = {
   appleWebAppTitle: "Qur'an Meezan",
   formatDetection: { telephone: false },
   mobileWebAppCapable: "yes",
-  msapplicationTileColor: "#F5F5DC",
-  msapplicationTapHighlight: "no",
+  // msapplicationTileColor: "#F5F5DC", // Temporarily removed
+  // msapplicationTapHighlight: "no", // Temporarily removed
   icons: {
     apple: "/icons/icon-192x192.png",
   },
