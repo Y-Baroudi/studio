@@ -21,7 +21,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react';
+import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook, MessageSquare, Brain } from 'lucide-react'; // Added Notebook, MessageSquare, Brain icons
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -30,8 +30,8 @@ import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { checkNoteExists } from '@/services/notes';
-import { ConceptExplorer } from '@/components/quran/ConceptExplorer'; // Assuming this will be created
-import { ChatPanel } from '@/components/chat/ChatPanel'; // Assuming this will be created
+import { ConceptExplorer } from '@/components/quran/ConceptExplorer';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 
 
 // Default values
@@ -74,8 +74,8 @@ export function ReaderView() {
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] = useState(false);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [isConceptExplorerOpen, setIsConceptExplorerOpen] = useState(false); // State for ConceptExplorer
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false); // State for ChatPanel
+  const [isConceptExplorerOpen, setIsConceptExplorerOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [chatPanelContext, setChatPanelContext] = useState<Verse | null>(null);
 
 
@@ -493,6 +493,15 @@ export function ReaderView() {
         setPlayingVerseNumber(null);
    }, []);
 
+   const handleAudioError = useCallback((errorMsg: string) => {
+        setPlayingVerseNumber(null);
+        setIsRepeatingVerse(null);
+         if (!error || !error.includes(errorMsg.substring(0, 30))) {
+             toast({ title: "Audio Playback Error", description: errorMsg, variant: "destructive" });
+             setError(errorMsg); // Set the error state
+         }
+   }, [toast, error, setError]);
+
    const handleAudioEnd = useCallback(() => {
         setPlayingVerseNumber(null);
         if (isRepeatingVerse === currentAbsoluteVerse) {
@@ -506,17 +515,8 @@ export function ReaderView() {
         } else {
             handleNextVerseFocus();
         }
-   }, [playingVerseNumber, isRepeatingVerse, currentAbsoluteVerse, handleNextVerseFocus, handleAudioError]); // Added handleAudioError
+   }, [playingVerseNumber, isRepeatingVerse, currentAbsoluteVerse, handleNextVerseFocus, handleAudioError]);
 
-
-   const handleAudioError = useCallback((errorMsg: string) => {
-        setPlayingVerseNumber(null);
-        setIsRepeatingVerse(null);
-         if (!error || !error.includes(errorMsg.substring(0, 30))) {
-             toast({ title: "Audio Playback Error", description: errorMsg, variant: "destructive" });
-             setError(errorMsg);
-         }
-   }, [toast, error, setError]); // Added setError to dependencies
 
     const updatePlayingVerseCallback = useCallback((verseNum: number | null) => {
        setPlayingVerseNumber(verseNum);
@@ -537,7 +537,9 @@ export function ReaderView() {
             if (verseNumber !== currentAbsoluteVerse) {
                  navigateToVerse(verseNumber, true, true);
                  setTimeout(() => {
-                     audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
+                     if (audioRef.current) { // Check ref again inside timeout
+                        audioRef.current.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
+                     }
                  }, 250);
             } else {
                 if (audioElement.paused) {
@@ -735,7 +737,6 @@ export function ReaderView() {
            onVerseSliderCommit={() => {}}
            isRepeatingVerse={isRepeatingVerse === currentAbsoluteVerse}
            onRepeatVerseToggle={handleRepeatVerseToggle}
-           onOpenConceptExplorer={toggleConceptExplorer} // Pass handler for concept explorer
          />
        </div>
 
