@@ -23,8 +23,6 @@ export const metadata: Metadata = {
   appleWebAppTitle: "Qur'an Meezan",
   formatDetection: { telephone: false },
   mobileWebAppCapable: "yes",
-  // msapplicationTileColor: "#F5F5DC", // Temporarily removed
-  // msapplicationTapHighlight: "no", // Temporarily removed
   icons: {
     apple: "/icons/icon-192x192.png",
   },
@@ -44,6 +42,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      {/* The <head> tag is automatically managed by Next.js via the metadata export.
+          Do not add a <head> tag here manually. */}
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased",
