@@ -15,10 +15,9 @@ export function AuthButtons() {
   }, []);
 
   if (!mounted) {
-    // Render nothing or a static placeholder on the server and initial client render
-    // to avoid hydration mismatch. A simple placeholder button can also work.
-    // Returning null is often the safest to ensure server/client match for this part of the tree.
-    return <Button variant="ghost" size="sm" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Authenticating...</Button>;
+    // Render nothing on the server and initial client render
+    // to avoid hydration mismatch.
+    return null;
   }
 
   if (loading) {
