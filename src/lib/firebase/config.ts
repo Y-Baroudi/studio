@@ -13,17 +13,39 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// Check if the essential API key is set
+if (!firebaseConfig.apiKey) {
+  console.warn(
+    "Firebase API Key (NEXT_PUBLIC_FIREBASE_API_KEY) is not set. " +
+    "Please ensure it is defined in your .env file or environment variables. " +
+    "Firebase services will not work correctly without it."
+  );
+}
+
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
+if (typeof window !== 'undefined') { // Ensure Firebase is initialized only on the client-side
+  if (getApps().length === 0) {
+    if (firebaseConfig.apiKey) { // Only initialize if API key is present
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+    } else {
+        console.error("Firebase initialization skipped due to missing API key.");
+        // You might want to set app, auth, db to null or handle this state in your app
+    }
+  } else {
+    app = getApps()[0];
+    auth = getAuth(app);
+    db = getFirestore(app);
+  }
 } else {
-  app = getApps()[0];
+    // Handle server-side if necessary, or leave uninitialized
+    // For client-side focused Firebase usage (like in this Next.js app),
+    // this branch might not need to initialize app, auth, db.
 }
 
-auth = getAuth(app);
-db = getFirestore(app);
 
 export { app, auth, db };
