@@ -46,13 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      {/*
-        Next.js automatically generates the <head> content based on:
-        1. The `metadata` and `viewport` exports from this file.
-        2. Metadata exports from child layouts and pages.
-        3. Default Next.js head elements (like scripts, styles).
-        This approach is idiomatic for the App Router and helps avoid hydration errors.
-      */}
+      {/* Next.js automatically generates the <head> based on metadata and viewport exports. */}
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased",
