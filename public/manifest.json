@@ -1,23 +1,25 @@
+
 {
-  "name": "Quran Companion",
-  "short_name": "QuranComp",
-  "description": "Your personal Quran reading companion.",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#F5F5DC",
-  "theme_color": "#F5F5DC",
+  "name": "Qur'an Meezan (القرآن ميزان)",
+  "short_name": "Qur'an Meezan",
+  "description": "Dual-core Quranic reader and AI reflection platform for deepened engagement with the Qur'an and Islamic concepts.",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-       "purpose": "any maskable"
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-       "purpose": "any maskable"
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "theme_color": "#F5F5DC",
+  "background_color": "#F5F5DC",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait"
 }

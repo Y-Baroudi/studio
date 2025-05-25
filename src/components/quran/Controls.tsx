@@ -103,6 +103,42 @@ export function Controls({
 
   const MAX_VERSE_NUMBER = quranMeta?.surahs.references.reduce((sum, s) => sum + s.numberOfAyahs, 0) ?? MAX_VERSE_NUMBER_DEFAULT;
 
+  // --- Media Session API Integration ---
+  useEffect(() => {
+    if ('mediaSession' in navigator && quranMeta) {
+      if (isPlaying && audioUrl && currentVerseData) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: `Verse ${currentVerseData.verseReference}`,
+          artist: `Surah ${currentVerseData.surah?.englishName || ''}`,
+          album: 'Qur\'an Meezan Recitation',
+          artwork: [
+            { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+          ]
+        });
+        navigator.mediaSession.setActionHandler('play', togglePlayPause);
+        navigator.mediaSession.setActionHandler('pause', togglePlayPause);
+        navigator.mediaSession.setActionHandler('previoustrack', onPreviousVerse);
+        navigator.mediaSession.setActionHandler('nexttrack', onNextVerse);
+      } else {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+      }
+    }
+  }, [isPlaying, audioUrl, verseNumber, quranMeta, onPreviousVerse, onNextVerse]);
+  // Added currentVerseData related dependencies to the MediaSession useEffect
+  const currentVerseData = quranMeta ? quranMeta.surahs.references
+    .flatMap(s => Array.from({ length: s.numberOfAyahs }, (_, i) => ({
+      surah: s,
+      ayahNumberInSurah: i + 1,
+      verseReference: `${s.number}:${i + 1}`
+    })))
+    .find(v => v.verseReference === `${verseNumber}`) : null;
+
+
   // --- Play/Pause Logic ---
   const togglePlayPause = useCallback(() => {
     console.log("togglePlayPause called");
@@ -133,18 +169,16 @@ export function Controls({
     if (isPlaying) {
         console.log("Attempting to pause audio");
         audioElement.pause();
-        // If paused manually, tell the parent to stop repeating (if it was repeating)
         if (isRepeatingVerse) {
              console.log("Manual pause during repeat, toggling repeat off via parent.");
-             onRepeatVerseToggle(verseNumber, false); // Tell parent to stop repeating
+             onRepeatVerseToggle(verseNumber, false);
         }
     } else {
         console.log("Attempting to play audio with URL:", audioUrl);
-        setIsAudioLoading(true); // Set loading true before play attempt
+        setIsAudioLoading(true);
         audioElement.play()
             .then(() => {
                 console.log("Audio playback started successfully via play().");
-                // State updates (isPlaying=true) are handled by the 'play' event listener
             })
             .catch(err => {
                 console.error("Audio playback error on play():", err);
@@ -160,14 +194,13 @@ export function Controls({
                 }
                 console.log("Setting playback error:", errorMsg);
                 setPlaybackError(errorMsg);
-                setIsPlaying(false); // Ensure playing state is false on error
-                setIsAudioLoading(false); // Ensure loading state is false on error
+                setIsPlaying(false);
+                setIsAudioLoading(false);
                 onError(errorMsg);
                 updatePlayingVerse(null);
-                // If play fails, tell the parent to stop repeating
                 if (isRepeatingVerse) {
                     console.log("Play failed, toggling repeat off via parent.");
-                    onRepeatVerseToggle(verseNumber, false); // Tell parent to stop repeating
+                    onRepeatVerseToggle(verseNumber, false);
                 }
             });
     }
@@ -183,14 +216,12 @@ export function Controls({
       const newMuteState = !isMuted;
       setIsMuted(newMuteState);
       audioRef.current.muted = newMuteState;
-      // Volume slider is now in the main settings panel
     }
   };
 
 
   // --- Progress & Time Update Logic ---
    const handleTimeUpdate = (event: SyntheticEvent<HTMLAudioElement>) => {
-     // Update time display only, no seeking involved here
      if (!isLoading && !isAudioLoading && isFinite(event.currentTarget.currentTime)) {
         setCurrentTime(event.currentTarget.currentTime);
      }
@@ -205,9 +236,9 @@ export function Controls({
          console.warn("Received invalid or infinite duration:", targetDuration, "Resetting to 0.");
          setDuration(0);
        }
-       setCurrentTime(0); // Reset time on new metadata
-       setIsAudioLoading(false); // Metadata loaded, no longer loading
-       setPlaybackError(null); // Clear errors on successful load
+       setCurrentTime(0);
+       setIsAudioLoading(false);
+       setPlaybackError(null);
    };
 
 
@@ -218,26 +249,24 @@ export function Controls({
 
     console.log("Setting up audio event listeners");
 
-    // Define handlers within useEffect to capture current state/props
     const handlePlay = () => {
         console.log("Audio 'play' event triggered.");
         setIsPlaying(true);
         setIsAudioLoading(false);
         setPlaybackError(null);
-        onPlay(); // Notify parent
+        onPlay();
     };
     const handlePause = () => {
         console.log("Audio 'pause' event triggered.");
         setIsPlaying(false);
-        onPause(); // Notify parent
+        onPause();
     };
     const handleEnded = () => {
         console.log("Audio 'ended' event triggered.");
         setIsPlaying(false);
         setIsAudioLoading(false);
-        setCurrentTime(0); // Reset time visually
-        onEnded(); // Notify parent that the track finished
-        // Parent (ReaderView) handles repeat logic via onEnded
+        setCurrentTime(0);
+        onEnded();
     };
      const handleError = (e: Event) => {
         const target = e.target as HTMLAudioElement;
@@ -259,16 +288,15 @@ export function Controls({
              errorMsg += ` No specific error code. Event type: ${e.type}.`;
         }
 
-        console.error("Detailed Audio Error Message:", errorMsg); // Log the detailed message
+        console.error("Detailed Audio Error Message:", errorMsg);
 
-        setPlaybackError(errorMsg); // Show error to user
+        setPlaybackError(errorMsg);
         setIsPlaying(false);
-        setIsAudioLoading(false); // Stop loading indicator on error
-        setCurrentTime(0); // Reset time
-        setDuration(0); // Reset duration as it might be invalid
-        onError(errorMsg); // Notify parent
-        updatePlayingVerse(null); // Tell parent nothing is playing
-        // If error occurs, tell parent to stop repeating
+        setIsAudioLoading(false);
+        setCurrentTime(0);
+        setDuration(0);
+        onError(errorMsg);
+        updatePlayingVerse(null);
         if (isRepeatingVerse) {
              console.log("Audio error during repeat, toggling repeat off via parent.");
              onRepeatVerseToggle(verseNumber, false);
@@ -279,7 +307,7 @@ export function Controls({
         console.log("Audio 'canplay'...");
         setIsAudioLoading(false);
         if (playbackError?.includes("Network error") || playbackError?.includes("Audio format not supported")) {
-            setPlaybackError(null); // Clear network/format errors if it can now play
+            setPlaybackError(null);
         }
     }
      const handleCanPlayThrough = () => { console.log("Audio 'canplaythrough'..."); setIsAudioLoading(false); }
@@ -287,7 +315,6 @@ export function Controls({
      const handleStalled = () => { console.log("Audio 'stalled'..."); setIsAudioLoading(true); }
 
 
-    // Add listeners
     audioElement.addEventListener('play', handlePlay);
     audioElement.addEventListener('pause', handlePause);
     audioElement.addEventListener('ended', handleEnded);
@@ -300,10 +327,8 @@ export function Controls({
     audioElement.addEventListener('timeupdate', handleTimeUpdate);
     audioElement.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-    // Set initial properties
     audioElement.muted = isMuted;
 
-    // Cleanup function
     return () => {
       console.log("Cleaning up audio event listeners");
       audioElement.removeEventListener('play', handlePlay);
@@ -318,10 +343,9 @@ export function Controls({
       audioElement.removeEventListener('timeupdate', handleTimeUpdate);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  // Ensure all relevant state and props are included
   }, [
       verseNumber, isMuted, onPlay, onPause, onEnded, onError, updatePlayingVerse,
-      isAudioLoading, playbackError, audioRef, isRepeatingVerse, onRepeatVerseToggle, isLoading // Added isLoading
+      isAudioLoading, playbackError, audioRef, isRepeatingVerse, onRepeatVerseToggle, isLoading
     ]);
 
   // --- Handle Audio Source Change ---
@@ -337,10 +361,10 @@ export function Controls({
            console.log(`Updating audio source to "${audioUrl}"`);
            if (!audioElement.paused) audioElement.pause();
            setCurrentTime(0); setDuration(0); setPlaybackError(null);
-           setIsPlaying(false); setIsAudioLoading(true); // Set loading true when changing src
+           setIsPlaying(false); setIsAudioLoading(true);
 
            audioElement.src = audioUrl;
-           audioElement.load(); // Important: Trigger load for new source
+           audioElement.load();
            audioElement.muted = isMuted;
 
        } else if (shouldClearSrc) {
@@ -353,22 +377,14 @@ export function Controls({
            setIsPlaying(false); setIsAudioLoading(false);
            updatePlayingVerse(null);
        } else {
-            // Source is same or was already null/undefined
-            // Check if loading state needs adjustment based on readyState
             if (audioElement.readyState < 3 && audioUrl && !audioElement.error) {
-                // console.log("Audio source unchanged, but readyState is low, setting loading true.");
-                // Only set loading if there's no error and audio URL is present
                 setIsAudioLoading(true);
             } else if (audioElement.readyState >= 3 || audioElement.error) {
-                // console.log("Audio source unchanged, readyState sufficient or error exists, setting loading false.");
                 setIsAudioLoading(false);
             }
-            // Clear playback error if audioUrl is valid and was previously set
             if (audioUrl && !audioElement.error && playbackError) {
-                 console.log("Clearing playback error as audio URL is now valid and no error present.");
                  setPlaybackError(null);
             } else if (!audioUrl && !playbackError) {
-                // Set specific error if URL becomes null/undefined
                  setPlaybackError("Audio not available for this selection.");
             }
        }
@@ -390,12 +406,9 @@ export function Controls({
    };
 
 
-  // --- Combined Disabled Logic ---
   const navDisabled = isLoading;
-  // Disable play/pause if app is loading, audio is loading, or if there's no URL or an error
   const audioActionDisabled = isLoading || isAudioLoading || !audioUrl || !!playbackError;
 
-  // --- Jump To Handlers ---
    const handleJuzSelect = (value: string) => {
        const juzNumber = parseInt(value, 10);
        if (!isNaN(juzNumber)) { onJuzChange(juzNumber); }
@@ -406,7 +419,6 @@ export function Controls({
        if (!isNaN(pageNumber)) { onPageChange(pageNumber); }
    };
 
-   // --- Prepare Reciter Options ---
     const popularReciterOptions = reciters
       .filter(r => POPULAR_RECITERS.includes(r.id))
       .sort((a, b) => POPULAR_RECITERS.indexOf(a.id) - POPULAR_RECITERS.indexOf(b.id))
@@ -432,9 +444,7 @@ export function Controls({
       <CardContent className="p-3 flex flex-col gap-3">
         {/* Row 1: Navigation & Reciter */}
         <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-           {/* Jump To & Reciter (Flex container) */}
            <div className="flex items-center gap-2 flex-wrap justify-start w-full">
-                {/* Jump to Juz */}
                 <Select onValueChange={handleJuzSelect} disabled={navDisabled}>
                    <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Juz">
                       <BookCopy className="mr-1 h-4 w-4 text-muted-foreground" />
@@ -442,7 +452,6 @@ export function Controls({
                    </SelectTrigger>
                    <SelectContent> <SelectGroup> <SelectLabel>Juz</SelectLabel> {Object.entries(JUZ_STARTS).map(([juz, startVerse]) => ( <SelectItem key={juz} value={juz}> Juz {juz} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
                 </Select>
-                {/* Jump to Page */}
                 <Select onValueChange={handlePageSelect} disabled={navDisabled}>
                    <SelectTrigger className="w-auto sm:w-[130px] h-9 text-sm shrink-0 flex-grow sm:flex-grow-0" aria-label="Jump to Page">
                       <BookOpenCheck className="mr-1 h-4 w-4 text-muted-foreground" />
@@ -450,20 +459,19 @@ export function Controls({
                    </SelectTrigger>
                    <SelectContent> <SelectGroup> <SelectLabel>Page (Mushaf)</SelectLabel> {Object.entries(PAGE_STARTS).map(([page, startVerse]) => ( <SelectItem key={page} value={page}> Page {page} (V:{startVerse}) </SelectItem> ))} </SelectGroup> </SelectContent>
                 </Select>
-                {/* Reciter Selection */}
                  <DropdownMenu>
                    <DropdownMenuTrigger asChild>
                      <Button
                        variant="ghost"
                        size="sm"
-                       className="flex items-center gap-1.5 px-2 h-9 text-sm flex-grow sm:flex-grow-0" // Flex-grow for smaller screens
+                       className="flex items-center gap-1.5 px-2 h-9 text-sm flex-grow sm:flex-grow-0"
                        disabled={isLoadingReciters || reciters.length === 0 || navDisabled}
                        aria-label="Select Reciter"
                      >
                        {isLoadingReciters ? (
                          <> <Loader2 className="h-4 w-4 animate-spin" /> Loading... </>
                        ) : (
-                         <> <MicVocal className="h-4 w-4 text-muted-foreground"/> <span className="truncate max-w-[120px] sm:max-w-[150px]">{selectedReciterName}</span> <ChevronDown className="h-4 w-4 opacity-50 ml-auto sm:ml-1"/> </> // Adjust max-width
+                         <> <MicVocal className="h-4 w-4 text-muted-foreground"/> <span className="truncate max-w-[120px] sm:max-w-[150px]">{selectedReciterName}</span> <ChevronDown className="h-4 w-4 opacity-50 ml-auto sm:ml-1"/> </>
                        )}
                      </Button>
                    </DropdownMenuTrigger>
@@ -485,15 +493,12 @@ export function Controls({
         {/* Row 2: Audio Player Controls */}
         <div className="flex flex-col gap-2 w-full bg-card/50 dark:bg-card/30 p-2 rounded-md border">
 
-            {/* Top Part: Simplified Time Display */}
             <div className="flex items-center justify-between gap-2 w-full px-1">
                  <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(currentTime)}</span>
                  <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">{formatTime(duration)}</span>
             </div>
 
-            {/* Bottom Part: Main Buttons & Secondary Options */}
-            <div className="flex items-center justify-center gap-3 w-full"> {/* Centered main buttons */}
-                 {/* Center: Main Playback Buttons */}
+            <div className="flex items-center justify-center gap-3 w-full">
                  <div className="flex items-center gap-2">
                      <TooltipProvider> <Tooltip> <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" onClick={onPreviousVerse} disabled={navDisabled || verseNumber <= 1} aria-label="Previous Verse">
@@ -506,7 +511,7 @@ export function Controls({
                             variant="default"
                             size="icon"
                             onClick={togglePlayPause}
-                            disabled={audioActionDisabled} // Use combined disabled logic
+                            disabled={audioActionDisabled}
                             aria-label={isPlaying ? 'Pause' : 'Play'}
                             className="w-10 h-10 rounded-full shadow-lg bg-primary hover:bg-primary/90 relative"
                         >
@@ -525,7 +530,6 @@ export function Controls({
                         </Button>
                     </TooltipTrigger> <TooltipContent><p>Next Verse</p></TooltipContent> </Tooltip> </TooltipProvider>
                  </div>
-                 {/* Right Side: Repeat Button */}
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -533,7 +537,7 @@ export function Controls({
                            variant={isRepeatingVerse ? "secondary" : "ghost"}
                            size="icon"
                            onClick={() => onRepeatVerseToggle(verseNumber, !isRepeatingVerse)}
-                           disabled={navDisabled || !audioUrl} // Disable if no audio or loading
+                           disabled={navDisabled || !audioUrl}
                            aria-label={isRepeatingVerse ? "Stop Repeating Verse" : "Repeat Verse"}
                            className={cn(isRepeatingVerse && "ring-2 ring-primary/50")}
                          >
@@ -546,7 +550,6 @@ export function Controls({
             </div>
         </div>
 
-        {/* Error Message Area */}
         {playbackError && (
             <div className="mt-1 px-3 py-1 text-center text-xs text-destructive bg-destructive/10 rounded-md border border-destructive/30">
             {playbackError}
