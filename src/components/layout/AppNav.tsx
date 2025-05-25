@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Import useState and useEffect
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { BookOpen, MessageSquare } from 'lucide-react'; // Icons for links
@@ -15,6 +15,18 @@ const navItems = [
 
 export function AppNav() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    // Render a placeholder or null on the server and initial client render
+    // to avoid hydration mismatch due to pathname potentially differing.
+    // A placeholder div can maintain structure if needed.
+    return <nav className="border-b bg-background h-12"></nav>; // Placeholder with same height
+  }
 
   return (
     <nav className="border-b bg-background">
