@@ -25,7 +25,6 @@ export const metadata: Metadata = {
   appleWebAppTitle: "Qur'an Meezan",
   formatDetection: { telephone: false },
   mobileWebAppCapable: "yes",
-  // msapplicationConfig: "/icons/browserconfig.xml", // Optional: if you create this file
   msapplicationTileColor: "#F5F5DC", // Light Beige
   msapplicationTapHighlight: "no",
   icons: {
@@ -54,7 +53,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      {/* 
+      {/*
         The <head> tag is no longer explicitly rendered here.
         Next.js automatically generates the <head> content based on:
         1. The `metadata` and `viewport` exports from this file.
