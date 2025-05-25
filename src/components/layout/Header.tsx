@@ -2,7 +2,7 @@
 'use client'; // Needs to be a client component to use state and interact with dropdowns
 
 import Link from 'next/link';
-// import { ThemeToggle } from '@/components/theme-toggle'; // Removed ThemeToggle
+// ThemeToggle is now in AppHeader
 import { BookOpen, Menu, Search, Tags, Loader2, ChevronDown, Settings, NotebookText } from 'lucide-react'; // Added Settings, NotebookText
 import { Button } from '@/components/ui/button'; // Import Button
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'; // Import Sheet for drawer
@@ -204,11 +204,9 @@ export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }
               </Tooltip>
             </TooltipProvider>
 
-           {/* Theme Toggle Removed */}
-           {/* <ThemeToggle /> */}
+           {/* Theme Toggle moved to AppHeader */}
         </div>
       </div>
     </header>
   );
 }
-

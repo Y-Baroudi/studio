@@ -1,8 +1,11 @@
 
+'use client'; // Make AppHeader a client component
+
 import Link from 'next/link';
 import React from 'react';
 import { AuthButtons } from '@/components/auth/AuthButtons';
 import { BookText } from 'lucide-react'; // Using a relevant icon
+import { ThemeToggle } from '@/components/theme-toggle'; // Import ThemeToggle
 
 export function AppHeader() {
   return (
@@ -16,9 +19,9 @@ export function AppHeader() {
         </Link>
         <div className="flex items-center gap-4">
           <AuthButtons />
+          <ThemeToggle /> {/* Add ThemeToggle here */}
         </div>
       </div>
     </header>
   );
 }
-
