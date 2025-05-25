@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -20,7 +21,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react'; // Added Notebook icon
+import { Settings, ChevronDown, ChevronsDown, Loader2, AlertCircle, Info, Notebook } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -28,7 +29,10 @@ import { useInView } from 'react-intersection-observer';
 import { JUZ_STARTS, PAGE_STARTS } from '@/data/quranMappings';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { checkNoteExists } from '@/services/notes'; // Import checkNoteExists
+import { checkNoteExists } from '@/services/notes';
+import { ConceptExplorer } from '@/components/quran/ConceptExplorer'; // Assuming this will be created
+import { ChatPanel } from '@/components/chat/ChatPanel'; // Assuming this will be created
+
 
 // Default values
 const DEFAULT_VERSE_NUMBER = 1;
@@ -39,7 +43,7 @@ const DEFAULT_ARABIC_FONT_SIZE = 24;
 const DEFAULT_LINE_HEIGHT = 1.8;
 const DEFAULT_TRANSLATION_LINE_HEIGHT = 1.6;
 const SWIPE_THRESHOLD = 50;
-const VERSES_TO_LOAD_AT_ONCE = 10; // Load fewer verses for surah data
+const VERSES_TO_LOAD_AT_ONCE = 10;
 const BISMILLAH_TEXT = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
 export function ReaderView() {
@@ -53,8 +57,8 @@ export function ReaderView() {
   const [currentSurahNumber, setCurrentSurahNumber] = useState<number | null>(null);
   const [displayedVerses, setDisplayedVerses] = useState<Verse[]>([]);
   const [playingVerseNumber, setPlayingVerseNumber] = useState<number | null>(null);
-  const [versesWithNotes, setVersesWithNotes] = useState<Set<number>>(new Set()); // Track verses with notes/tags
-  const [isRepeatingVerse, setIsRepeatingVerse] = useState<number | null>(null); // State for repeating verse
+  const [versesWithNotes, setVersesWithNotes] = useState<Set<number>>(new Set());
+  const [isRepeatingVerse, setIsRepeatingVerse] = useState<number | null>(null);
 
   const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE);
   const [arabicFontSize, setArabicFontSize] = useState<number>(DEFAULT_ARABIC_FONT_SIZE);
@@ -70,6 +74,10 @@ export function ReaderView() {
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] = useState(false);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isConceptExplorerOpen, setIsConceptExplorerOpen] = useState(false); // State for ConceptExplorer
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false); // State for ChatPanel
+  const [chatPanelContext, setChatPanelContext] = useState<Verse | null>(null);
+
 
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -81,12 +89,11 @@ export function ReaderView() {
   const isProgrammaticScroll = useRef<boolean>(false);
   const programmaticScrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null); // Ref for the audio element
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
     threshold: 0.1,
-    // root: scrollContainerRef.current, // Removed as it causes issues when ref is null initially
-    rootMargin: '0px 0px 200px 0px', // Load when 200px from bottom
+    rootMargin: '0px 0px 200px 0px',
   });
 
    useEffect(() => {
@@ -103,7 +110,6 @@ export function ReaderView() {
      }
    }, [arabicFontSize, fontSize, lineHeight, translationLineHeight]);
 
-   // Function to update the set of verses with notes
    const updateNoteStatusForVerse = useCallback((absoluteVerseNumber: number, hasNote: boolean) => {
      setVersesWithNotes(prev => {
        const newSet = new Set(prev);
@@ -112,29 +118,24 @@ export function ReaderView() {
        } else {
          newSet.delete(absoluteVerseNumber);
        }
-       console.log(`Note status updated for verse ${absoluteVerseNumber}. Has Note/Tag: ${hasNote}. Current set:`, newSet);
        return newSet;
      });
    }, []);
 
-   // Pre-check notes status when displayed verses change
    useEffect(() => {
       if (typeof window !== 'undefined' && displayedVerses.length > 0) {
           const notesExistSet = new Set<number>();
           displayedVerses.forEach(verse => {
-              // Use the imported checkNoteExists function
               if (checkNoteExists(verse.verseNumber)) {
                   notesExistSet.add(verse.verseNumber);
               }
           });
           setVersesWithNotes(notesExistSet);
-          // console.log("Checked notes status for displayed verses:", notesExistSet); // Less verbose logging
       }
    }, [displayedVerses]);
 
 
   const fetchInitialData = useCallback(async () => {
-    console.log("Fetching initial data...");
     setIsLoadingMeta(true);
     setIsLoadingReciters(true);
     setIsLoadingTranslations(true);
@@ -155,14 +156,11 @@ export function ReaderView() {
         const initialLocation = absoluteVerseToSurahAyah(DEFAULT_VERSE_NUMBER, meta);
         if (initialLocation) {
           setCurrentSurahNumber(initialLocation.surahNumber);
-          console.log("Initial surah set to:", initialLocation.surahNumber);
         } else {
-          console.error("Could not determine initial surah from metadata.");
           setCurrentSurahNumber(1);
           setError("Failed to determine starting surah.");
         }
       } else {
-        console.error('Error fetching Quran metadata:', metaResult.reason);
         setError('Failed to load essential Quran data. Please refresh.');
         setQuranMeta(null);
         setCurrentSurahNumber(null);
@@ -183,7 +181,6 @@ export function ReaderView() {
           toast({ title: "No Reciters Available", description: "Could not load audio reciters.", variant: "destructive" });
         }
       } else {
-        console.error('Error fetching reciters:', recitersResult.reason);
         setReciters([]);
         setSelectedReciter('');
         toast({ title: "Reciter Loading Failed", description: "Using fallback reciters.", variant: "destructive" });
@@ -200,7 +197,7 @@ export function ReaderView() {
              const newTranslation = defaultExists ? DEFAULT_TRANSLATION_ID : fallbackTranslation;
              if (newTranslation) {
                  setSelectedTranslation(newTranslation);
-                 if (selectedTranslation) {
+                 if (selectedTranslation) { // Check if selectedTranslation was previously set
                      toast({ title: "Translation Reset", description: `Switched to ${newTranslation}.` });
                  }
              } else {
@@ -209,20 +206,17 @@ export function ReaderView() {
              }
         }
       } else {
-        console.error('Error fetching translations:', translationsResult.reason);
-        setTranslations(SUPPORTED_TRANSLATIONS);
+        setTranslations(SUPPORTED_TRANSLATIONS); // Fallback
         toast({ title: "Translation Loading Failed", description: "Using default translations.", variant: "destructive" });
       }
       setIsLoadingTranslations(false);
 
     } catch (err) {
-      console.error('Unexpected error during initial data fetch:', err);
       setError('An unexpected error occurred while loading data. Please refresh.');
       setQuranMeta(null);
       setReciters([]);
       setTranslations(SUPPORTED_TRANSLATIONS);
     } finally {
-        console.log("Finished fetching initial data attempt.");
         setIsLoadingMeta(false);
         setIsLoadingReciters(false);
         setIsLoadingTranslations(false);
@@ -235,21 +229,17 @@ export function ReaderView() {
 
    const loadVerses = useCallback(async (surahNum: number, startAyahNum: number = 1, replace: boolean = false) => {
      if (!quranMeta || isLoadingVerses || isLoadingMeta) {
-        console.log(`Verse loading skipped: Meta: ${!!quranMeta}, LoadingVerses: ${isLoadingVerses}, LoadingMeta: ${isLoadingMeta}`);
         return;
      }
-
-     console.log(`loadVerses called: Surah ${surahNum}, Start Ayah ${startAyahNum}, Replace: ${replace}`);
      setIsLoadingVerses(true);
      if (replace) {
         setError(null);
         verseRefs.current.clear();
-        setDisplayedVerses([]); // Clear immediately on replace
+        setDisplayedVerses([]);
      }
 
      const surahMeta = quranMeta.surahs.references.find(s => s.number === surahNum);
      if (!surahMeta) {
-        console.error(`Metadata for Surah ${surahNum} not found.`);
         setError(`Metadata for Surah ${surahNum} not found.`);
         setIsLoadingVerses(false);
         setCanLoadMore(false);
@@ -257,48 +247,31 @@ export function ReaderView() {
         return;
      }
 
-     // Use getSurahData which fetches all verses at once
-     console.log(`Using getSurahData for Surah ${surahNum}`);
-
      try {
          const surahVerses = await getSurahData(surahNum, selectedTranslation, selectedReciter, quranMeta);
          if (surahVerses) {
-             console.log(`Loaded ${surahVerses.length} verses via getSurahData.`);
              setDisplayedVerses(surahVerses);
-             setCanLoadMore(false); // Since we load the whole surah
+             setCanLoadMore(false);
              setError(null);
          } else {
-             console.error(`getSurahData failed for Surah ${surahNum}.`);
              throw new Error(`Failed to fetch complete data for Surah ${surahNum}.`);
          }
      } catch (err) {
-         console.error(`Error loading surah data for Surah ${surahNum}:`, err);
          setError(`Failed to load verses. ${err instanceof Error ? err.message : ''}. Please check your connection or settings.`);
          setCanLoadMore(false);
          setDisplayedVerses([]);
      } finally {
          setIsLoadingVerses(false);
-         console.log("Finished loading surah data attempt.");
      }
    }, [quranMeta, selectedTranslation, selectedReciter, isLoadingVerses, isLoadingMeta]);
 
-   // Effect to load verses when surah changes or initial load is ready
    useEffect(() => {
      const canLoadInitial = quranMeta && selectedTranslation && currentSurahNumber !== null && displayedVerses.length === 0 && !isLoadingVerses && !isLoadingMeta && !isLoadingReciters && !isLoadingTranslations && !error;
 
      if (canLoadInitial) {
-       console.log(`Initial load triggered for Surah ${currentSurahNumber}`);
        loadVerses(currentSurahNumber, 1, true);
-     } else {
-        if (displayedVerses.length === 0 && !isLoadingVerses && !isLoadingMeta && !isLoadingReciters && !isLoadingTranslations) {
-            // console.log(`Initial load condition not met: quranMeta=${!!quranMeta}, selectedTranslation=${!!selectedTranslation}, currentSurahNumber=${currentSurahNumber}, isLoadingVerses=${isLoadingVerses}, isLoadingMeta=${isLoadingMeta}, error=${!!error}`); // Less verbose
-        }
      }
-   }, [quranMeta, selectedTranslation, currentSurahNumber, isLoadingVerses, isLoadingMeta, isLoadingReciters, isLoadingTranslations, error, loadVerses, displayedVerses.length]); // Added displayedVerses.length dependency
-
-
-   // Removed the infinite scroll effect based on useInView as we load the whole surah now
-   // useEffect(() => { ... loadMoreInView logic ... }, [...]);
+   }, [quranMeta, selectedTranslation, currentSurahNumber, isLoadingVerses, isLoadingMeta, isLoadingReciters, isLoadingTranslations, error, loadVerses, displayedVerses.length]);
 
 
    const scrollToVerse = useCallback((absoluteVerseNum: number, behavior: ScrollBehavior = 'smooth') => {
@@ -308,18 +281,15 @@ export function ReaderView() {
      isProgrammaticScroll.current = true;
 
      const verseElement = verseRefs.current.get(absoluteVerseNum);
-     console.log(`Scrolling to verse ${absoluteVerseNum}. Element found: ${!!verseElement}`);
      verseElement?.scrollIntoView({ behavior: behavior, block: 'center' });
 
      programmaticScrollTimeout.current = setTimeout(() => {
        isProgrammaticScroll.current = false;
-     }, behavior === 'smooth' ? 1000 : 100); // Shortened timeout
+     }, behavior === 'smooth' ? 1000 : 100);
    }, []);
 
    const navigateToVerse = useCallback((absoluteVerseNum: number, scroll: boolean = true, immediateScroll: boolean = false) => {
-     console.log(`Navigating to verse ${absoluteVerseNum}`);
      if (!quranMeta) {
-        console.warn("Navigation skipped: Quran Meta not loaded.");
         setError("Cannot navigate: Quran data not loaded.");
         return;
      }
@@ -327,36 +297,28 @@ export function ReaderView() {
      const targetLocation = absoluteVerseToSurahAyah(absoluteVerseNum, quranMeta);
      if (!targetLocation) {
        toast({ title: "Navigation Error", description: `Verse ${absoluteVerseNum} is invalid.`, variant: "destructive" });
-       console.error(`Invalid target location for verse ${absoluteVerseNum}`);
        return;
      }
 
      const { surahNumber: targetSurahNum } = targetLocation;
-
-     console.log(`Setting currentAbsoluteVerse to ${absoluteVerseNum}`);
      setCurrentAbsoluteVerse(absoluteVerseNum);
 
      if (targetSurahNum !== currentSurahNumber) {
-       console.log(`Navigating to new Surah: ${targetSurahNum}`);
-       setPlayingVerseNumber(null); // Stop playback when changing surah
-       setIsRepeatingVerse(null); // Stop repeating when changing surah
+       setPlayingVerseNumber(null);
+       setIsRepeatingVerse(null);
        setCurrentSurahNumber(targetSurahNum);
-       // Load the new surah's data - loadVerses handles this now
        loadVerses(targetSurahNum, 1, true).then(() => {
             if (scroll) {
-                // Ensure the DOM has updated before scrolling
                 setTimeout(() => scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth'), 150);
             }
        });
 
      } else {
-        // Already in the correct surah, just update focus and scroll
-        console.log(`Target surah ${targetSurahNum} is current. Scrolling to verse ${absoluteVerseNum}.`);
         if (scroll) {
           scrollToVerse(absoluteVerseNum, immediateScroll ? 'instant' : 'smooth');
         }
      }
-   }, [quranMeta, currentSurahNumber, scrollToVerse, toast, loadVerses]); // Added loadVerses dependency
+   }, [quranMeta, currentSurahNumber, scrollToVerse, toast, loadVerses]);
 
     const handleNextVerseFocus = useCallback(() => {
         if (!quranMeta) return;
@@ -364,8 +326,6 @@ export function ReaderView() {
         const nextVerse = Math.min(currentAbsoluteVerse + 1, maxVerse);
         if (nextVerse !== currentAbsoluteVerse) {
            navigateToVerse(nextVerse);
-        } else {
-            console.log("Already at the last verse.");
         }
     }, [quranMeta, currentAbsoluteVerse, navigateToVerse]);
 
@@ -373,39 +333,31 @@ export function ReaderView() {
         const prevVerse = Math.max(1, currentAbsoluteVerse - 1);
          if (prevVerse !== currentAbsoluteVerse) {
             navigateToVerse(prevVerse);
-         } else {
-             console.log("Already at the first verse.");
          }
     }, [currentAbsoluteVerse, navigateToVerse]);
 
-  const handleReciterChange = (reciterId: string) => {
+  const handleReciterChange = useCallback((reciterId: string) => {
     if (reciterId !== selectedReciter) {
-        console.log("Reciter changed to:", reciterId);
         setSelectedReciter(reciterId);
-        setPlayingVerseNumber(null); // Stop playback
-        setIsRepeatingVerse(null); // Stop repeating
-        const audioElement = audioRef.current; // Access audio element via ref
+        setPlayingVerseNumber(null);
+        setIsRepeatingVerse(null);
+        const audioElement = audioRef.current;
         if (audioElement && !audioElement.paused) {
            audioElement.pause();
         }
-        // Reload current surah data with new reciter
         if (currentSurahNumber) {
             loadVerses(currentSurahNumber, 1, true).then(() => {
-                 // Refocus after reload
                  setTimeout(() => scrollToVerse(currentAbsoluteVerse, 'instant'), 150);
             });
         }
     }
-  };
+  }, [selectedReciter, currentSurahNumber, loadVerses, scrollToVerse, currentAbsoluteVerse]);
 
-   const handleTranslationChange = (translationId: string) => {
+   const handleTranslationChange = useCallback((translationId: string) => {
      if (translationId !== selectedTranslation) {
-       console.log("Translation changed to:", translationId);
        setSelectedTranslation(translationId);
-        // Reload current surah data with new translation
        if (currentSurahNumber) {
            loadVerses(currentSurahNumber, 1, true).then(() => {
-                // Scroll to the current verse after reload
                 setTimeout(() => scrollToVerse(currentAbsoluteVerse, 'instant'), 150);
            });
            toast({
@@ -414,25 +366,21 @@ export function ReaderView() {
            });
        }
      }
-   };
+   }, [selectedTranslation, currentSurahNumber, loadVerses, scrollToVerse, currentAbsoluteVerse, toast, translations]);
 
   const handleFontSizeChange = useCallback((value: number[]) => {
-      console.log("Setting Font Size (Translation):", value[0]);
       setFontSize(value[0]);
   }, []);
 
   const handleArabicFontSizeChange = useCallback((value: number[]) => {
-      console.log("Setting Font Size (Arabic):", value[0]);
       setArabicFontSize(value[0]);
   }, []);
 
   const handleLineHeightChange = useCallback((value: number[]) => {
-      console.log("Setting Line Height (Arabic):", value[0]);
       setLineHeight(value[0]);
   }, []);
 
   const handleTranslationLineHeightChange = useCallback((value: number[]) => {
-      console.log("Setting Line Height (Translation):", value[0]);
       setTranslationLineHeight(value[0]);
   }, []);
 
@@ -446,53 +394,46 @@ export function ReaderView() {
       }
     } else if (e.target.value !== '') {
        toast({ title: "Invalid Verse", description: `Please enter a verse number between 1 and ${maxVerse}.`, variant: "destructive" });
-        // Reset input to current verse if invalid entry
         e.target.value = currentAbsoluteVerse.toString();
     }
   };
 
-   const handleVerseInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-       // Handled by Controls component local state for responsiveness
-   };
+   const handleVerseInputChange = (e: ChangeEvent<HTMLInputElement>) => {};
 
-  const handleJuzChange = (juz: number) => {
+  const handleJuzChange = useCallback((juz: number) => {
     const startVerse = JUZ_STARTS[juz];
     if (startVerse && startVerse !== currentAbsoluteVerse) {
       navigateToVerse(startVerse, true, true);
       toast({ title: "Navigated", description: `Jumped to Juz ${juz} (Verse ${startVerse}).` });
     }
-  };
+  }, [currentAbsoluteVerse, navigateToVerse, toast]);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     const startVerse = PAGE_STARTS[page];
     if (startVerse && startVerse !== currentAbsoluteVerse) {
       navigateToVerse(startVerse, true, true);
       toast({ title: "Navigated", description: `Jumped to Page ${page} (Verse ${startVerse}).` });
     }
-  };
+  }, [currentAbsoluteVerse, navigateToVerse, toast]);
 
-  const handleVerseContextMenu = (verseNumber: number) => {
-    console.log(`Context menu triggered for verse ${verseNumber}`);
-    setCurrentAbsoluteVerse(verseNumber); // Set focus immediately
+  const handleVerseContextMenu = useCallback((verseNumber: number) => {
+    setCurrentAbsoluteVerse(verseNumber);
     setIsNotesSidebarOpen(true);
-  };
+  }, []);
 
-  const handleVerseClick = (verseNumber: number) => {
+  const handleVerseClick = useCallback((verseNumber: number) => {
       if (verseNumber !== currentAbsoluteVerse) {
           setCurrentAbsoluteVerse(verseNumber);
-          // Optionally stop audio if a different verse is clicked while playing
-          const audioElement = audioRef.current; // Access audio element via ref
+          const audioElement = audioRef.current;
           if (audioElement && !audioElement.paused && playingVerseNumber !== verseNumber) {
-              console.log(`Verse clicked (${verseNumber}), pausing current audio.`);
               audioElement.pause();
               setPlayingVerseNumber(null);
-              setIsRepeatingVerse(null); // Stop repeating if another verse is clicked
+              setIsRepeatingVerse(null);
           }
       } else {
-         // If clicking the currently focused verse, maybe open notes?
          setIsNotesSidebarOpen(true);
       }
-  };
+  }, [currentAbsoluteVerse, playingVerseNumber]);
 
    const handleTouchStart = (e: React.TouchEvent) => {
        if (e.touches.length === 1) {
@@ -505,7 +446,7 @@ export function ReaderView() {
             touchEndX.current = e.targetTouches[0].clientX;
         }
     };
-    const handleTouchEnd = () => {
+    const handleTouchEnd = useCallback(() => {
         if (!isMobile || touchStartX.current === null || touchEndX.current === null) return;
         const dx = touchEndX.current - touchStartX.current;
         if (Math.abs(dx) > SWIPE_THRESHOLD) {
@@ -514,22 +455,23 @@ export function ReaderView() {
         }
         touchStartX.current = null;
         touchEndX.current = null;
-    };
+    }, [isMobile, handlePreviousVerseFocus, handleNextVerseFocus]);
+
 
   const toggleNotesSidebar = () => {
       setIsNotesSidebarOpen(prev => !prev);
-      if (!isNotesSidebarOpen) {
-         // Optionally ensure the current verse is set when opening
-         setCurrentAbsoluteVerse(currentAbsoluteVerse);
-      }
   };
   const toggleSettingsPanel = () => setIsSettingsPanelOpen(prev => !prev);
+  const toggleConceptExplorer = () => setIsConceptExplorerOpen(prev => !prev);
+  const toggleChatPanel = (verseData?: Verse | null) => {
+    if (verseData) setChatPanelContext(verseData);
+    else if (isChatPanelOpen) setChatPanelContext(null); // Clear context if closing
+    setIsChatPanelOpen(prev => !prev);
+  };
 
-   const handleAudioPlay = () => {
-      console.log("handleAudioPlay called, verse:", currentAbsoluteVerse);
-      // isRepeatingVerse state is managed by the repeat toggle/handler now
+
+   const handleAudioPlay = useCallback(() => {
       setPlayingVerseNumber(currentAbsoluteVerse);
-      // Scroll to verse if needed, but only if not currently scrolling manually
       if (!isProgrammaticScroll.current) {
           const verseElement = verseRefs.current.get(currentAbsoluteVerse);
           if (verseElement) {
@@ -537,69 +479,53 @@ export function ReaderView() {
                 const container = scrollContainerRef.current;
                 if (container) {
                     const containerRect = container.getBoundingClientRect();
-                     // Check if verse is fully or partially outside the viewport bounds
                     if (rect.top < containerRect.top || rect.bottom > containerRect.bottom) {
                         scrollToVerse(currentAbsoluteVerse);
                     }
                 }
           } else {
-                // Verse element might not be rendered yet if just loaded
                 setTimeout(() => scrollToVerse(currentAbsoluteVerse), 100);
           }
       }
-   };
-   const handleAudioPause = () => {
-        console.log("handleAudioPause called");
-        setPlayingVerseNumber(null);
-        // Don't clear isRepeatingVerse here, pause might be temporary
-   };
-   const handleAudioEnd = useCallback(() => {
-        console.log(`handleAudioEnd called for verse: ${playingVerseNumber}. Repeating: ${isRepeatingVerse === playingVerseNumber}`);
-        setPlayingVerseNumber(null); // Indicate playback stopped visually
+   }, [currentAbsoluteVerse, scrollToVerse]);
 
-        if (isRepeatingVerse === currentAbsoluteVerse) { // Check against the *currently focused* verse
-             console.log(`Looping verse ${currentAbsoluteVerse}`);
-             // We don't set isRepeatingVerse to null here, it persists until explicitly toggled off
-             setTimeout(() => { // Use timeout to ensure state update cycle completes
+   const handleAudioPause = useCallback(() => {
+        setPlayingVerseNumber(null);
+   }, []);
+
+   const handleAudioEnd = useCallback(() => {
+        setPlayingVerseNumber(null);
+        if (isRepeatingVerse === currentAbsoluteVerse) {
+             setTimeout(() => {
                 const audioElement = audioRef.current;
                 if (audioElement) {
                     audioElement.currentTime = 0;
                     audioElement.play().catch(err => handleAudioError(`Failed to loop audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
                 }
-             }, 50); // Small delay
+             }, 50);
         } else {
-            // If not repeating, move focus to the next verse (handled by Controls component)
-            console.log("Audio ended naturally (not repeating), triggering next focus.");
-            handleNextVerseFocus(); // Automatically move focus when not repeating
+            handleNextVerseFocus();
         }
-   }, [playingVerseNumber, isRepeatingVerse, currentAbsoluteVerse, handleNextVerseFocus]); // Add dependencies
+   }, [playingVerseNumber, isRepeatingVerse, currentAbsoluteVerse, handleNextVerseFocus, handleAudioError]); // Added handleAudioError
 
 
-   const handleAudioError = (errorMsg: string) => {
-        console.error("Received audio error:", errorMsg);
+   const handleAudioError = useCallback((errorMsg: string) => {
         setPlayingVerseNumber(null);
-        setIsRepeatingVerse(null); // Stop repeating on error
-         // Avoid spamming toasts for the same error
+        setIsRepeatingVerse(null);
          if (!error || !error.includes(errorMsg.substring(0, 30))) {
              toast({ title: "Audio Playback Error", description: errorMsg, variant: "destructive" });
-             // setError(errorMsg); // Optionally set the main error state
+             setError(errorMsg);
          }
-   };
+   }, [toast, error, setError]); // Added setError to dependencies
+
     const updatePlayingVerseCallback = useCallback((verseNum: number | null) => {
-       console.log("updatePlayingVerseCallback received:", verseNum);
        setPlayingVerseNumber(verseNum);
-       // Only update *focused* verse if playback moved automatically *and* we are not repeating
        if (verseNum !== null && verseNum !== currentAbsoluteVerse && isRepeatingVerse !== verseNum) {
-          console.log(`Updating focused verse to ${verseNum} due to automatic playback`);
           setCurrentAbsoluteVerse(verseNum);
-       } else if (verseNum !== null && verseNum !== currentAbsoluteVerse) {
-          console.log(`Playback moved to ${verseNum}, but not changing focus due to repeat or mismatch with currentAbsoluteVerse (${currentAbsoluteVerse})`);
        }
     }, [currentAbsoluteVerse, isRepeatingVerse]);
 
-  // Handler for the "Repeat Verse" context menu option OR toggle button in Controls
   const handleRepeatVerseToggle = useCallback((verseNumber: number, shouldRepeat: boolean) => {
-        console.log(`handleRepeatVerseToggle called for verse ${verseNumber}, shouldRepeat: ${shouldRepeat}`);
         const audioElement = audioRef.current;
         if (!audioElement) {
             toast({ title: "Audio Error", description: "Audio player not ready.", variant: "destructive" });
@@ -607,48 +533,33 @@ export function ReaderView() {
         }
 
         if (shouldRepeat) {
-            // If starting repeat
-            setIsRepeatingVerse(verseNumber); // Set the verse to repeat
-            // If the verse to repeat is not the current one, navigate first
+            setIsRepeatingVerse(verseNumber);
             if (verseNumber !== currentAbsoluteVerse) {
-                 console.log(`Repeating verse ${verseNumber}, navigating first.`);
-                 navigateToVerse(verseNumber, true, true); // Navigate and scroll immediately
-                 // Delay playback until navigation and potential data load complete
+                 navigateToVerse(verseNumber, true, true);
                  setTimeout(() => {
-                     console.log("Attempting to play verse after navigation for repeat.");
                      audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
-                 }, 250); // Increased delay slightly
+                 }, 250);
             } else {
-                // Already on the verse, restart and play if not already playing
-                console.log(`Repeating verse ${verseNumber}, already focused. Restarting playback.`);
                 if (audioElement.paused) {
                     audioElement.currentTime = 0;
                     audioElement.play().catch(err => handleAudioError(`Failed to play repeat audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
                 } else {
-                    // If already playing, just ensure it loops on end (handled by handleAudioEnd)
-                    audioElement.currentTime = 0; // Restart immediately
+                    audioElement.currentTime = 0;
                 }
             }
-            toast({ title: "Repeat Verse", description: `Repeating verse ${verseNumber}.` });
+            toast({ title: "Repeat Verse", description: `Repeating verse ${absoluteVerseToSurahAyah(verseNumber, quranMeta)?.reference}.` });
         } else {
-            // If stopping repeat
-            console.log(`Stopping repeat for verse ${verseNumber}`);
-            setIsRepeatingVerse(null); // Clear the repeat flag
-            // Don't stop playback, just let it finish normally
-            // If the audio was paused when repeat was toggled off, it stays paused.
-             toast({ title: "Repeat Off", description: `Stopped repeating verse ${verseNumber}.` });
+            setIsRepeatingVerse(null);
+            toast({ title: "Repeat Off", description: `Stopped repeating verse ${absoluteVerseToSurahAyah(verseNumber, quranMeta)?.reference}.` });
         }
+    }, [currentAbsoluteVerse, navigateToVerse, toast, audioRef, handleAudioError, quranMeta]);
 
-    }, [currentAbsoluteVerse, navigateToVerse, toast, audioRef, handleAudioError]);
 
-
-  // Find verse data for the *currently focused* verse to pass to controls/sidebars
   const currentVerseData = displayedVerses.find(v => v.verseNumber === currentAbsoluteVerse);
   const currentAudioUrl = currentVerseData?.audioUrl ?? null;
 
-
-  const isAnythingLoading = isLoadingMeta || isLoadingReciters || isLoadingTranslations; // Removed isLoadingVerses as it's handled differently
-  const isDisplayLoading = isLoadingMeta || (isLoadingVerses && displayedVerses.length === 0 && !error); // Show loading only when surah is actively loading
+  const isAnythingLoading = isLoadingMeta || isLoadingReciters || isLoadingTranslations;
+  const isDisplayLoading = isLoadingMeta || (isLoadingVerses && displayedVerses.length === 0 && !error);
   const displayError = error && !isDisplayLoading;
 
   const currentSurahMetaData = quranMeta?.surahs.references.find(s => s?.number === currentSurahNumber) ?? null;
@@ -656,13 +567,11 @@ export function ReaderView() {
 
   const getCleanArabicName = (name: string | undefined): string => {
     if (!name) return '';
-    // Basic cleaning, might need more robust logic depending on API variations
     return name.replace(/^سُورَةُ\s+/i, '').trim();
   };
 
   return (
     <div className="flex flex-col h-screen bg-background" dir="ltr">
-        {/* Audio element is now hidden but controlled via ref */}
         <audio ref={audioRef} preload="metadata" />
 
         <Header
@@ -670,15 +579,12 @@ export function ReaderView() {
            navigateToVerse={navigateToVerse}
            isLoading={isAnythingLoading}
            onOpenSettings={toggleSettingsPanel}
-           // Add callback for All Notes later: onOpenAllNotes={() => {}}
         />
 
        <div className="flex-grow overflow-hidden relative flex flex-col">
-           {/* Fixed Header Area */}
             <div className="sticky-header flex-shrink-0">
                 {currentSurahMetaData ? (
                     <div className="flex justify-between items-start gap-4">
-                        {/* Left Side: English Info */}
                         <div className="text-left flex-1 min-w-0">
                             <h2 className="text-lg md:text-xl font-semibold text-foreground truncate">
                                 {currentSurahMetaData.englishName}
@@ -687,7 +593,6 @@ export function ReaderView() {
                                 {currentSurahMetaData.englishNameTranslation} ({currentSurahMetaData.numberOfAyahs} Ayahs)
                             </p>
                         </div>
-                        {/* Right Side: Arabic Info & Number */}
                         <div className="text-right flex flex-col items-end flex-shrink-0">
                             <div className="flex items-center gap-2">
                                 <h2 className="text-xl md:text-2xl font-amiri font-semibold text-foreground" lang="ar" dir="rtl">
@@ -703,8 +608,7 @@ export function ReaderView() {
                         </div>
                     </div>
                 ) : (
-                     // Skeleton Loader for Header
-                    <div className="flex justify-between items-center gap-4 h-[52px]"> {/* Match approximate height */}
+                    <div className="flex justify-between items-center gap-4 h-[52px]">
                         <div className="flex-1 space-y-1.5">
                             <Skeleton className="h-5 w-3/5" />
                             <Skeleton className="h-3 w-2/5" />
@@ -717,19 +621,17 @@ export function ReaderView() {
                 )}
             </div>
 
-           {/* Scrollable Verses Area */}
            <div
-                className="flex-grow overflow-hidden" // Takes remaining height
+                className="flex-grow overflow-hidden"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 style={{ touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto' }}
             >
                 <ScrollArea
-                    className="h-full" // ScrollArea takes full height of its container
-                    viewportRef={scrollContainerRef} // Pass the ref here
+                    className="h-full"
+                    viewportRef={scrollContainerRef}
                 >
-                    {/* Add a div inside ScrollArea's viewport for padding/styling */}
                     <div className="reader-verses-scroll-container">
                         {showBismillah && (
                         <p className="font-bismillah text-center text-foreground my-4 text-2xl md:text-3xl" aria-label="Bismillah">
@@ -737,10 +639,9 @@ export function ReaderView() {
                         </p>
                         )}
 
-                         {/* Loading State for Verses */}
                         {isDisplayLoading && (
                         <div className="space-y-6 p-4">
-                            {[...Array(5)].map((_, i) => ( // Show more skeletons
+                            {[...Array(5)].map((_, i) => (
                             <div key={i} className="flex flex-col gap-3 border-b border-border/30 pb-4 min-h-[80px]">
                                 <Skeleton className="h-6 w-11/12 self-end" />
                                 <Skeleton className="h-5 w-full" />
@@ -753,7 +654,6 @@ export function ReaderView() {
                         </div>
                         )}
 
-                        {/* Error State */}
                         {displayError && (
                         <div className="flex flex-col justify-center items-center h-full p-6 text-center min-h-[200px]">
                             <AlertCircle className="w-12 h-12 text-destructive mb-4" />
@@ -763,7 +663,7 @@ export function ReaderView() {
                                 setError(null);
                                 if (!quranMeta) fetchInitialData();
                                 else if (currentSurahNumber) loadVerses(currentSurahNumber, 1, true);
-                                else fetchInitialData(); // Fallback retry
+                                else fetchInitialData();
                             }}
                             variant="outline"
                             size="sm"
@@ -773,32 +673,31 @@ export function ReaderView() {
                         </div>
                         )}
 
-                         {/* Empty State */}
                         {!isDisplayLoading && !displayError && displayedVerses.length === 0 && (
                         <div className="flex justify-center items-center h-full p-6 min-h-[200px]">
                             <p className="text-center text-muted-foreground text-sm">No verses loaded. Select a Surah.</p>
                         </div>
                         )}
 
-                        {/* Display Verses */}
                         {!isDisplayLoading && !displayError && displayedVerses.map((verse) => (
                             <div key={verse.verseNumber} ref={el => verseRefs.current.set(verse.verseNumber, el)}>
                                 <VerseDisplay
                                     verse={verse}
                                     isHighlighted={verse.verseNumber === currentAbsoluteVerse}
-                                    isPlaying={verse.verseNumber === playingVerseNumber} // Pass playing state
+                                    isPlaying={verse.verseNumber === playingVerseNumber}
                                     onContextMenu={handleVerseContextMenu}
                                     onClick={handleVerseClick}
-                                    onRepeatVerse={() => handleRepeatVerseToggle(verse.verseNumber, isRepeatingVerse !== verse.verseNumber)} // Pass simple toggle
-                                    isRepeating={isRepeatingVerse === verse.verseNumber} // Pass repeat state for visual indication
+                                    onRepeatVerse={() => handleRepeatVerseToggle(verse.verseNumber, isRepeatingVerse !== verse.verseNumber)}
+                                    isRepeating={isRepeatingVerse === verse.verseNumber}
+                                    hasNoteOrTag={versesWithNotes.has(verse.verseNumber)}
+                                    onDiscussVerse={() => toggleChatPanel(verse)}
                                 />
                             </div>
                         ))}
 
-                        {/* End of Surah Marker (No Load More needed) */}
                          <div ref={loadMoreRef} className={cn(
                             "flex justify-center items-center py-6 text-center min-h-[60px]",
-                            (isDisplayLoading || displayError || displayedVerses.length === 0) && "hidden" // Hide if loading/error/empty
+                            (isDisplayLoading || displayError || displayedVerses.length === 0) && "hidden"
                             )}>
                              {!isLoadingVerses && !canLoadMore && !isDisplayLoading && !displayError && displayedVerses.length > 0 && (
                                 <div className="text-center text-muted-foreground text-sm italic">End of Surah</div>
@@ -810,22 +709,21 @@ export function ReaderView() {
             </div>
         </div>
 
-       {/* Fixed Controls Area */}
        <div ref={controlsRef} className="sticky bottom-0 z-10 w-full flex-shrink-0 bg-background/90 backdrop-blur-sm border-t border-border/50">
          <Controls
-           audioRef={audioRef} // Pass the audio ref to Controls
+           audioRef={audioRef}
            verseNumber={currentAbsoluteVerse}
-           audioUrl={currentAudioUrl} // Pass the correct audio URL
+           audioUrl={currentAudioUrl}
            reciters={reciters}
            selectedReciter={selectedReciter}
            onNextVerse={handleNextVerseFocus}
            onPreviousVerse={handlePreviousVerseFocus}
            onReciterChange={handleReciterChange}
-           onVerseInputChange={handleVerseInputChange} // Still needed for direct input sync
-           onVerseInputBlur={handleVerseInputBlur} // Still needed for commit
+           onVerseInputChange={handleVerseInputChange}
+           onVerseInputBlur={handleVerseInputBlur}
            onJuzChange={handleJuzChange}
            onPageChange={handlePageChange}
-           isLoading={isAnythingLoading || isDisplayLoading} // Disable controls during initial load too
+           isLoading={isAnythingLoading || isDisplayLoading}
            isLoadingReciters={isLoadingReciters}
            quranMeta={quranMeta}
            onPlay={handleAudioPlay}
@@ -833,25 +731,22 @@ export function ReaderView() {
            onEnded={handleAudioEnd}
            onError={handleAudioError}
            updatePlayingVerse={updatePlayingVerseCallback}
-           // Removed verse slider props
            onVerseSliderChange={() => {}}
            onVerseSliderCommit={() => {}}
-           // Pass repeat state and handler
-           isRepeatingVerse={isRepeatingVerse === currentAbsoluteVerse} // Tell controls if *this* verse is repeating
-           onRepeatVerseToggle={handleRepeatVerseToggle} // Pass the consolidated toggle handler
+           isRepeatingVerse={isRepeatingVerse === currentAbsoluteVerse}
+           onRepeatVerseToggle={handleRepeatVerseToggle}
+           onOpenConceptExplorer={toggleConceptExplorer} // Pass handler for concept explorer
          />
        </div>
 
-       {/* Notes Sidebar */}
        <NotesSidebar
            currentAbsoluteVerseNumber={currentAbsoluteVerse}
            quranMeta={quranMeta}
            isOpen={isNotesSidebarOpen}
            onOpenChange={setIsNotesSidebarOpen}
-           onNoteUpdated={updateNoteStatusForVerse} // Pass callback
+           onNoteUpdated={updateNoteStatusForVerse}
        />
 
-      {/* Settings Panel */}
       <SettingsPanel
         isOpen={isSettingsPanelOpen}
         onOpenChange={setIsSettingsPanelOpen}
@@ -868,6 +763,19 @@ export function ReaderView() {
         onTranslationChange={handleTranslationChange}
         isLoading={isLoadingTranslations || isLoadingMeta}
       />
+
+      <ConceptExplorer
+        isOpen={isConceptExplorerOpen}
+        onOpenChange={setIsConceptExplorerOpen}
+        onVerseSelect={(verseNum) => navigateToVerse(verseNum, true, true)}
+      />
+
+      <ChatPanel
+        isOpen={isChatPanelOpen}
+        onOpenChange={setIsChatPanelOpen}
+        verseContext={chatPanelContext}
+      />
+
     </div>
   );
 }
