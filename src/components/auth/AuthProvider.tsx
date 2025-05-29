@@ -1,7 +1,16 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import { 
+  User, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult
+} from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { LoginModal } from './LoginModal';
 
@@ -10,6 +19,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   setIsLoginModalOpen: (isOpen: boolean) => void;
 }
@@ -28,6 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     });
 
+    // Check for redirect result
+    getRedirectResult(auth).catch((error) => {
+      console.error('Error during redirect sign-in:', error);
+      setError(error.message);
+    });
+
     return () => unsubscribe();
   }, []);
 
@@ -39,6 +55,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoginModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during sign in');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      const provider = new GoogleAuthProvider();
+      
+      try {
+        // First try popup
+        await signInWithPopup(auth, provider);
+      } catch (popupError: any) {
+        if (popupError.code === 'auth/popup-blocked') {
+          // If popup is blocked, fall back to redirect
+          console.log('Popup blocked, falling back to redirect...');
+          await signInWithRedirect(auth, provider);
+        } else {
+          throw popupError;
+        }
+      }
+      
+      setIsLoginModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during Google sign in');
     } finally {
       setIsLoading(false);
     }
@@ -58,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     error,
     signIn,
+    signInWithGoogle,
     signOut,
     setIsLoginModalOpen,
   };
@@ -69,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onLogin={signIn}
+        onGoogleLogin={signInWithGoogle}
         isLoading={isLoading}
         error={error}
       />
