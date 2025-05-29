@@ -1,9 +1,8 @@
-
 'use client'; // Needs to be a client component to use state and interact with dropdowns
 
 import Link from 'next/link';
 // import { ThemeToggle } from '@/components/theme-toggle'; // Removed ThemeToggle
-import { BookOpen, Menu, Search, Tags, Loader2, ChevronDown, Settings, NotebookText } from 'lucide-react'; // Added Settings, NotebookText
+import { BookOpen, Menu, Search, Tags, Loader2, ChevronDown, Settings, NotebookText, User } from 'lucide-react'; // Added Settings, NotebookText, User
 import { Button } from '@/components/ui/button'; // Import Button
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'; // Import Sheet for drawer
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'; // Import Dropdown for Surah selection
@@ -12,6 +11,8 @@ import { surahAyahToAbsoluteVerse } from '@/services/alquran-cloud'; // Import h
 import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area'; // Import ScrollArea for long dropdown list
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
+import { useAuth } from '@/components/auth/AuthProvider';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface HeaderProps {
   quranMeta: QuranMeta | null;
@@ -31,6 +32,7 @@ const getSurahStartVerse = (surahNumber: number, meta: QuranMeta | null): number
 export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }: HeaderProps) {
    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+   const { user, signOut, setIsLoginModalOpen } = useAuth();
 
    const handleSurahSelect = (surah: SurahMeta) => {
        const startVerse = getSurahStartVerse(surah.number, quranMeta);
@@ -202,6 +204,41 @@ export function Header({ quranMeta, navigateToVerse, isLoading, onOpenSettings }
                 </TooltipTrigger>
                 <TooltipContent><p>Display Settings</p></TooltipContent>
               </Tooltip>
+
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          {user.email?.[0].toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => signOut()}>
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      aria-label="Login"
+                      onClick={() => setIsLoginModalOpen(true)}
+                    >
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Login</p></TooltipContent>
+                </Tooltip>
+              )}
             </TooltipProvider>
 
            {/* Theme Toggle Removed */}

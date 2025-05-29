@@ -1,9 +1,9 @@
-
 import type { Metadata, Viewport } from 'next';
 import { GeistSans, GeistMono } from 'geist/font'; // Correct import names
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
 // Using Geist Sans and Mono
 const geistSans = GeistSans; // Use the correctly imported variable
@@ -40,8 +40,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster />
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
